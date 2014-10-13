@@ -38,7 +38,8 @@ module test_threads ($fa=5, $fs=0.1)
     // M8
     metric_thread(8, 1.5, 5);
     translate ([-10, 0, 0])
-        metric_thread(8, 1.5, 5, isRightHanded=false);
+        metric_thread(8, 1.5, 5, right_handed=false);
+
     translate ([10, 0, 0])
     square_thread(8, 1.5, 5);
 
