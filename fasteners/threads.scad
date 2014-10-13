@@ -241,7 +241,7 @@ module trapezoidal_thread (
 
         // upper flat portion
         (angle < angle_left_upper_flat) ?
-        tooth_height - (internal ? -clearance : 0):
+        tooth_height + (internal ? clearance : 0):
 
         // right slant
         (angle < angle_lower_flat) ?
