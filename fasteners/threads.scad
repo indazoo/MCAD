@@ -162,7 +162,6 @@ module buttress_thread (
     );
 }
 
-
 /**
  * trapezoid_thread():
  * generates a screw with a trapezoidal thread profile
@@ -217,8 +216,8 @@ module trapezoidal_thread (
     facets = $fn > 0 ? 
 				$fn :
     			max (30, min (2 * PI * minor_radius / $fs, 360 / $fa));
-    tmp_fa = 360 / facets;
-    $fa = length2twist (length) / round (length2twist (length) / tmp_fa);
+    facet_angle = 360 / facets;
+    $fa = length2twist (length) / round (length2twist (length) / facet_angle);
 
     // convert length along the tooth profile to angle of twist of the screw
     function length2twist (length) = length / pitch * (360 / n_starts);
@@ -260,20 +259,23 @@ module trapezoidal_thread (
         slices = length2twist (length) / $fa
     )
     union () {
+
         // This two for loops create a plane cutted vertically 
-        // through  the screw axis of the thread 
+        // through  the screw axis of the thread. 
+        // Must also create correct polygons for uneven $fn values.
         for (start = [0:n_starts-1])
         rotate ([0, 0, start / n_starts * 360])
-        for (angle = [0:$fa:360-$fa]) {
-            // draw the profile of the tooth along the perimeter of
-            // circle(minor_radius)
+        for (angle = [0:facet_angle:360-(facet_angle)]) {
+            // Draw the profile of the tooth along the perimeter of
+            // circle(minor_radius).
+			  
             polygon (points=[
                     [0, 0],
                     get_vertex (angle),
-                    get_vertex (angle + $fa)
+                    get_vertex (angle + facet_angle)
                 ]);
         }
-    }
+   }
 }
 
 // ----------------------------------------------------------------------------
