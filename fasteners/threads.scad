@@ -5,6 +5,8 @@
  * You are welcome to make free use of this software.  Retention of my
  * authorship credit would be appreciated.
  *
+ * Version 1.5   2014-10-13   indazoo
+ *                            Tests moved to testfile
  * Version 1.4   2014-10-11   indazoo:  
  *                            - trapezoidal_thread(), speed up/memory bloat: 
                                 pre calculate angles outside function
@@ -29,10 +31,7 @@
 
 // Examples:
 
-test_threads ();
-
-//metric_thread(34, 1, 10, internal=true, n_starts=6);
-
+//test_threads ();
 module test_threads ($fa=5, $fs=0.1)
 {
     // M8
@@ -163,6 +162,7 @@ module buttress_thread (
     );
 }
 
+
 /**
  * trapezoid_thread():
  * generates a screw with a trapezoidal thread profile
@@ -218,6 +218,7 @@ module trapezoidal_thread (
 				$fn :
     			max (30, min (2 * PI * minor_radius / $fs, 360 / $fa));
     facet_angle = 360 / facets;
+	 angle = 0;
     $fa = length2twist (length) / round (length2twist (length) / facet_angle);
 
     // convert length along the tooth profile to angle of twist of the screw
@@ -253,7 +254,6 @@ module trapezoidal_thread (
     // obtain vertex for angle on cross-section 
     function get_vertex (angle) =
     conv2D_polar2cartesian ([get_radius (angle), angle]);
-
     linear_extrude (
         height = length,
         twist = (right_handed ? -1 : 1) * (length2twist (length)),
@@ -264,20 +264,23 @@ module trapezoidal_thread (
         // This two for loops create a plane cutted vertically 
         // through  the screw axis of the thread. 
         // Must also create correct polygons for uneven $fn values.
-        for (start = [0:n_starts-1])
-        rotate ([0, 0, start / n_starts * 360])
-        for (angle = [0:facet_angle:360-(facet_angle)+0.0000001]) {
-            // Draw the profile of the tooth along the perimeter of
-            // circle(minor_radius).
-			  // About +0.0000001 : OpenScad seems to be buggy in 2014.01
-			  //                    made one loop too little without it.
-            polygon (points=[
+
+       for (start = [0:n_starts-1])
+       rotate ([0, 0, start / n_starts * 360])
+		for (i = [0:facets])
+		{
+			assign(angle = (i/facets) * 360)
+			{
+				// Draw the profile of the tooth along the perimeter of
+				// circle(minor_radius).
+				polygon (points=[
                     [0, 0],
                     get_vertex (angle),
                     get_vertex (angle + facet_angle)
                 ]);
-        }
-   }
+			}
+		}
+	}
 }
 
 // ----------------------------------------------------------------------------
