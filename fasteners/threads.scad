@@ -248,7 +248,7 @@ module trapezoidal_thread (
         accurateTan (right_angle) * (lower_flat - twist2length (angle)) :
 
         // past the end of the tooth
-        internal ? 0 : clearance
+        internal ? clearance : 0
     );
 
     // obtain vertex for angle on cross-section 
