@@ -3,10 +3,17 @@
  *
  * Originally by Hans Häggström, 2010.
  * Dual licenced under Creative Commons Attribution-Share Alike 3.0 and LGPL2 or later
+// Version 1.0   2010   Hans Häggström
+// Version 1.1   2014-10-11   indazoo
+//                            Accurate trigonometric functions.
+//                            Until OpenScad 2014.01 angles like 30/45/60/90
+//                            delivered inaccurate or non-zero values.
+//                            sin() and cos() were fixed in 2010.QX but tan() not. 
+//                            2010.QX is not released yet.
  */
 
-include <MCAD/general/constants.scad>
-
+include <constants.scad>
+include <math.scad>
 
 /******************** Disance Poins ******************************/
 function distance3D(a,b) =sqrt( (a[0] - b[0])*(a[0] - b[0]) +
@@ -74,7 +81,7 @@ function triangle_area3Points(a,b,c) = triangle_area3lengths(distance2D(a,b),dis
 /************************** coordinate systems translation ****/
 //[radius,phi] <=> [x,y]
 function conv2D_cartesian2polar(x) = [ distance1D(x[0],x[1]) , atan2(x[1],x[0]) ];
-function conv2D_polar2cartesian(x) = [ x[0]*cos(x[1]) , x[0]*sin(x[1]) ];
+function conv2D_polar2cartesian(x) = [ x[0]*accurateCos(x[1]) , x[0]*accurateSin(x[1]) ];
 
 
 CENTER = 0;
