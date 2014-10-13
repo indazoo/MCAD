@@ -265,10 +265,11 @@ module trapezoidal_thread (
         // Must also create correct polygons for uneven $fn values.
         for (start = [0:n_starts-1])
         rotate ([0, 0, start / n_starts * 360])
-        for (angle = [0:facet_angle:360-(facet_angle)]) {
+        for (angle = [0:facet_angle:360-(facet_angle)+0.0000001]) {
             // Draw the profile of the tooth along the perimeter of
             // circle(minor_radius).
-			  
+			  // About +0.0000001 : OpenScad seems to be buggy in 2014.01
+			  //                    made one loop too little without it.
             polygon (points=[
                     [0, 0],
                     get_vertex (angle),
