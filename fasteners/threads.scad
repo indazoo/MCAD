@@ -273,11 +273,41 @@ module trapezoidal_thread (
 			{
 				// Draw the profile of the tooth along the perimeter of
 				// circle(minor_radius).
-				polygon (points=[
-                    [0, 0],
-                    get_vertex (angle),
-                    get_vertex (angle + facet_angle)
-                ]);
+				// Often, facet_angle and flat angles (angle_left_flat, 
+				// angle_left_upper_flat, angle_lower_flat) are not in sync.
+				// With border_angle we can insert another polygon in the
+				// thread corners.
+				assign(border_angle = 
+						((angle < angle_left_flat) ? angle_left_flat
+						: ((angle < angle_left_upper_flat) ? angle_left_upper_flat
+						: ((angle < angle_lower_flat) ? angle_lower_flat : 360)))
+						)
+				{
+					//echo("border_angle",border_angle);
+					if(angle + facet_angle < border_angle
+						|| angle + facet_angle == 360)
+					{
+						polygon (points=[
+                    	[0, 0],
+                    	get_vertex (angle),
+                    	get_vertex (angle + facet_angle)
+                			]);
+					}
+					else 
+					{
+						polygon (points=[
+                    	[0, 0],
+                    	get_vertex (angle),
+                    	get_vertex (border_angle)
+               			 ]);
+						polygon (points=[
+                    	[0, 0],
+                    	get_vertex (border_angle),
+                    	get_vertex (angle+facet_angle)
+               			 ]);
+					
+					}
+				}
 			}
 		}
 	}
