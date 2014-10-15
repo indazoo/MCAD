@@ -164,7 +164,7 @@ module buttress_thread (
 
 
 /**
- * trapezoid_thread():
+ * trapezoidal_thread():
  * generates a screw with a trapezoidal thread profile
  *
  * pitch = distance between the same part of adjacent teeth
@@ -204,22 +204,35 @@ module trapezoidal_thread (
     */
     // looking at the tooth profile along the upper part of a screw held
     // horizontally, which is a trapezoid longer at the bottom flat
-    tooth_height = major_radius - minor_radius;
-    left_angle = right_handed ? (90 - upper_angle) : 90 - lower_angle;
-    right_angle = right_handed ? (90 - lower_angle) : 90 - upper_angle;
-    upper_flat = outer_flat_length;
+	tooth_height = major_radius - minor_radius;
+	clearance = 0.6/8 * tooth_height;
+	backlash =  0; //0.6/8 * tooth_height;
+
+	major_radius = internal ? (major_radius+clearance) : major_radius;
+	minor_radius = internal ? (minor_radius+clearance) : minor_radius;
+
+   	left_angle = right_handed ? (90 - upper_angle) : 90 - lower_angle;
+   	right_angle = right_handed ? (90 - lower_angle) : 90 - upper_angle;
+	upper_flat = internal ?
+				outer_flat_length 
+						- (tan(90-left_angle)*clearance)  
+						- (tan(90-right_angle)*clearance)
+						+ backlash
+				: outer_flat_length;
     left_flat = tooth_height / accurateTan (left_angle);
     right_flat = tooth_height / accurateTan (right_angle);
     lower_flat = upper_flat + left_flat + right_flat;
-    clearance = 0.3/8 * tooth_height;
+
 
     // facet calculation
     facets = $fn > 0 ? 
 				$fn :
     			max (30, min (2 * PI * minor_radius / $fs, 360 / $fa));
     facet_angle = 360 / facets;
-	 angle = 0;
     $fa = length2twist (length) / round (length2twist (length) / facet_angle);
+	 
+	angle = 0;
+	angle_corner_case = 0;
 
     // convert length along the tooth profile to angle of twist of the screw
     function length2twist (length) = length / pitch * (360 / n_starts);
@@ -231,33 +244,86 @@ module trapezoidal_thread (
     angle_left_upper_flat = length2twist (left_flat + upper_flat);
     angle_lower_flat = length2twist (lower_flat);
 
+/*	echo("**** trapezoidal_thread ******");
+	echo("internal", internal);
+	echo("right_handed", right_handed);
+	echo("tooth_height", tooth_height);
+
+	echo("outer_flat_length", outer_flat_length);
+	echo("left_angle", left_angle);	
+	echo("left_flat", left_flat);
+	echo("upper_flat", upper_flat);
+	echo("right_angle", right_angle);
+	echo("right_flat", right_flat);
+	echo("clearance", clearance);
+	echo("backlash",backlash);
+	echo("vert_r_flank_backlash", vert_r_flank_backlash);
+	echo("vert_l_flank_backlash", vert_l_flank_backlash);
+	echo("major_radius",major_radius);
+	echo("minor_radius",minor_radius);
+	echo("angle_left_flat",angle_left_flat);	
+	echo("angle_left_upper_flat",angle_left_upper_flat);	
+	echo("angle_lower_flat",angle_lower_flat);
+	echo("internalThread_rot_offset",internal_thread_rot_offset());
+	echo("******************************");*/
+
     // polar coordinate function representing tooth profile
-    function get_radius (angle) =
+    function get_radius (plane_angle) =
     minor_radius +
     (
         // left slant
-        (angle < angle_left_flat) ?
-        accurateTan (left_angle) * twist2length (angle) :
+        (plane_angle < angle_left_flat) ?
+        accurateTan (left_angle) * twist2length (plane_angle) :
 
         // upper flat portion
-        (angle < angle_left_upper_flat) ?
-        tooth_height + (internal ? clearance : 0):
+        (plane_angle < angle_left_upper_flat) ?
+        tooth_height:
 
         // right slant
-        (angle < angle_lower_flat) ?
-        accurateTan (right_angle) * (lower_flat - twist2length (angle)) :
+        (plane_angle < angle_lower_flat) ?
+        accurateTan (right_angle) * (lower_flat - twist2length (plane_angle)) :
 
         // past the end of the tooth
-        internal ? clearance : 0
+        0
     );
 
     // obtain vertex for angle on cross-section 
     function get_vertex (angle) =
     conv2D_polar2cartesian ([get_radius (angle), angle]);
+
+	// An internal thread must be rotated because the calculation starts	
+	// at base corner of left flat which is not exactly over base
+	// corner of bolt (clearance and backlash)
+	// Combination of small backlash and large clearance gives 
+	// positive numbers, large backlash and small clearance negative ones.
+	function internal_thread_rot_offset() = 
+		internal ? 
+		length2twist(
+				//clearance: length above top left corner
+				tan(90-left_angle)*clearance   
+				- backlash/2 )
+				: 0;
+	
+	module get_polygon(angle_from, angle_to)
+	{
+		/* echo("from angle ", angle_from, vertex_length (get_vertex (angle_from)));
+		echo("to angle ", angle_to, vertex_length (get_vertex (angle_to)));
+		echo([	[0, 0],
+           	get_vertex (angle_from),
+           	get_vertex (angle_to)
+            ]); */
+
+		polygon (points=[
+                    	[0, 0],
+                    	get_vertex (angle_from),
+                    	get_vertex (angle_to)
+                			]);
+	}
+
     linear_extrude (
         height = length,
         twist = (right_handed ? -1 : 1) * (length2twist (length)),
-        slices = length2twist (length) / $fa
+        slices = length2twist (length) / facet_angle //$fa
     )
     union () {
 
@@ -266,7 +332,7 @@ module trapezoidal_thread (
         // Must also create correct polygons for uneven $fn values.
 
        for (start = [0:n_starts-1])
-       rotate ([0, 0, start / n_starts * 360])
+       rotate ([0, 0, start / n_starts * 360 + internal_thread_rot_offset()])
 		for (i = [0:facets-1])
 		{
 			assign(angle = (i/facets) * 360)
@@ -275,37 +341,23 @@ module trapezoidal_thread (
 				// circle(minor_radius).
 				// Often, facet_angle and flat angles (angle_left_flat, 
 				// angle_left_upper_flat, angle_lower_flat) are not in sync.
-				// With border_angle we can insert another polygon in the
+				// With angle_corner_case we can insert another polygon in the
 				// thread corners.
-				assign(border_angle = 
+				assign(angle_corner_case = 
 						((angle < angle_left_flat) ? angle_left_flat
 						: ((angle < angle_left_upper_flat) ? angle_left_upper_flat
 						: ((angle < angle_lower_flat) ? angle_lower_flat : 360)))
 						)
 				{
 					//echo("border_angle",border_angle);
-					if(angle + facet_angle < border_angle
-						|| angle + facet_angle == 360)
+					if(angle + facet_angle <= angle_corner_case)
 					{
-						polygon (points=[
-                    	[0, 0],
-                    	get_vertex (angle),
-                    	get_vertex (angle + facet_angle)
-                			]);
+						get_polygon(angle,angle + facet_angle);
 					}
 					else 
 					{
-						polygon (points=[
-                    	[0, 0],
-                    	get_vertex (angle),
-                    	get_vertex (border_angle)
-               			 ]);
-						polygon (points=[
-                    	[0, 0],
-                    	get_vertex (border_angle),
-                    	get_vertex (angle+facet_angle)
-               			 ]);
-					
+						get_polygon(angle, angle_corner_case);
+						get_polygon(angle_corner_case, angle+facet_angle);
 					}
 				}
 			}
