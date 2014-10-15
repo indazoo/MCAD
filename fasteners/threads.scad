@@ -333,7 +333,7 @@ module trapezoidal_thread (
 
        for (start = [0:n_starts-1])
        rotate ([0, 0, start / n_starts * 360 + internal_thread_rot_offset()])
-		for (i = [0:facets-1])
+		for (i = [0:facets-1]) //was: for (angle = [0:$fa:360-$fa])
 		{
 			assign(angle = (i/facets) * 360)
 			{
