@@ -30,8 +30,10 @@
  */
 
 // Examples:
-
+//$fn=90; //needs high $fn for nice output
+//metric_thread(34, 1, 5, internal=false, n_starts=1);
 //test_threads ();
+
 module test_threads ($fa=5, $fs=0.1)
 {
     // M8
@@ -206,7 +208,7 @@ module trapezoidal_thread (
     // horizontally, which is a trapezoid longer at the bottom flat
 	tooth_height = major_radius - minor_radius;
 	clearance = 0.6/8 * tooth_height;
-	backlash =  0; //0.6/8 * tooth_height;
+	backlash =  0;//0.6/8 * tooth_height;
 
 	major_radius = internal ? (major_radius+clearance) : major_radius;
 	minor_radius = internal ? (minor_radius+clearance) : minor_radius;
@@ -248,6 +250,10 @@ module trapezoidal_thread (
 	echo("internal", internal);
 	echo("right_handed", right_handed);
 	echo("tooth_height", tooth_height);
+	echo("facets",facets);
+	echo("facet_angle",facet_angle);
+	echo("$fa (slice step angle)",$fa);
+	echo("$fn (slice step angle)",$fn);
 
 	echo("outer_flat_length", outer_flat_length);
 	echo("left_angle", left_angle);	
@@ -257,8 +263,6 @@ module trapezoidal_thread (
 	echo("right_flat", right_flat);
 	echo("clearance", clearance);
 	echo("backlash",backlash);
-	echo("vert_r_flank_backlash", vert_r_flank_backlash);
-	echo("vert_l_flank_backlash", vert_l_flank_backlash);
 	echo("major_radius",major_radius);
 	echo("minor_radius",minor_radius);
 	echo("angle_left_flat",angle_left_flat);	
@@ -320,10 +324,14 @@ module trapezoidal_thread (
                 			]);
 	}
 
+
+	function next_angle(i, angle) =
+		(i<(facets-1))? angle+$fa : 360;
+
     linear_extrude (
         height = length,
         twist = (right_handed ? -1 : 1) * (length2twist (length)),
-        slices = length2twist (length) / facet_angle //$fa
+        slices = length2twist (length) / $fa
     )
     union () {
 
@@ -335,7 +343,7 @@ module trapezoidal_thread (
        rotate ([0, 0, start / n_starts * 360 + internal_thread_rot_offset()])
 		for (i = [0:facets-1]) //was: for (angle = [0:$fa:360-$fa])
 		{
-			assign(angle = (i/facets) * 360)
+			assign(angle = i*$fa) // (i/facets) * 360
 			{
 				// Draw the profile of the tooth along the perimeter of
 				// circle(minor_radius).
@@ -349,15 +357,14 @@ module trapezoidal_thread (
 						: ((angle < angle_lower_flat) ? angle_lower_flat : 360)))
 						)
 				{
-					//echo("border_angle",border_angle);
-					if(angle + facet_angle <= angle_corner_case)
+					if(next_angle(i,angle) <= angle_corner_case)
 					{
-						get_polygon(angle,angle + facet_angle);
+						get_polygon(angle, next_angle(i,angle));
 					}
 					else 
 					{
 						get_polygon(angle, angle_corner_case);
-						get_polygon(angle_corner_case, angle+facet_angle);
+						get_polygon(angle_corner_case, next_angle(i,angle));
 					}
 				}
 			}
