@@ -1,6 +1,20 @@
 OpenSCAD MCAD Library [![](http://stillmaintained.com/elmom/MCAD.png)](http://stillmaintained.com/elmom/MCAD)
 =====================
 
+
+Disclaimer:
+I forked hyperair's good work, because I was unhappy with the fastener/threads.scad code.
+I fixed some bugs and made the threads more accurate. The old code had the issue that it
+used fixed angles for the thread's cut through 2D plane which created inaccurate
+nuts(internal = true). If you printed them, you may have to use a file to let them fit.
+Anyway, I liked the code very much and just made it more exact.
+Later I added backlash as a parameter for the threads.
+Maybe hyperair will include it in his work. Maybe not. My confidence is too big 
+to be unhappy if he didn't.  ;-))
+
+
+
+
 This library contains components commonly used in designing and moching up
 mechanical designs. It is currently unfinished and you can expect some API
 changes, however many things are already working.
