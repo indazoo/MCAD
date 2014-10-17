@@ -11,7 +11,7 @@
  *                              difference of two threads without cut throughs.
  *                            - debug code added showing thread in 2D space
  * Version 1.5   2014-10-13   indazoo
- *                            Tests moved to testfile
+ *                            intermediate release
  * Version 1.4   2014-10-11   indazoo:  
  *                            - trapezoidal_thread(), speed up/memory bloat: 
                                 pre calculate angles outside function
