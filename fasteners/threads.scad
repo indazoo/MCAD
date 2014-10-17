@@ -5,6 +5,11 @@
  * You are welcome to make free use of this software.  Retention of my
  * authorship credit would be appreciated.
  *
+ * Version 1.6   2014-10-17   indazoo
+ *                            - now fully supports backlash and clearance
+ *                            - internal(nut) and bolt synchronized to allow
+ *                              difference of two threads without cut throughs.
+ *                            - debug code added showing thread in 2D space
  * Version 1.5   2014-10-13   indazoo
  *                            Tests moved to testfile
  * Version 1.4   2014-10-11   indazoo:  
@@ -30,9 +35,15 @@
  */
 
 // Examples:
-//$fn=90; //needs high $fn for nice output
+//$fn=60; //needs high $fn for nice output
+
+// ----------------------------------------------------------------------------
+// Test threads
+// ----------------------------------------------------------------------------
+
 //metric_thread(34, 1, 5, internal=false, n_starts=1);
 //test_threads ();
+//test_internal_difference();
 
 module test_threads ($fa=5, $fs=0.1)
 {
@@ -58,6 +69,31 @@ module test_threads ($fa=5, $fs=0.1)
     metric_thread(34, 1, 5, internal=true, n_starts=6);
 }
 
+module test_internal_difference()
+{
+	difference()
+	{
+	metric_thread(34, 2, 10, internal=true, n_starts=1, clearance = 0.1, backlash=0.4);
+	metric_thread(34, 2, 10, internal=false, n_starts=1, clearance = 0.1, backlash=0.4);
+	}
+}
+
+// ----------------------------------------------------------------------------
+//
+// Debug: it is useful to show the profile in 2D
+// Set "debug = true" and plot an internal and a bolt thread.
+// This displays both profiles and how they fit.
+//
+// ----------------------------------------------------------------------------
+debug = false;
+//test_profile();
+
+module test_profile()
+{	
+	metric_thread(34, 2, 10, internal=true, n_starts=1, clearance = 0.1, backlash=0.4);
+	metric_thread(34, 2, 10, internal=false, n_starts=1, clearance = 0.1, backlash=0.4);
+}
+
 // ----------------------------------------------------------------------------
 use <../general/utilities.scad>
 use <../general/math.scad>
@@ -65,105 +101,164 @@ use <../general/math.scad>
 // ----------------------------------------------------------------------------
 // internal - true = clearances for internal thread (e.g., a nut).
 //            false = clearances for external thread (e.g., a bolt).
-//            (Internal threads should be "cut out" from a solid using
+//            (Internal threads may be "cut out" from a solid using
 //            difference()).
 // n_starts - Number of thread starts (e.g., DNA, a "double helix," has
 //            n_starts=2).  See wikipedia Screw_thread.
+// backlash - Distance by which an ideal bolt can be moved in an ideal nut(internal).
+//            in direction of its axis.
+//            "backlash" does not influence a bolt (internal = false)
+// clearance - distance between the flat portions of the nut(internal) and bolt.
+//             With backlash==0 the nut(internal) and bolt will not have any
+//             play no matter what "clearance" used, because the flanks will 
+//             fit exactly. For 3D prints "clearance" is probably needed if
+//             one does not uses a bigger "diameter" for the nut.
+//             "clearance" does not influence a bolt (internal = false)
+//             
 module metric_thread (
-    diameter = 8,
-    pitch = 1,
-    length = 1,
-    internal = false,
-    n_starts = 1,
-    right_handed = true
+		diameter = 8,
+		pitch = 1,
+		length = 1,
+		internal = false,
+		n_starts = 1,
+		right_handed = true,
+		clearance = 0,
+		backlash = 0
 )
 {
     trapezoidal_thread (
-        pitch = pitch,
-        length = length,
-        upper_angle = 30, 
-        lower_angle = 30,
-        outer_flat_length = pitch / 8,
-        major_radius = diameter / 2,
-        minor_radius = diameter / 2 - 5/8 * cos(30) * pitch,
-        internal = internal,
-        n_starts = n_starts,
-        right_handed = right_handed
-    );
+			pitch = pitch,
+			length = length,
+			upper_angle = 30, 
+			lower_angle = 30,
+			outer_flat_length = pitch / 8,
+			major_radius = diameter / 2,
+			minor_radius = diameter / 2 - 5/8 * cos(30) * pitch,
+			internal = internal,
+			n_starts = n_starts,
+			right_handed = right_handed,
+			clearance = clearance,
+			backlash =  backlash
+			);
 }
 
 module square_thread (
-    diameter = 8,
-    pitch = 1,
-    length = 1,
-    internal = false,
-    n_starts = 1,
-    right_handed = true
+		diameter = 8,
+		pitch = 1,
+		length = 1,
+		internal = false,
+		n_starts = 1,
+		right_handed = true,
+		clearance = 0,
+		backlash = 0
 )
 {
     trapezoidal_thread (
-        pitch = pitch,
-        length = length,
-        upper_angle = 0, 
-        lower_angle = 0,
-        outer_flat_length = pitch / 2,
-        major_radius = diameter / 2,
-        minor_radius = diameter / 2 - pitch / 2,
-        internal = internal,
-        n_starts = n_starts,
-        right_handed = right_handed
-    );
+			pitch = pitch,
+			length = length,
+			upper_angle = 0, 
+			lower_angle = 0,
+			outer_flat_length = pitch / 2,
+			major_radius = diameter / 2,
+			minor_radius = diameter / 2 - pitch / 2,
+			internal = internal,
+			n_starts = n_starts,
+			right_handed = right_handed,
+			clearance = clearance,
+			backlash =  backlash
+			);
 }
 
 module acme_thread (
-    diameter = 8,
-    pitch = 1,
-    length = 1,
-    internal = false,
-    n_starts = 1,
-    right_handed = true
+		diameter = 8,
+		pitch = 1,
+		length = 1,
+		internal = false,
+		n_starts = 1,
+		right_handed = true,
+		clearance = 0,
+		backlash = 0
 )
 {
     trapezoidal_thread (
-        pitch = pitch,
-        length = length,
-        upper_angle = 29/2, 
-        lower_angle = 29/2,
-        outer_flat_length = 0.3707 * pitch,
-        major_radius = diameter / 2,
-        minor_radius = diameter / 2 - pitch / 2,
-        internal = internal,
-        n_starts = n_starts,
-        right_handed = right_handed
-    );
+			pitch = pitch,
+			length = length,
+			upper_angle = 29/2, 
+			lower_angle = 29/2,
+			outer_flat_length = 0.3707 * pitch,
+			major_radius = diameter / 2,
+			minor_radius = diameter / 2 - pitch / 2,
+			internal = internal,
+			n_starts = n_starts,
+			right_handed = right_handed,
+			clearance = clearance,
+			backlash =  backlash
+			);
 }
 
 module buttress_thread (
-    diameter = 8,
-    pitch = 1,
-    length = 1,
-    internal = false,
-    n_starts = 1,
-    buttress_angles = [3, 33],
-    pitch_flat_ratio = 6,       // ratio of pitch to flat length
-    pitch_depth_ratio = 3/2,     // ratio of pitch to thread depth
-    right_handed = true
+		diameter = 8,
+		pitch = 1,
+		length = 1,
+		internal = false,
+		n_starts = 1,
+		buttress_angles = [3, 33],
+		pitch_flat_ratio = 6,       // ratio of pitch to flat length
+		pitch_depth_ratio = 3/2,     // ratio of pitch to thread depth
+		right_handed = true,
+		clearance = 0,
+		backlash = 0
 )
 {
     trapezoidal_thread (
-        pitch = pitch,
-        length = length,
-        upper_angle = buttress_angles[0], 
-        lower_angle = buttress_angles[1],
-        outer_flat_length = pitch / pitch_flat_ratio,
-        major_radius = diameter / 2,
-        minor_radius = diameter / 2 - pitch / pitch_depth_ratio,
-        internal = internal,
-        n_starts = n_starts,
-        right_handed = right_handed
-    );
+			pitch = pitch,
+			length = length,
+			upper_angle = buttress_angles[0], 
+			lower_angle = buttress_angles[1],
+			outer_flat_length = pitch / pitch_flat_ratio,
+			major_radius = diameter / 2,
+			minor_radius = diameter / 2 - pitch / pitch_depth_ratio,
+			internal = internal,
+			n_starts = n_starts,
+			right_handed = right_handed,
+			clearance = clearance,
+			backlash =  backlash
+			);
 }
 
+
+// ----------------------------------------------------------------------------
+// Input units in inches.
+// Note: units of measure in drawing are mm!
+module english_thread(
+		diameter=0.25, 
+		threads_per_inch=20, 
+		length=1,
+		internal=false, 
+		n_starts=1,
+		right_handed = true,
+		clearance = 0,
+		backlash = 0
+)
+{
+	// Convert to mm.
+	mm_diameter = diameter*25.4;
+	mm_pitch = (1.0/threads_per_inch)*25.4;
+	mm_length = length*25.4;
+
+	echo(str("mm_diameter: ", mm_diameter));
+	echo(str("mm_pitch: ", mm_pitch));
+	echo(str("mm_length: ", mm_length));
+	metric_thread(mm_diameter, 
+			mm_pitch, 
+			mm_length, 
+			internal, 
+			n_starts, 
+			right_handed = right_handed,
+			clearance = clearance,
+			backlash =  backlash
+			);
+}
 
 /**
  * trapezoidal_thread():
@@ -180,16 +275,18 @@ module buttress_thread (
  * n_starts = number of threads winding the screw
  */
 module trapezoidal_thread (
-    pitch,
-    length,
-    upper_angle,
-    lower_angle,
-    outer_flat_length,
-    major_radius,
-    minor_radius,
-    internal = false,
-    n_starts = 1,
-    right_handed = true
+	pitch,
+	length,
+	upper_angle,
+	lower_angle,
+	outer_flat_length,
+	major_radius,
+	minor_radius,
+	internal = false,
+	n_starts = 1,
+	right_handed = true,
+	clearance = 0,
+	backlash = 0
 )
 {
     // trapezoid calculation:
@@ -207,24 +304,40 @@ module trapezoidal_thread (
     // looking at the tooth profile along the upper part of a screw held
     // horizontally, which is a trapezoid longer at the bottom flat
 	tooth_height = major_radius - minor_radius;
-	clearance = 0.6/8 * tooth_height;
-	backlash =  0;//0.6/8 * tooth_height;
 
 	major_radius = internal ? (major_radius+clearance) : major_radius;
 	minor_radius = internal ? (minor_radius+clearance) : minor_radius;
 
    	left_angle = right_handed ? (90 - upper_angle) : 90 - lower_angle;
    	right_angle = right_handed ? (90 - lower_angle) : 90 - upper_angle;
-	upper_flat = internal ?
-				outer_flat_length 
-						- (tan(90-left_angle)*clearance)  
-						- (tan(90-right_angle)*clearance)
-						+ backlash
-				: outer_flat_length;
-    left_flat = tooth_height / accurateTan (left_angle);
-    right_flat = tooth_height / accurateTan (right_angle);
-    lower_flat = upper_flat + left_flat + right_flat;
+	tan_left = accurateTan(90-left_angle);
+	tan_right = accurateTan(90-right_angle);
 
+	upper_flat = outer_flat_length + 
+		(internal ?
+			( 	tan_left*clearance >= backlash/2 ?
+					- tan_left*clearance-backlash/2
+					- tan_right*clearance-backlash/2
+					: 
+					+ backlash/2-tan_left*clearance
+					+ backlash/2-tan_right*clearance
+			)
+		:0);
+	if(upper_flat<=0)
+	{
+		echo("*** Warning !!! ***");
+		echo("trapezoidal_thread(): upper_flat is smaller than zero!");
+	}
+
+	left_flat = tooth_height / accurateTan (left_angle);
+	right_flat = tooth_height / accurateTan (right_angle);
+	lower_flat = upper_flat + left_flat + right_flat;
+	vert_l_backlash = (left_angle != 0 ?
+					 	(backlash/2)/ accurateTan(90-left_angle)
+						: 0);
+	vert_r_backlash = (right_angle != 0 ?
+					 	(backlash/2)/ accurateTan(90-right_angle)
+						: 0);
 
     // facet calculation
     facets = $fn > 0 ? 
@@ -245,7 +358,12 @@ module trapezoidal_thread (
     angle_left_flat = length2twist (left_flat);
     angle_left_upper_flat = length2twist (left_flat + upper_flat);
     angle_lower_flat = length2twist (lower_flat);
-
+	if(angle_lower_flat>=360)
+	{
+		echo("*** Warning !!! ***");
+		echo("trapezoidal_thread(): no inner flat!");
+	}
+	
 /*	echo("**** trapezoidal_thread ******");
 	echo("internal", internal);
 	echo("right_handed", right_handed);
@@ -271,6 +389,9 @@ module trapezoidal_thread (
 	echo("internalThread_rot_offset",internal_thread_rot_offset());
 	echo("******************************");*/
 
+	function get_l_vBacklash() = internal ? vert_l_backlash : 0;
+	function get_r_vBacklash() = internal ? vert_r_backlash : 0;
+
     // polar coordinate function representing tooth profile
     function get_radius (plane_angle) =
     minor_radius +
@@ -285,7 +406,7 @@ module trapezoidal_thread (
 
         // right slant
         (plane_angle < angle_lower_flat) ?
-        accurateTan (right_angle) * (lower_flat - twist2length (plane_angle)) :
+        accurateTan (right_angle) * (lower_flat - twist2length (plane_angle)):
 
         // past the end of the tooth
         0
@@ -293,7 +414,9 @@ module trapezoidal_thread (
 
     // obtain vertex for angle on cross-section 
     function get_vertex (angle) =
-    conv2D_polar2cartesian ([get_radius (angle), angle]);
+    		conv2D_polar2cartesian ([get_radius (angle), angle]);
+	function vertex_length (point) =
+			sqrt(pow(point[0],2)+pow(point[1],2));
 
 	// An internal thread must be rotated because the calculation starts	
 	// at base corner of left flat which is not exactly over base
@@ -301,33 +424,20 @@ module trapezoidal_thread (
 	// Combination of small backlash and large clearance gives 
 	// positive numbers, large backlash and small clearance negative ones.
 	function internal_thread_rot_offset() = 
-		internal ? 
-		length2twist(
-				//clearance: length above top left corner
-				tan(90-left_angle)*clearance   
-				- backlash/2 )
-				: 0;
-	
-	module get_polygon(angle_from, angle_to)
-	{
-		/* echo("from angle ", angle_from, vertex_length (get_vertex (angle_from)));
-		echo("to angle ", angle_to, vertex_length (get_vertex (angle_to)));
-		echo([	[0, 0],
-           	get_vertex (angle_from),
-           	get_vertex (angle_to)
-            ]); */
-
-		polygon (points=[
-                    	[0, 0],
-                    	get_vertex (angle_from),
-                    	get_vertex (angle_to)
-                			]);
-	}
-
+		internal ?
+			length2twist(
+				( 	tan_left*clearance >= backlash/2 ?
+					tan_left*clearance-backlash/2
+					: 
+					-(backlash/2-tan_left*clearance)
+				))
+			: 0;
 
 	function next_angle(i, angle) =
 		(i<(facets-1))? angle+$fa : 360;
 
+	if(!debug)
+	{
     linear_extrude (
         height = length,
         twist = (right_handed ? -1 : 1) * (length2twist (length)),
@@ -369,28 +479,78 @@ module trapezoidal_thread (
 				}
 			}
 		}
+	} 
 	}
+	else
+	{
+		for (i = [0:facets-1]) //was: for (angle = [0:$fa:360-$fa])
+		{
+			assign(angle = i*$fa) 
+			{
+				// Draw the profile of the tooth along the perimeter of
+				// circle(minor_radius).
+				// All polygons must be calculated by same case in get_radius().
+				// TODO: what if step > left_angle?  (square thread)
+				assign(angle_corner_case = 
+						((angle < angle_left_flat) ? angle_left_flat
+						: ((angle < angle_left_upper_flat) ? angle_left_upper_flat
+						: ((angle < angle_lower_flat) ? angle_lower_flat : 360)))
+						)
+				{
+					echo("corner_case_angle",angle_corner_case);
+					if(next_angle(i,angle) <= angle_corner_case)
+					{
+						get_debug_polygon(angle, next_angle(i,angle));
+					}
+					else 
+					{
+						get_debug_polygon(angle, angle_corner_case);
+						get_debug_polygon(angle_corner_case, next_angle(i,angle));
+					
+					}
+				} //end of assign border
+			} //end of assign angle
+		} //end of for loop
+	}
+
+	module get_polygon(angle_from, angle_to)
+	{
+		/* echo("from angle ", angle_from, vertex_length (get_vertex (angle_from)));
+		echo("to angle ", angle_to, vertex_length (get_vertex (angle_to)));
+		echo([	[0, 0],
+           	get_vertex (angle_from),
+           	get_vertex (angle_to)
+            ]); */
+
+		polygon (points=[
+                    	[0, 0],
+                    	get_vertex (angle_from),
+                    	get_vertex (angle_to)
+                			]);
+	}
+
+	module get_debug_polygon(angle_from, angle_to)
+	{
+		echo("from angle ", angle_from, vertex_length (get_vertex (angle_from)));
+		echo("to angle ", angle_to, vertex_length (get_vertex (angle_to)));
+		echo([	[getx_debug(angle_from) , get_radius(angle_from)],
+            	[getx_debug(angle_to),get_radius(angle_to)],
+				[getx_debug(angle_to),gety_debug()],
+				[getx_debug(angle_from),gety_debug()]
+             ]);
+		polygon (points=[[getx_debug(angle_from) , get_radius(angle_from)],
+            				[getx_debug(angle_to),get_radius(angle_to)],
+							[getx_debug(angle_to),gety_debug()],
+							[getx_debug(angle_from),gety_debug()]
+             				]);
+	}
+
+	function getx_debug(angle) = internal?
+							(angle+internal_thread_rot_offset())/10
+							:(angle/10);
+	function gety_debug() = internal ? 
+						major_radius + minor_radius - clearance  
+						: 0; 
+
 }
 
-// ----------------------------------------------------------------------------
-// Input units in inches.
-// Note: units of measure in drawing are mm!
-module english_thread(
-      diameter=0.25, 
-      threads_per_inch=20, 
-      length=1,
-      internal=false, 
-      n_starts=1,
-      right_handed = true
-)
-{
-   // Convert to mm.
-   mm_diameter = diameter*25.4;
-   mm_pitch = (1.0/threads_per_inch)*25.4;
-   mm_length = length*25.4;
-
-   echo(str("mm_diameter: ", mm_diameter));
-   echo(str("mm_pitch: ", mm_pitch));
-   echo(str("mm_length: ", mm_length));
-   metric_thread(mm_diameter, mm_pitch, mm_length, internal, n_starts, right_handed);
-}
