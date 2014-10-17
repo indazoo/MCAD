@@ -351,7 +351,9 @@ module trapezoidal_thread (
 
       ==> upper flat         ==> upper flat
           gets smaller           gets wider
-	 
+      ==> start point of     ==> start point of
+          left angle moves       left angle moves
+          to the right           to the left
                  _____         
                 /
                /           ______________
