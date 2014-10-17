@@ -42,7 +42,7 @@
 // ----------------------------------------------------------------------------
 
 //metric_thread(34, 1, 5, internal=false, n_starts=1);
-test_threads ();
+//test_threads ();
 //test_internal_difference();
 //test_internal_difference_buttress();
 //test_internal_difference_buttress_lefthanded();
