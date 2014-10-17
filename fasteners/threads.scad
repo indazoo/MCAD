@@ -46,6 +46,7 @@
 //test_internal_difference();
 //test_internal_difference_buttress();
 //test_internal_difference_buttress_lefthanded();
+//test_internal_difference_metric_cut();
 
 module test_threads ($fa=5, $fs=0.1)
 {
@@ -79,6 +80,17 @@ module test_internal_difference_metric()
 	metric_thread(34, 2, 10, internal=false, n_starts=1, clearance = 0.1, backlash=0.4);
 	}
 }
+
+module test_internal_difference_metric_cut()
+{
+	difference()
+	{
+	metric_thread(34, 2, 10, internal=true, n_starts=3, clearance = 0.1, backlash=0.4);
+	metric_thread(34, 2, 10, internal=false, n_starts=3, clearance = 0.1, backlash=0.4);
+	translate([10,10,0]) cube([20,20,20], center=true);
+	}
+}
+
 
 module test_internal_difference_buttress()
 {
