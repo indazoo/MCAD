@@ -42,8 +42,10 @@
 // ----------------------------------------------------------------------------
 
 //metric_thread(34, 1, 5, internal=false, n_starts=1);
-//test_threads ();
+test_threads ();
 //test_internal_difference();
+//test_internal_difference_buttress();
+//test_internal_difference_buttress_lefthanded();
 
 module test_threads ($fa=5, $fs=0.1)
 {
@@ -69,7 +71,7 @@ module test_threads ($fa=5, $fs=0.1)
     metric_thread(34, 1, 5, internal=true, n_starts=6);
 }
 
-module test_internal_difference()
+module test_internal_difference_metric()
 {
 	difference()
 	{
@@ -77,6 +79,35 @@ module test_internal_difference()
 	metric_thread(34, 2, 10, internal=false, n_starts=1, clearance = 0.1, backlash=0.4);
 	}
 }
+
+module test_internal_difference_buttress()
+{
+	difference()
+	{
+	buttress_thread(20, 1.9, 11.1, internal=true, n_starts=1,
+					buttress_angles = [7, 44], 
+					clearance = 0.1, backlash=0.4);
+	buttress_thread(20, 1.9, 11.1, internal=false, n_starts=1, 
+					buttress_angles = [7, 44],
+					clearance = 0.1, backlash=0.4);
+	}
+}
+
+module test_internal_difference_buttress_lefthanded()
+{
+	difference()
+	{
+	buttress_thread(20, 1.9, 11.1, internal=true, n_starts=1,
+					buttress_angles = [7, 44], 
+					right_handed = false,
+					clearance = 0.1, backlash=0.4);
+	buttress_thread(20, 1.9, 11.1, internal=false, n_starts=1, 
+					buttress_angles = [7, 44],
+					right_handed = false,
+					clearance = 0.1, backlash=0.4);
+	}
+}
+
 
 // ----------------------------------------------------------------------------
 //
@@ -310,6 +341,27 @@ module trapezoidal_thread (
 
    	left_angle = right_handed ? (90 - upper_angle) : 90 - lower_angle;
    	right_angle = right_handed ? (90 - lower_angle) : 90 - upper_angle;
+
+
+	// extreme difference of the clearance/backlash combinations
+	/*
+
+      large clearance        small clearance
+      small backlash         large backlash
+
+      ==> upper flat         ==> upper flat
+          gets smaller           gets wider
+	 
+                 _____         
+                /
+               /           ______________
+              / ______     _______       \
+    _________/ /                  \       \
+              /                    \       \
+             /                      \       \______
+    ________/                        \_____________
+
+	*/
 	tan_left = accurateTan(90-left_angle);
 	tan_right = accurateTan(90-right_angle);
 
