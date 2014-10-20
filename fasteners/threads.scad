@@ -5,6 +5,10 @@
  * You are welcome to make free use of this software.  Retention of my
  * authorship credit would be appreciated.
  *
+ * Version 1.7   2014-10-19   indazoo
+ *                            - added printify for inset threads so no
+ *                              90 degree overhang ocurs.
+ *                            - too smal polygons cannot be rendered by openscad
  * Version 1.6   2014-10-17   indazoo
  *                            - now fully supports backlash and clearance
  *                            - internal(nut) and bolt synchronized to allow
@@ -32,17 +36,61 @@
  * Version 1.3.  2013-12-01   Correct loop over turns -- don't have early cut-off
  * Version 1.2.  2012-09-09   Use discrete polyhedra rather than linear_extrude()
  * Version 1.1.  2012-09-07   Corrected to right-hand threads!
+
+ * TODO:
+ *  - artifacts from linear_extrude on low $fn
  */
 
-//$fn=60; //needs high $fn for nice output
+//$fn=60; //needs high $fn or low $fa for nice output
 
-// ----------------------------------------------------------------------------
+// -------------------------------------------------------------------
+// Parameters
+//
+// -------------------------------------------------------------------
+// internal 
+//            true = clearances for internal thread (e.g., a nut).
+//            false = clearances for external thread (e.g., a bolt).
+//            (Internal threads may be "cut out" from a solid using
+//            difference()).
+//
+// n_starts  
+//            Number of thread starts (e.g., DNA, a "double helix," has
+//            n_starts=2).  See wikipedia Screw_thread.
+//
+// backlash 
+//            Distance by which an ideal bolt can be moved in an ideal 
+//            nut(internal) in direction of its axis.
+//            "backlash" does not influence a bolt (internal = false)
+// 
+// clearance  
+//             Distance between the flat portions of the nut(internal) and bolt.
+//             With backlash==0 the nut(internal) and bolt will not have any
+//             play no matter what "clearance" used, because the flanks will 
+//             fit exactly. For 3D prints "clearance" is probably needed if
+//             one does not uses a bigger "diameter" for the nut.
+//             "clearance" does not influence a bolt (internal = false)
+//  
+// printify_top
+// printify_bottom
+//             Creates a slope on top/bottom from inner to outer diamter 
+//             providing a defined end.
+//             Maybe you want to add a thread to a rod. If the rod
+//             diameter is the same or larger than the thread's minor 
+//             diameter, a 90 degree overhang is being created which is
+//             difficult to print for certain 3D printers(assuming 
+//             printing the thread vertically). 
+
+
+
+
+// -------------------------------------------------------------------
 // Test threads
-// ----------------------------------------------------------------------------
+// -------------------------------------------------------------------
 
 //test_thread();
-//test_threads ();
-test_min_openscad_fs();
+//test_threads();
+//test_min_openscad_fs();
+//test_leftright_buttress();
 //test_internal_difference();
 //test_internal_difference_buttress();
 //test_internal_difference_buttress_lefthanded();
@@ -55,7 +103,8 @@ module test_thread ($fa=5, $fs=0.1)
 		length = 3, 
 		internal=false, 
 		n_starts=1, 
-		right_handed=true
+		right_handed=true,
+		printify_top = false
 	);
 }
 
@@ -92,7 +141,7 @@ module test_min_openscad_fs ($fs=0.1)
 	metric_thread(34, 1, 1, internal=false, n_starts=1);
 }
 
-module test_internal_difference_metric()
+module test_internal_difference_metric($fa=5, $fs=0.1)
 {
 	difference()
 	{
@@ -101,7 +150,7 @@ module test_internal_difference_metric()
 	}
 }
 
-module test_internal_difference_metric_cut()
+module test_internal_difference_metric_cut($fa=5, $fs=0.1)
 {
 	difference()
 	{
@@ -112,7 +161,7 @@ module test_internal_difference_metric_cut()
 }
 
 
-module test_internal_difference_buttress()
+module test_internal_difference_buttress($fa=5, $fs=0.1)
 {
 	difference()
 	{
@@ -125,7 +174,7 @@ module test_internal_difference_buttress()
 	}
 }
 
-module test_internal_difference_buttress_lefthanded()
+module test_internal_difference_buttress_lefthanded($fa=5, $fs=0.1)
 {
 	difference()
 	{
@@ -138,6 +187,17 @@ module test_internal_difference_buttress_lefthanded()
 					right_handed = false,
 					clearance = 0.1, backlash=0.4);
 	}
+}
+
+module test_leftright_buttress($fa=5, $fs=0.1)
+{
+	buttress_thread(20, 1.9, 5.1, internal=true, n_starts=1,
+					buttress_angles = [15, 40], right_handed=true ,
+					clearance = 0.1, backlash=0.4);
+	translate([20,0,0])
+		buttress_thread(20, 1.9, 5.1, internal=true, n_starts=1,
+					buttress_angles = [15, 40], right_handed=false ,
+					clearance = 0.1, backlash=0.4);
 }
 
 
@@ -162,22 +222,7 @@ use <../general/utilities.scad>
 use <../general/math.scad>
 
 // ----------------------------------------------------------------------------
-// internal - true = clearances for internal thread (e.g., a nut).
-//            false = clearances for external thread (e.g., a bolt).
-//            (Internal threads may be "cut out" from a solid using
-//            difference()).
-// n_starts - Number of thread starts (e.g., DNA, a "double helix," has
-//            n_starts=2).  See wikipedia Screw_thread.
-// backlash - Distance by which an ideal bolt can be moved in an ideal nut(internal).
-//            in direction of its axis.
-//            "backlash" does not influence a bolt (internal = false)
-// clearance - distance between the flat portions of the nut(internal) and bolt.
-//             With backlash==0 the nut(internal) and bolt will not have any
-//             play no matter what "clearance" used, because the flanks will 
-//             fit exactly. For 3D prints "clearance" is probably needed if
-//             one does not uses a bigger "diameter" for the nut.
-//             "clearance" does not influence a bolt (internal = false)
-//             
+            
 module metric_thread (
 		diameter = 8,
 		pitch = 1,
@@ -186,7 +231,9 @@ module metric_thread (
 		n_starts = 1,
 		right_handed = true,
 		clearance = 0,
-		backlash = 0
+		backlash = 0,
+		printify_top = false,
+		printify_bottom = false
 )
 {
     trapezoidal_thread (
@@ -201,7 +248,9 @@ module metric_thread (
 			n_starts = n_starts,
 			right_handed = right_handed,
 			clearance = clearance,
-			backlash =  backlash
+			backlash =  backlash,
+			printify_top = printify_top,
+			printify_bottom = printify_bottom
 			);
 }
 
@@ -213,7 +262,9 @@ module square_thread (
 		n_starts = 1,
 		right_handed = true,
 		clearance = 0,
-		backlash = 0
+		backlash = 0,
+		printify_top = false,
+		printify_bottom = false
 )
 {
     trapezoidal_thread (
@@ -228,7 +279,9 @@ module square_thread (
 			n_starts = n_starts,
 			right_handed = right_handed,
 			clearance = clearance,
-			backlash =  backlash
+			backlash =  backlash,
+			printify_top = printify_top,
+			printify_bottom = printify_bottom
 			);
 }
 
@@ -240,7 +293,9 @@ module acme_thread (
 		n_starts = 1,
 		right_handed = true,
 		clearance = 0,
-		backlash = 0
+		backlash = 0,
+		printify_top = false,
+		printify_bottom = false
 )
 {
     trapezoidal_thread (
@@ -255,7 +310,9 @@ module acme_thread (
 			n_starts = n_starts,
 			right_handed = right_handed,
 			clearance = clearance,
-			backlash =  backlash
+			backlash =  backlash,
+			printify_top = printify_top,
+			printify_bottom = printify_bottom
 			);
 }
 
@@ -270,7 +327,9 @@ module buttress_thread (
 		pitch_depth_ratio = 3/2,     // ratio of pitch to thread depth
 		right_handed = true,
 		clearance = 0,
-		backlash = 0
+		backlash = 0,
+		printify_top = false,
+		printify_bottom = false
 )
 {
     trapezoidal_thread (
@@ -285,7 +344,9 @@ module buttress_thread (
 			n_starts = n_starts,
 			right_handed = right_handed,
 			clearance = clearance,
-			backlash =  backlash
+			backlash =  backlash,
+			printify_top = printify_top,
+			printify_bottom = printify_bottom
 			);
 }
 
@@ -301,7 +362,9 @@ module english_thread(
 		n_starts=1,
 		right_handed = true,
 		clearance = 0,
-		backlash = 0
+		backlash = 0,
+		printify_top = false,
+		printify_bottom = false
 )
 {
 	// Convert to mm.
@@ -319,7 +382,9 @@ module english_thread(
 			n_starts, 
 			right_handed = right_handed,
 			clearance = clearance,
-			backlash =  backlash
+			backlash =  backlash,
+			printify_top = printify_top,
+			printify_bottom = printify_bottom
 			);
 }
 
@@ -349,7 +414,9 @@ module trapezoidal_thread (
 	n_starts = 1,
 	right_handed = true,
 	clearance = 0,
-	backlash = 0
+	backlash = 0,
+	printify_top = false,
+	printify_bottom = false
 )
 {
     // trapezoid calculation:
@@ -388,12 +455,12 @@ module trapezoidal_thread (
           to the right           to the left
                  _____         
                 /
-               /           ______________
-              / ______     _______       \
-    _________/ /                  \       \
-              /                    \       \
-             /                      \       \______
-    ________/                        \_____________
+               /         
+              / ______    
+    _________/ /                 __________________ 
+              /                 /           _______
+             /             ____/           /   
+    ________/              _______________/    
 
 	*/
 	tan_left = accurateTan(90-left_angle);
@@ -443,6 +510,7 @@ module trapezoidal_thread (
 	//Calculations of angles moved out of get_radius() and therefore 
    //not called in linear_extrude loops (faster).
     angle_left_flat = length2twist (left_flat);
+	angle_upper_flat = length2twist (upper_flat);
     angle_left_upper_flat = length2twist (left_flat + upper_flat);
     angle_lower_flat = length2twist (lower_flat);
 	if(angle_lower_flat>=360)
@@ -471,6 +539,7 @@ module trapezoidal_thread (
 	echo("major_radius",major_radius);
 	echo("minor_radius",minor_radius);
 	echo("angle_left_flat",angle_left_flat);	
+	echo("angle_upper_flat",angle_upper_flat);
 	echo("angle_left_upper_flat",angle_left_upper_flat);	
 	echo("angle_lower_flat",angle_lower_flat);
 	echo("internalThread_rot_offset",internal_thread_rot_offset());
@@ -522,7 +591,11 @@ module trapezoidal_thread (
 
 	function next_angle(i, angle) =
 		(i<(facets-1))? angle+$fa : 360;
+	function previous_angle(i, angle) =
+		(i<(facets-1))? angle-$fa : 0;
 
+	module thread()
+	{
 	if(!debug)
 	{
     linear_extrude (
@@ -584,7 +657,7 @@ module trapezoidal_thread (
 			{
 				// Draw the profile of the tooth along the perimeter of
 				// circle(minor_radius).
-				// All polygons must be calculated by same case in get_radius().
+				// All 2D polygons must be calculated by same case in get_radius().
 				// TODO: what if step > left_angle?  (square thread)
 				assign(angle_corner_case = 
 						((angle < angle_left_flat) ? angle_left_flat
@@ -606,7 +679,63 @@ module trapezoidal_thread (
 				} //end of assign border
 			} //end of assign angle
 		} //end of for loop
+	} //end debug
+	} //end thread module
+
+
+	// --------------
+	// Printify 
+	// Draw 3D filler polygons to printify the output 
+	// Fills rights slant, lower flat, left slant  
+	// TODO
+	// - from/to angles to switch for right/left threads?  ==> yes !!!
+	// 
+	// --------------
+	module printify(printify_top=false, printify_bottom=false)
+	{
+		
+		printify_h_top = accurateTan(internal && right_handed ? 
+										90-right_angle : 90-left_angle )
+					*(major_radius-minor_radius);
+		printify_h_bottom = accurateTan(internal && right_handed ?
+											 90-left_angle :90-right_angle)
+					*(major_radius-minor_radius);
+		if(internal)
+		{
+			if(printify_top)
+			{
+				translate([0,0,length-printify_h_top])
+					difference()
+					{
+						cylinder(printify_h_top,major_radius,major_radius);
+						cylinder(printify_h_top,major_radius,minor_radius);
+					}
+			}
+			if(printify_bottom)
+			{
+				translate([0,0,0])
+					difference()
+					{
+						cylinder(printify_h_bottom,major_radius,major_radius);
+						cylinder(printify_h_bottom,minor_radius, major_radius);
+					}
+			}
+		}
+		else
+		{
+			if(printify_top)
+			{
+				translate([0,0,length-printify_h_top])
+					cylinder(printify_h_top,minor_radius,major_radius);
+			}
+			if(printify_bottom)
+			{
+				translate([0,0,0])
+					cylinder(printify_h_bottom,major_radius,minor_radius);
+			}
+		}
 	}
+	
 
 	module get_polygon(angle_from, angle_to)
 	{
@@ -646,6 +775,38 @@ module trapezoidal_thread (
 	function gety_debug() = internal ? 
 						major_radius + minor_radius - clearance  
 						: 0; 
+
+	// ------------------------------------------------------
+	// plot thread
+	// -------------------------------------------------------
+	if(internal)
+	{
+		// Thread for nut
+		difference()
+		{
+			thread();
+			difference() //subtract artifacts from bolt created by linear_extrude()
+			{
+				cylinder(length, major_radius+1, major_radius + 1);
+				cylinder(length, major_radius, major_radius);
+			}
+			printify(printify_top = printify_top,printify_bottom = printify_bottom);
+		}
+	}
+	else
+	{
+		// Thread for bolt
+		difference()
+		{
+			thread();
+			difference() //subtract artifacts from bolt created by linear_extrude()
+			{
+				cylinder(length, major_radius+1, major_radius + 1);
+				cylinder(length, major_radius, major_radius);
+			}
+		}
+		printify(printify_top,printify_bottom);*/
+	}
 
 }
 
