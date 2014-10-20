@@ -34,19 +34,30 @@
  * Version 1.1.  2012-09-07   Corrected to right-hand threads!
  */
 
-// Examples:
 //$fn=60; //needs high $fn for nice output
 
 // ----------------------------------------------------------------------------
 // Test threads
 // ----------------------------------------------------------------------------
 
-//metric_thread(34, 1, 5, internal=false, n_starts=1);
+//test_thread();
 //test_threads ();
+test_min_openscad_fs();
 //test_internal_difference();
 //test_internal_difference_buttress();
 //test_internal_difference_buttress_lefthanded();
 //test_internal_difference_metric_cut();
+
+module test_thread ($fa=5, $fs=0.1)
+{
+	metric_thread( diameter = 20,
+		pitch = 4, 
+		length = 3, 
+		internal=false, 
+		n_starts=1, 
+		right_handed=true
+	);
+}
 
 module test_threads ($fa=5, $fs=0.1)
 {
@@ -70,6 +81,15 @@ module test_threads ($fa=5, $fs=0.1)
     // Rohloff hub thread:
     translate ([65, 0, 0])
     metric_thread(34, 1, 5, internal=true, n_starts=6);
+}
+
+module test_min_openscad_fs ($fs=0.1)
+{
+	// This thread creates polygon angles which are very small
+	// so the limit of OpenScad is reached without the use 
+	// of "min_openscad_fs" (see code below).
+	$fn=16;
+	metric_thread(34, 1, 1, internal=false, n_starts=1);
 }
 
 module test_internal_difference_metric()
@@ -412,7 +432,7 @@ module trapezoidal_thread (
     facet_angle = 360 / facets;
     $fa = length2twist (length) / round (length2twist (length) / facet_angle);
 	min_openscad_fs = 0.01;
-	 
+
 	angle = 0;
 	angle_corner_case = 0;
 
@@ -518,9 +538,9 @@ module trapezoidal_thread (
 
        for (start = [0:n_starts-1])
        rotate ([0, 0, start / n_starts * 360 + internal_thread_rot_offset()])
-		for (i = [0:facets-1]) //was: for (angle = [0:$fa:360-$fa])
+		for (i = [0:facets-1])
 		{
-			assign(angle = i*$fa) // (i/facets) * 360
+			assign(angle = i*$fa)
 			{
 				// Draw the profile of the tooth along the perimeter of
 				// circle(minor_radius).
@@ -528,6 +548,10 @@ module trapezoidal_thread (
 				// angle_left_upper_flat, angle_lower_flat) are not in sync.
 				// With angle_corner_case we can insert another polygon in the
 				// thread corners.
+				// min_openscad_fs:
+				// "angle" may be slightly smaller/greater than one of the
+				// three corner angles. Then a too small polygon could be 
+				// created and OpenScad would complain.
 				assign(angle_corner_case = 
 						((angle < angle_left_flat-min_openscad_fs) ? 
 							angle_left_flat
@@ -538,7 +562,7 @@ module trapezoidal_thread (
 						: 360)))
 						)
 				{
-					if(next_angle(i,angle) <= angle_corner_case)
+					if(next_angle(i,angle) <= angle_corner_case + min_openscad_fs)
 					{
 						get_polygon(angle, next_angle(i,angle));
 					}
