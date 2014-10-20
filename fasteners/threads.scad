@@ -411,6 +411,7 @@ module trapezoidal_thread (
     			max (30, min (2 * PI * minor_radius / $fs, 360 / $fa));
     facet_angle = 360 / facets;
     $fa = length2twist (length) / round (length2twist (length) / facet_angle);
+	min_openscad_fs = 0.01;
 	 
 	angle = 0;
 	angle_corner_case = 0;
@@ -528,9 +529,13 @@ module trapezoidal_thread (
 				// With angle_corner_case we can insert another polygon in the
 				// thread corners.
 				assign(angle_corner_case = 
-						((angle < angle_left_flat) ? angle_left_flat
-						: ((angle < angle_left_upper_flat) ? angle_left_upper_flat
-						: ((angle < angle_lower_flat) ? angle_lower_flat : 360)))
+						((angle < angle_left_flat-min_openscad_fs) ? 
+							angle_left_flat
+						: ((angle < angle_left_upper_flat-min_openscad_fs) ? 
+							angle_left_upper_flat
+						: ((angle < angle_lower_flat-min_openscad_fs) ? 
+							angle_lower_flat 
+						: 360)))
 						)
 				{
 					if(next_angle(i,angle) <= angle_corner_case)
