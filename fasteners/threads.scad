@@ -805,7 +805,7 @@ module trapezoidal_thread (
 				cylinder(length, major_radius, major_radius);
 			}
 		}
-		printify(printify_top,printify_bottom);*/
+		printify(printify_top,printify_bottom);
 	}
 
 }
