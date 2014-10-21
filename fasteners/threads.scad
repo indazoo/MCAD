@@ -594,10 +594,12 @@ module trapezoidal_thread (
 	function previous_angle(i, angle) =
 		(i<(facets-1))? angle-$fa : 0;
 
+	// --------------
+	// Thread
+	// --------------
 	module thread()
 	{
-	if(!debug)
-	{
+
     linear_extrude (
         height = length,
         twist = (right_handed ? -1 : 1) * (length2twist (length)),
@@ -648,8 +650,13 @@ module trapezoidal_thread (
 			}
 		}
 	} 
-	}
-	else
+
+	} //end thread module
+	
+	// --------------
+	// 2D Profile
+	// --------------
+	module thread_2D_profile()
 	{
 		for (i = [0:facets-1]) //was: for (angle = [0:$fa:360-$fa])
 		{
@@ -660,15 +667,18 @@ module trapezoidal_thread (
 				// All 2D polygons must be calculated by same case in get_radius().
 				// TODO: what if step > left_angle?  (square thread)
 				assign(angle_corner_case = 
-						((angle < angle_left_flat) ? angle_left_flat
-						: ((angle < angle_left_upper_flat) ? angle_left_upper_flat
-						: ((angle < angle_lower_flat) ? angle_lower_flat : 360)))
+						((angle < angle_left_flat-min_openscad_fs) ? 
+								angle_left_flat
+						: ((angle < angle_left_upper_flat-min_openscad_fs) ? 
+								angle_left_upper_flat
+						: ((angle < angle_lower_flat-min_openscad_fs) ? 
+								angle_lower_flat : 360)))
 						)
 				{
 					echo("corner_case_angle",angle_corner_case);
-					if(next_angle(i,angle) <= angle_corner_case)
+					if(next_angle(i,angle) <= angle_corner_case+min_openscad_fs)
 					{
-						get_debug_polygon(angle, next_angle(i,angle));
+						#get_debug_polygon(angle, next_angle(i,angle));
 					}
 					else 
 					{
@@ -679,9 +689,7 @@ module trapezoidal_thread (
 				} //end of assign border
 			} //end of assign angle
 		} //end of for loop
-	} //end debug
-	} //end thread module
-
+	}
 
 	// --------------
 	// Printify 
@@ -779,6 +787,8 @@ module trapezoidal_thread (
 	// ------------------------------------------------------
 	// plot thread
 	// -------------------------------------------------------
+	if(!debug)
+	{
 	if(internal)
 	{
 		// Thread for nut
@@ -806,6 +816,11 @@ module trapezoidal_thread (
 			}
 		}
 		printify(printify_top,printify_bottom);
+	}
+	}
+	else
+	{
+		thread_2D_profile();
 	}
 
 }
