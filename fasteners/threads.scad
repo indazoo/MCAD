@@ -5,6 +5,41 @@
  * You are welcome to make free use of this software.  Retention of my
  * authorship credit would be appreciated.
  *
+ * Important  !!!!
+ * 
+ * Version 1.8  2014-10-27  indazoo
+ *
+ * Use that library (all versions <= 1.8) on your own risk!
+ * Yes there are risks.
+ * This library was forked from hyperair/MCAD. Thought it was ok to use/extend the code.
+ * Then I found some bugs and fixed them. Unfortunately I discovered a real BUG.
+ * Below in the history you see, the comment for version 1.2:
+ * ==> "Use discrete polyhedra rather than linear_extrude()"
+ * This has never been implemented or was erased! Why is this important ? 
+ * Because it is impossible to create a accurate thread with linear_extrude'ing
+ * a cross section of a thread. It is always an aproximation.
+ * Case A: Create the cross section with constant angles matching that of linear_extrude.
+ *         This gives a nice ouput. But! It cuts or adds too much of/to the corners 
+ *         of your thread. You need to have a high $fn to get an APROXIMATION. Very
+ *         likely your 3D printed nut/bolt will not fit.
+ * Case B: Create the cross section with angles matching the thread corners (as I 
+ *         implemented it (version 1.4 and above). This creates an accurate cross section
+ *         but linear_extrude messes it up creating polygons in a way, that the surface
+ *         is distorted/rough. This is,because the polygons/corners of the cross section 
+ *         aren't even spaced by the same angle ($fa) which is being used by 
+ *         linear_extrude(). With high $fn the "roughness" gets small.
+ * 
+ *  ==> If you want accurate threads use V1.8 but check if the roughess is OK for you.
+ *      See "radius bug" below in the TODO list
+ *  ==> All versions < v1.8 are only an aproximation.
+ *  ==> This code (version 1.3 and below) is a good sample of "never believe 
+ *      source code you find in the internet".
+ *
+ * Back to the missing polyhedra implementation:
+ * It seems the version 1.2 with poylhedra flies around:
+ * http://dkprojects.net/openscad-threads/threads.scad
+ * 
+ *          
  * Version 1.7   2014-10-19   indazoo
  *                            - added printify for inset threads so no
  *                              90 degree overhang ocurs.
@@ -39,6 +74,16 @@
 
  * TODO:
  *  - artifacts from linear_extrude on low $fn
+ *    ==> implement polyhedra approach
+ *    http://dkprojects.net/openscad-threads/threads.scad
+ *  - The radius in a corner of the created flat cross section of a thread
+ *    is longer than the middle of a created poylgon because it is a line
+ *    and not a curve. If you want to create a nut/bolt combination,
+ *    the bolts corner will eventually hit the nut's wall without enough
+ *    spacing. High $fn helps and also high clearance. But this library here
+ *    should not force anybody into try and error 3D printing.
+ *  - Use OpenScad 2014.QX features as soon
+ *    it is officially released (feature: list-comprehensions).
  */
 
 //$fn=60; //needs high $fn or low $fa for nice output
