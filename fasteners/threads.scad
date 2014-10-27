@@ -90,6 +90,7 @@
 //test_thread();
 //test_threads();
 //test_min_openscad_fs();
+//test_buttress();
 //test_leftright_buttress();
 //test_internal_difference();
 //test_internal_difference_buttress();
@@ -189,6 +190,13 @@ module test_internal_difference_buttress_lefthanded($fa=5, $fs=0.1)
 	}
 }
 
+module test_buttress($fa=5, $fs=0.1)
+{
+	buttress_thread(8, 4, 4, internal=false, n_starts=1,
+					buttress_angles = [45, 3], right_handed=true ,
+					clearance = 0, backlash=0);
+	
+}
 module test_leftright_buttress($fa=5, $fs=0.1)
 {
 	buttress_thread(20, 1.9, 5.1, internal=true, n_starts=1,
@@ -323,7 +331,7 @@ module buttress_thread (
 		internal = false,
 		n_starts = 1,
 		buttress_angles = [3, 33],
-		pitch_flat_ratio = 6,       // ratio of pitch to flat length
+		pitch_flat_ratio = 6,       // ratio of pitch to outer flat length
 		pitch_depth_ratio = 3/2,     // ratio of pitch to thread depth
 		right_handed = true,
 		clearance = 0,
@@ -678,7 +686,7 @@ module trapezoidal_thread (
 					echo("corner_case_angle",angle_corner_case);
 					if(next_angle(i,angle) <= angle_corner_case+min_openscad_fs)
 					{
-						#get_debug_polygon(angle, next_angle(i,angle));
+						get_debug_polygon(angle, next_angle(i,angle));
 					}
 					else 
 					{
