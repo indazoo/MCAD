@@ -1,18 +1,45 @@
 /*
  * Dan Kirshner - dan_kirshner@yahoo.com
  * Chow Loong Jin - hyperair@debian.org
+ * indazoo - callNSAforemail@brotherswearemaybe.internet
  *
- * You are welcome to make free use of this software.  Retention of my
+ * You are welcome to make free use of this software.  Retention of our
  * authorship credit would be appreciated.
  *
- * Important  !!!!
+ * TODO:
+ *  - OpenScad issues warning the warning:
+ *    "Normalized tree is growing past 200000 elements. Aborting normalization."
+ *    for medium to high $fn values ==> compile view is not correct. ==> use low 
+ *    $fn during development of your part and increase "turn off rendering at" 
+ *    in Menu=>Edit=>Preferences substantially (at least on Windows OS). 
+ *  - Use OpenScad 2014.QX features as soon
+ *    it is officially released (feature: list-comprehensions).
+ *
+ * Version 2.0  2014-10.27  indazoo            
+ *                          merged polyhedra approach from
+ *                            http://dkprojects.net/openscad-threads/threads.scad
+ *                          - removed too many turns (those for loops are tricky, eh?)
+ *                          - merged modules/functions for less parameters
+ *                          - calculation of inner outer diameter for polygon now correct
+ *                          - calculation of polyhedron face width now correct
+ *                          - corrected circular misalignment of polyhedron relative 
+ *                            to other objects ($fa,$fn) (for example inner fill cylinder)
+ *                          Reimplented features:
+ *                          - metric, ACME, buttress, square, english threads
+ *                          - left/right threads
+ *                          - user defined $fn influences number of segements
+ *                          Added features:
+ *                          - ensure clearance. Edges of bolt's polyhedrons may collide
+ *                            with middle of nut's polyhedrons
+ *                          - print/echo dimensional data about thread
  * 
  * Version 1.8  2014-10-27  indazoo
  *
+ * Important  !!!!
  * Use that library (all versions <= 1.8) on your own risk!
  * Yes there are risks.
- * This library was forked from hyperair/MCAD. Thought it was ok to use/extend the code.
- * Then I found some bugs and fixed them. Unfortunately I discovered a real BUG.
+ * This library was forked from hyperair/MCAD. Thought it would be ok to use/extend 
+ * the code. Then I found some bugs and fixed them. Unfortunately I discovered a real BUG.
  * Below in the history you see, the comment for version 1.2:
  * ==> "Use discrete polyhedra rather than linear_extrude()"
  * This has never been implemented or was erased! Why is this important ? 
@@ -24,10 +51,11 @@
  *         likely your 3D printed nut/bolt will not fit.
  * Case B: Create the cross section with angles matching the thread corners (as I 
  *         implemented it (version 1.4 and above). This creates an accurate cross section
- *         but linear_extrude messes it up creating polygons in a way, that the surface
- *         is distorted/rough. This is,because the polygons/corners of the cross section 
+ *         of the thread's tooth profile but linear_extrude messes it up creating 
+ *         polygons in a way, that the surface is distorted/rough.
+ *         This is,because the polygons/corners of the cross section 
  *         aren't even spaced by the same angle ($fa) which is being used by 
- *         linear_extrude(). With high $fn the "roughness" gets small.
+ *         linear_extrude(). Atleast with high $fn the "roughness" gets small.
  * 
  *  ==> If you want accurate threads use V1.8 but check if the roughess is OK for you.
  *      See "radius bug" below in the TODO list
@@ -71,22 +99,8 @@
  * Version 1.3.  2013-12-01   Correct loop over turns -- don't have early cut-off
  * Version 1.2.  2012-09-09   Use discrete polyhedra rather than linear_extrude()
  * Version 1.1.  2012-09-07   Corrected to right-hand threads!
-
- * TODO:
- *  - artifacts from linear_extrude on low $fn
- *    ==> implement polyhedra approach
- *    http://dkprojects.net/openscad-threads/threads.scad
- *  - The radius in a corner of the created flat cross section of a thread
- *    is longer than the middle of a created poylgon because it is a line
- *    and not a curve. If you want to create a nut/bolt combination,
- *    the bolts corner will eventually hit the nut's wall without enough
- *    spacing. High $fn helps and also high clearance. But this library here
- *    should not force anybody into try and error 3D printing.
- *  - Use OpenScad 2014.QX features as soon
- *    it is officially released (feature: list-comprehensions).
  */
 
-//$fn=60; //needs high $fn or low $fa for nice output
 
 // -------------------------------------------------------------------
 // Parameters
@@ -126,21 +140,20 @@
 //             printing the thread vertically). 
 
 
-
-
 // -------------------------------------------------------------------
 // Test threads
 // -------------------------------------------------------------------
 
+//$fn=32;
 //test_thread();
 //test_threads();
 //test_min_openscad_fs();
+//test_internal_difference_metric();
 //test_buttress();
-//test_leftright_buttress();
-//test_internal_difference();
+//test_leftright_buttress(5);
 //test_internal_difference_buttress();
 //test_internal_difference_buttress_lefthanded();
-//test_internal_difference_metric_cut();
+
 
 module test_thread ($fa=5, $fs=0.1)
 {
@@ -150,6 +163,8 @@ module test_thread ($fa=5, $fs=0.1)
 		internal=false, 
 		n_starts=1, 
 		right_handed=true,
+		clearance = 0.1, 
+		backlash=0.4,
 		printify_top = false
 	);
 }
@@ -157,118 +172,114 @@ module test_thread ($fa=5, $fs=0.1)
 module test_threads ($fa=5, $fs=0.1)
 {
     // M8
-    metric_thread(8, 1.5, 5);
+    metric_thread(8, 1.5, length=5);
     translate ([-10, 0, 0])
-        metric_thread(8, 1.5, 5, right_handed=false);
+        metric_thread(8, 1.5, length=5, right_handed=false);
 
     translate ([10, 0, 0])
-    square_thread(8, 1.5, 5);
+    square_thread(8, 1.5, length=5);
 
     translate ([20, 0, 0])
-    acme_thread(8, 1.5, 5);
+    acme_thread(8, 1.5, length=5);
 
     translate ([30, 0, 0])
-    buttress_thread(8, 1.5, 5);
+    buttress_thread(8, 1.5, length=5);
 
     translate ([40, 0, 0])
-    english_thread(1/4, 20, 1/4);
+    english_thread(1/4, 20, length=1/4);
 
     // Rohloff hub thread:
     translate ([65, 0, 0])
-    metric_thread(34, 1, 5, internal=true, n_starts=6);
+    metric_thread(34, 1, length=5, internal=true, n_starts=6);
 }
 
-module test_min_openscad_fs ($fs=0.1)
-{
-	// This thread creates polygon angles which are very small
-	// so the limit of OpenScad is reached without the use 
-	// of "min_openscad_fs" (see code below).
-	$fn=16;
-	metric_thread(34, 1, 1, internal=false, n_starts=1);
-}
 
-module test_internal_difference_metric($fa=5, $fs=0.1)
+module test_internal_difference_metric($fa=20, $fs=0.1)
 {
 	difference()
 	{
-	metric_thread(34, 2, 10, internal=true, n_starts=1, clearance = 0.1, backlash=0.4);
-	metric_thread(34, 2, 10, internal=false, n_starts=1, clearance = 0.1, backlash=0.4);
+		metric_thread(diameter=34, pitch=2, length=10, 
+						internal=true, n_starts=1, 
+						clearance = 0.1, backlash=0.4);
+		metric_thread(diameter=34, pitch=2, length=10, 
+						internal=false, n_starts=1, 
+						clearance = 0.1, backlash=0.4);
 	}
 }
 
-module test_internal_difference_metric_cut($fa=5, $fs=0.1)
+module test_internal_difference_metric($fa=20, $fs=0.1)
 {
 	difference()
 	{
-	metric_thread(34, 2, 10, internal=true, n_starts=3, clearance = 0.1, backlash=0.4);
-	metric_thread(34, 2, 10, internal=false, n_starts=3, clearance = 0.1, backlash=0.4);
-	translate([10,10,0]) cube([20,20,20], center=true);
+		metric_thread(diameter=17.7, pitch=2, length=10,
+						internal=true, n_starts=3, 
+						clearance = 0.1, backlash=0.4);
+		rotate([0,0,$fa/2])
+		metric_thread(diameter=17.7, pitch=2, length=10, 
+						internal=false, n_starts=3, 
+						clearance = 0.1, backlash=0.4);
+		translate([10,10,0]) cube([20,20,20], center=true);
 	}
 }
 
 
-module test_internal_difference_buttress($fa=5, $fs=0.1)
+module test_internal_difference_buttress($fa=20, $fs=0.1)
 {
 	difference()
 	{
-	buttress_thread(20, 1.9, 11.1, internal=true, n_starts=1,
-					buttress_angles = [7, 44], 
+		buttress_thread(diameter=17.7, pitch=1.9, length=11.1, 
+					internal=true, n_starts=1,
+					buttress_angles = [13, 33], 
 					clearance = 0.1, backlash=0.4);
-	buttress_thread(20, 1.9, 11.1, internal=false, n_starts=1, 
-					buttress_angles = [7, 44],
+		buttress_thread(diameter=17.7, pitch=1.9, length=11.1, 
+					internal=false, n_starts=1, 
+					buttress_angles = [13, 33],
 					clearance = 0.1, backlash=0.4);
+		translate([10,10,0]) cube([20,20,20], center=true);
 	}
 }
 
-module test_internal_difference_buttress_lefthanded($fa=5, $fs=0.1)
+module test_internal_difference_buttress_lefthanded($fa=20, $fs=0.1)
 {
 	difference()
 	{
-	buttress_thread(20, 1.9, 11.1, internal=true, n_starts=1,
+		buttress_thread(diameter=17.7, pitch=1.9, length=11.1, 
+					internal=true, n_starts=1,
 					buttress_angles = [7, 44], 
 					right_handed = false,
 					clearance = 0.1, backlash=0.4);
-	buttress_thread(20, 1.9, 11.1, internal=false, n_starts=1, 
+		buttress_thread(diameter=17.7, pitch=1.9, length=11.1, 
+					internal=false, n_starts=1, 
 					buttress_angles = [7, 44],
 					right_handed = false,
 					clearance = 0.1, backlash=0.4);
+
 	}
 }
 
-module test_buttress($fa=5, $fs=0.1)
+module test_buttress($fa=20, $fs=0.1)
 {
-	buttress_thread(8, 4, 4, internal=false, n_starts=1,
+	buttress_thread(diameter=8, pitch=4, length=4, 
+					internal=false, n_starts=1,
 					buttress_angles = [45, 3], right_handed=true ,
 					clearance = 0, backlash=0);
 	
 }
-module test_leftright_buttress($fa=5, $fs=0.1)
+module test_leftright_buttress($fa=20, $fs=0.1)
 {
-	buttress_thread(20, 1.9, 5.1, internal=true, n_starts=1,
+
+	translate([20,0,0])
+		buttress_thread(diameter=20, pitch=1.9, length=5.1, 
+					internal=true, n_starts=1,
 					buttress_angles = [15, 40], right_handed=true ,
 					clearance = 0.1, backlash=0.4);
-	translate([20,0,0])
-		buttress_thread(20, 1.9, 5.1, internal=true, n_starts=1,
+
+		buttress_thread(diameter=20, pitch=1.9, length=5.1, 
+					internal=true, n_starts=1,
 					buttress_angles = [15, 40], right_handed=false ,
 					clearance = 0.1, backlash=0.4);
 }
 
-
-// ----------------------------------------------------------------------------
-//
-// Debug: it is useful to show the profile in 2D
-// Set "debug = true" and plot an internal and a bolt thread.
-// This displays both profiles and how they fit.
-//
-// ----------------------------------------------------------------------------
-debug = false;
-//test_profile();
-
-module test_profile()
-{	
-	metric_thread(34, 2, 10, internal=true, n_starts=1, clearance = 0.1, backlash=0.4);
-	metric_thread(34, 2, 10, internal=false, n_starts=1, clearance = 0.1, backlash=0.4);
-}
 
 // ----------------------------------------------------------------------------
 use <../general/utilities.scad>
@@ -289,7 +300,7 @@ module metric_thread (
 		printify_bottom = false
 )
 {
-    trapezoidal_thread (
+    thread_polyhedron (
 			pitch = pitch,
 			length = length,
 			upper_angle = 30, 
@@ -320,7 +331,7 @@ module square_thread (
 		printify_bottom = false
 )
 {
-    trapezoidal_thread (
+    thread_polyhedron (
 			pitch = pitch,
 			length = length,
 			upper_angle = 0, 
@@ -351,7 +362,7 @@ module acme_thread (
 		printify_bottom = false
 )
 {
-    trapezoidal_thread (
+    thread_polyhedron (
 			pitch = pitch,
 			length = length,
 			upper_angle = 29/2, 
@@ -385,7 +396,7 @@ module buttress_thread (
 		printify_bottom = false
 )
 {
-    trapezoidal_thread (
+    thread_polyhedron (
 			pitch = pitch,
 			length = length,
 			upper_angle = buttress_angles[0], 
@@ -441,21 +452,19 @@ module english_thread(
 			);
 }
 
-/**
- * trapezoidal_thread():
- * generates a screw with a trapezoidal thread profile
- *
- * pitch = distance between the same part of adjacent teeth
- * length = length of the screw to generate
- * upper_angle = angle between the normal and the upper slant of a tooth
- * lower_angle = ditto, but for the lower slant
- * outer_flat_length = length of the flat part of the tooth along the outside
- * major_radius = radius of the screw until the outer flat
- * minor_radius = radius of the screw until the inner flat
- * internal = if true, generates a thread suitable for difference() to make nuts
- * n_starts = number of threads winding the screw
- */
-module trapezoidal_thread (
+
+
+// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+
+// ---------------------------------------------------------------------
+// internal - true = clearances for internal thread (e.g., a nut).
+//            false = clearances for external thread (e.g., a bolt).
+//            (Internal threads should be "cut out" from a solid using
+//            difference()).
+// n_starts - Number of thread starts (e.g., DNA, a "double helix," has
+//            n_starts=2).  See wikipedia Screw_thread.
+module thread_polyhedron(
 	pitch,
 	length,
 	upper_angle,
@@ -472,7 +481,45 @@ module trapezoidal_thread (
 	printify_bottom = false
 )
 {
+
+	// Number of turns needed.
+	n_turns = floor(length/pitch);
+	n_segments = $fn > 0 ? 
+					$fn :
+					max (30, min (2 * PI * minor_radius / $fs, 360 / $fa));
+	seg_angle = 360/n_segments;
+	fraction_circle = 1.0/n_segments;
+	min_openscad_fs = 0.01;
+
+	// Clearance:
+	// The outer walls of the created threads are not circular. They consist
+	// of polyhydrons with planar front rectangles. Because the corners of 
+	// these polyhedrons are located at major radius (x,y), the middle of these
+	// rectangles is a little bit inside of major_radius. So, with low $fn
+	// this difference gets larger and may be even larger than the clearance itself
+	// but also for big $fn values this fact reduces clearance. If one prints a 
+	// thread/nut without addressing this they may not turn.
+	function bow_to_face_distance(radius) = 
+				radius*(1-accurateCos(seg_angle/2));
+
+	major_rad = (internal ? 
+					(major_radius+clearance)/accurateCos(seg_angle/2)
+					: major_radius);
+	minor_rad = (internal ? 
+					(minor_radius+clearance)/accurateCos(seg_angle/2)
+					: minor_radius);
+
+	// Display useful data about thread to add other objects
+	echo("*** Thread dimensions !!! ***");
+	echo("outer diameter :",major_rad*2);
+	echo("inner diameter :",minor_rad*2);
+
+	diameter = major_rad*2;
+	tooth_height = major_rad - minor_rad;
+
     // trapezoid calculation:
+    // looking at the tooth profile along the upper part of a screw held
+    // horizontally, which is a trapezoid longer at the bottom flat
     /*
                 upper flat
             ___________________
@@ -484,16 +531,9 @@ module trapezoidal_thread (
         |left                 |right
          flat                 |flat
     */
-    // looking at the tooth profile along the upper part of a screw held
-    // horizontally, which is a trapezoid longer at the bottom flat
-	tooth_height = major_radius - minor_radius;
 
-	major_radius = internal ? (major_radius+clearance) : major_radius;
-	minor_radius = internal ? (minor_radius+clearance) : minor_radius;
-
-   	left_angle = right_handed ? (90 - upper_angle) : 90 - lower_angle;
-   	right_angle = right_handed ? (90 - lower_angle) : 90 - upper_angle;
-
+   	left_angle = (90 - upper_angle); //right_handed ? (90 - upper_angle) : 90 - lower_angle;
+   	right_angle = (90 - lower_angle); //right_handed ? (90 - lower_angle) : 90 - upper_angle;
 
 	// extreme difference of the clearance/backlash combinations
 	/*
@@ -532,52 +572,22 @@ module trapezoidal_thread (
 	if(upper_flat<=0)
 	{
 		echo("*** Warning !!! ***");
-		echo("trapezoidal_thread(): upper_flat is smaller than zero!");
+		echo("thread_polyhedron(): upper_flat is smaller than zero!");
 	}
 
 	left_flat = tooth_height / accurateTan (left_angle);
 	right_flat = tooth_height / accurateTan (right_angle);
 	lower_flat = upper_flat + left_flat + right_flat;
-	vert_l_backlash = (left_angle != 0 ?
-					 	(backlash/2)/ accurateTan(90-left_angle)
-						: 0);
-	vert_r_backlash = (right_angle != 0 ?
-					 	(backlash/2)/ accurateTan(90-right_angle)
-						: 0);
 
-    // facet calculation
-    facets = $fn > 0 ? 
-				$fn :
-    			max (30, min (2 * PI * minor_radius / $fs, 360 / $fa));
-    facet_angle = 360 / facets;
-    $fa = length2twist (length) / round (length2twist (length) / facet_angle);
-	min_openscad_fs = 0.01;
 
-	angle = 0;
-	angle_corner_case = 0;
 
-    // convert length along the tooth profile to angle of twist of the screw
-    function length2twist (length) = length / pitch * (360 / n_starts);
-    function twist2length (angle) = angle / (360 / n_starts) * pitch;
 
-	//Calculations of angles moved out of get_radius() and therefore 
-   //not called in linear_extrude loops (faster).
-    angle_left_flat = length2twist (left_flat);
-	angle_upper_flat = length2twist (upper_flat);
-    angle_left_upper_flat = length2twist (left_flat + upper_flat);
-    angle_lower_flat = length2twist (lower_flat);
-	if(angle_lower_flat>=360)
-	{
-		echo("*** Warning !!! ***");
-		echo("trapezoidal_thread(): no inner flat!");
-	}
-	
-/*	echo("**** trapezoidal_thread ******");
+/*	echo("**** polyhedron thread ******");
 	echo("internal", internal);
 	echo("right_handed", right_handed);
 	echo("tooth_height", tooth_height);
-	echo("facets",facets);
-	echo("facet_angle",facet_angle);
+	echo("fraction_circle",fraction_circle);
+	echo("n_segments",n_segments);
 	echo("$fa (slice step angle)",$fa);
 	echo("$fn (slice step angle)",$fn);
 
@@ -590,291 +600,146 @@ module trapezoidal_thread (
 	echo("clearance", clearance);
 	echo("backlash",backlash);
 	echo("major_radius",major_radius);
+	echo("major_rad",major_rad);
 	echo("minor_radius",minor_radius);
-	echo("angle_left_flat",angle_left_flat);	
-	echo("angle_upper_flat",angle_upper_flat);
-	echo("angle_left_upper_flat",angle_left_upper_flat);	
-	echo("angle_lower_flat",angle_lower_flat);
-	echo("internalThread_rot_offset",internal_thread_rot_offset());
-	echo("******************************");*/
+	echo("minor_rad",minor_rad);
+	echo("diameter",diameter);
+	echo("internal_play_offset",internal_play_offset());
+	echo("******************************"); */
 
-	function get_l_vBacklash() = internal ? vert_l_backlash : 0;
-	function get_r_vBacklash() = internal ? vert_r_backlash : 0;
+	union() {
+		intersection() {
+			// Start one below z = 0.  Gives an extra turn at each end.
+			for (i=[-1*n_starts : n_turns]) {
+				translate([0, 0, i*pitch]) {
+					thread_turn();
+				}
+			}
 
-    // polar coordinate function representing tooth profile
-    function get_radius (plane_angle) =
-    minor_radius +
-    (
-        // left slant
-        (plane_angle < angle_left_flat) ?
-        accurateTan (left_angle) * twist2length (plane_angle) :
+			// Cut to length.
+			translate([0, 0, length/2]) {
+				cube([diameter*1.1, diameter*1.1, length], center=true);
+			}
+		} //end intersection
 
-        // upper flat portion
-        (plane_angle < angle_left_upper_flat) ?
-        tooth_height:
+		// Solid center, including Dmin truncation.
+		//cylinder(r=minor_rad, h=length, $fn=n_segments);
+		
+	} // end union
 
-        // right slant
-        (plane_angle < angle_lower_flat) ?
-        accurateTan (right_angle) * (lower_flat - twist2length (plane_angle)):
+	// ----------------------------------------------------------------------------
+	module thread_turn()
+	{
+		for (i=[0 : n_segments-1]) 
+		{
+			rotate([0, 0, poly_rotation_total(i)]) 
+			{
+				translate([0, 0, i*n_starts*pitch*fraction_circle
+									+ internal_play_offset()]) {
+									//]) {
+				thread_polyhedron();
+         		}
+      		}
+		}
+	} // end module metric_thread_turn()
 
-        // past the end of the tooth
-        0
-    );
+	// polyhedron axial orientation
+	function poly_rotation(i) =
+		(right_handed?1:-1)*(i*seg_angle);
+	// cylinder() starts at x=0,y=radius. But so far, the created polygon
+	// starts at x=-1/2 facette,y=-radius. So, the cylinder's facettes are
+	// not aligned with the thread ones, creating holes in the thread behind
+	// the lower flat of the thread. 
+	function poly_rot_offset() = 
+		90 + ((right_handed?1:-1)*(seg_angle/2));
+	function poly_rotation_total(i)	=
+			poly_rotation(i) + poly_rot_offset();
 
-    // obtain vertex for angle on cross-section 
-    function get_vertex (angle) =
-    		conv2D_polar2cartesian ([get_radius (angle), angle]);
-	function vertex_length (point) =
-			sqrt(pow(point[0],2)+pow(point[1],2));
-
-	// An internal thread must be rotated because the calculation starts	
+	// An internal thread must be rotated/moved because the calculation starts	
 	// at base corner of left flat which is not exactly over base
 	// corner of bolt (clearance and backlash)
 	// Combination of small backlash and large clearance gives 
 	// positive numbers, large backlash and small clearance negative ones.
-	function internal_thread_rot_offset() = 
+	function internal_play_offset() = 
 		internal ?
-			length2twist(
-				( 	tan_left*clearance >= backlash/2 ?
-					tan_left*clearance-backlash/2
+				( 	tan_right*clearance >= backlash/2 ?
+					-tan_right*clearance-backlash/2
 					: 
-					-(backlash/2-tan_left*clearance)
-				))
+					-(backlash/2-tan_right*clearance)
+				)
 			: 0;
-
-	function next_angle(i, angle) =
-		(i<(facets-1))? angle+$fa : 360;
-	function previous_angle(i, angle) =
-		(i<(facets-1))? angle-$fa : 0;
-
-	// --------------
-	// Thread
-	// --------------
-	module thread()
-	{
-
-    linear_extrude (
-        height = length,
-        twist = (right_handed ? -1 : 1) * (length2twist (length)),
-        slices = length2twist (length) / $fa
-    )
-    union () {
-
-        // This two for loops create a plane cutted vertically 
-        // through  the screw axis of the thread. 
-        // Must also create correct polygons for uneven $fn values.
-
-       for (start = [0:n_starts-1])
-       rotate ([0, 0, start / n_starts * 360 + internal_thread_rot_offset()])
-		for (i = [0:facets-1])
-		{
-			assign(angle = i*$fa)
-			{
-				// Draw the profile of the tooth along the perimeter of
-				// circle(minor_radius).
-				// Often, facet_angle and flat angles (angle_left_flat, 
-				// angle_left_upper_flat, angle_lower_flat) are not in sync.
-				// With angle_corner_case we can insert another polygon in the
-				// thread corners.
-				// min_openscad_fs:
-				// "angle" may be slightly smaller/greater than one of the
-				// three corner angles. Then a too small polygon could be 
-				// created and OpenScad would complain.
-				assign(angle_corner_case = 
-						((angle < angle_left_flat-min_openscad_fs) ? 
-							angle_left_flat
-						: ((angle < angle_left_upper_flat-min_openscad_fs) ? 
-							angle_left_upper_flat
-						: ((angle < angle_lower_flat-min_openscad_fs) ? 
-							angle_lower_flat 
-						: 360)))
-						)
-				{
-					if(next_angle(i,angle) <= angle_corner_case + min_openscad_fs)
-					{
-						get_polygon(angle, next_angle(i,angle));
-					}
-					else 
-					{
-						get_polygon(angle, angle_corner_case);
-						get_polygon(angle_corner_case, next_angle(i,angle));
-					}
-				}
-			}
-		}
-	} 
-
-	} //end thread module
-	
-	// --------------
-	// 2D Profile
-	// --------------
-	module thread_2D_profile()
-	{
-		for (i = [0:facets-1]) //was: for (angle = [0:$fa:360-$fa])
-		{
-			assign(angle = i*$fa) 
-			{
-				// Draw the profile of the tooth along the perimeter of
-				// circle(minor_radius).
-				// All 2D polygons must be calculated by same case in get_radius().
-				// TODO: what if step > left_angle?  (square thread)
-				assign(angle_corner_case = 
-						((angle < angle_left_flat-min_openscad_fs) ? 
-								angle_left_flat
-						: ((angle < angle_left_upper_flat-min_openscad_fs) ? 
-								angle_left_upper_flat
-						: ((angle < angle_lower_flat-min_openscad_fs) ? 
-								angle_lower_flat : 360)))
-						)
-				{
-					echo("corner_case_angle",angle_corner_case);
-					if(next_angle(i,angle) <= angle_corner_case+min_openscad_fs)
-					{
-						get_debug_polygon(angle, next_angle(i,angle));
-					}
-					else 
-					{
-						get_debug_polygon(angle, angle_corner_case);
-						get_debug_polygon(angle_corner_case, next_angle(i,angle));
-					
-					}
-				} //end of assign border
-			} //end of assign angle
-		} //end of for loop
-	}
-
-	// --------------
-	// Printify 
-	// Draw 3D filler polygons to printify the output 
-	// Fills rights slant, lower flat, left slant  
-	// TODO
-	// - from/to angles to switch for right/left threads?  ==> yes !!!
-	// 
-	// --------------
-	module printify(printify_top=false, printify_bottom=false)
+	// ------------------------------------------------------------
+	module thread_polyhedron()
 	{
 		
-		printify_h_top = accurateTan(internal && right_handed ? 
-										90-right_angle : 90-left_angle )
-					*(major_radius-minor_radius);
-		printify_h_bottom = accurateTan(internal && right_handed ?
-											 90-left_angle :90-right_angle)
-					*(major_radius-minor_radius);
-		if(internal)
-		{
-			if(printify_top)
-			{
-				translate([0,0,length-printify_h_top])
-					difference()
-					{
-						cylinder(printify_h_top,major_radius,major_radius);
-						cylinder(printify_h_top,major_radius,minor_radius);
-					}
-			}
-			if(printify_bottom)
-			{
-				translate([0,0,0])
-					difference()
-					{
-						cylinder(printify_h_bottom,major_radius,major_radius);
-						cylinder(printify_h_bottom,minor_radius, major_radius);
-					}
-			}
-		}
-		else
-		{
-			if(printify_top)
-			{
-				translate([0,0,length-printify_h_top])
-					cylinder(printify_h_top,minor_radius,major_radius);
-			}
-			if(printify_bottom)
-			{
-				translate([0,0,0])
-					cylinder(printify_h_bottom,major_radius,minor_radius);
-			}
-		}
-	}
+		x_incr_outer = 2*(accurateSin(seg_angle/2)*major_rad)+0.0; //overlapping not 
+		x_incr_inner = 2*(accurateSin(seg_angle/2)*minor_rad)+0.0; //need so far
+		z_incr = n_starts * pitch * fraction_circle;
+		z_incr_this_side = z_incr * (right_handed ? 0 : 1);
+		z_incr_back_side = z_incr * (right_handed ? 1 : 0);
+		// radius correction to place polyhedron correctly
+		// hint: polyhedron front ist straight, thread circle not
+		minor_rad_p = minor_rad - bow_to_face_distance(minor_rad)
+                            -0.01; //let polyhedra overlap with inner fill cylinder 
+		major_rad_p = major_rad - bow_to_face_distance(major_rad);
+
+	/*    
+	(angles x0 and x3 inner are actually 60 deg)
+
+                          /\  (x2_inner, z2_inner) [2]
+                         /  \
+   (x3_inner, z3_inner) /    \
+                  [3]   \     \
+                        |\     \ (x2_outer, z2_outer) [6]
+                        | \    /
+                        |  \  /|
+             z          |[7]\/ / (x1_outer, z1_outer) [5]
+             |          |   | /
+             |   x      |   |/
+             |  /       |   / (x0_outer, z0_outer) [4]
+             | /        |  /     (behind: (x1_inner, z1_inner) [1]
+             |/         | /
+    y________|          |/
+   (r)                  / (x0_inner, z0_inner) [0]
+
+   */
+
+		// Rule for face ordering: look at polyhedron from outside: points must
+		// be in clockwise order.
+
+		polyhedron(
+
+			points = [
+               	 [-x_incr_inner/2, -minor_rad_p, z_incr_this_side],    // [0]
+               	 [x_incr_inner/2, -minor_rad_p, z_incr_back_side],     // [1]
+               	 [x_incr_inner/2, -minor_rad_p,  right_flat + upper_flat + left_flat + z_incr_back_side],  // [2]
+                	[-x_incr_inner/2, -minor_rad_p, right_flat + upper_flat + left_flat + z_incr_this_side],        // [3]
+
+               	 [-x_incr_outer/2, -major_rad_p, right_flat + z_incr_this_side], // [4]
+               	 [x_incr_outer/2, -major_rad_p, right_flat + z_incr_back_side],  // [5]
+               	 [x_incr_outer/2, -major_rad_p, right_flat + upper_flat + z_incr_back_side], // [6]
+               	 [-x_incr_outer/2, -major_rad_p, right_flat + upper_flat + z_incr_this_side]  // [7]
+               	],
+
+			faces = [
+                	[0, 3, 7, 4],  // This-side trapezoid
+
+                	[1, 5, 6, 2],  // Back-side trapezoid
+
+                	[0, 1, 2, 3],  // Inner rectangle
+
+                	[4, 7, 6, 5],  // Outer rectangle
+
+                	// These are not planar, so do with separate triangles.
+                	[7, 2, 6],     // Upper rectangle, bottom
+               	 [7, 3, 2],     // Upper rectangle, top
+
+                	[0, 5, 1],     // Lower rectangle, bottom
+                	[0, 4, 5]      // Lower rectangle, top
+ 	              ]
+		);
+
 	
-
-	module get_polygon(angle_from, angle_to)
-	{
-		/* echo("from angle ", angle_from, vertex_length (get_vertex (angle_from)));
-		echo("to angle ", angle_to, vertex_length (get_vertex (angle_to)));
-		echo([	[0, 0],
-           	get_vertex (angle_from),
-           	get_vertex (angle_to)
-            ]); */
-
-		polygon (points=[
-                    	[0, 0],
-                    	get_vertex (angle_from),
-                    	get_vertex (angle_to)
-                			]);
-	}
-
-	module get_debug_polygon(angle_from, angle_to)
-	{
-		echo("from angle ", angle_from, vertex_length (get_vertex (angle_from)));
-		echo("to angle ", angle_to, vertex_length (get_vertex (angle_to)));
-		echo([	[getx_debug(angle_from) , get_radius(angle_from)],
-            	[getx_debug(angle_to),get_radius(angle_to)],
-				[getx_debug(angle_to),gety_debug()],
-				[getx_debug(angle_from),gety_debug()]
-             ]);
-		polygon (points=[[getx_debug(angle_from) , get_radius(angle_from)],
-            				[getx_debug(angle_to),get_radius(angle_to)],
-							[getx_debug(angle_to),gety_debug()],
-							[getx_debug(angle_from),gety_debug()]
-             				]);
-	}
-
-	function getx_debug(angle) = internal?
-							(angle+internal_thread_rot_offset())/10
-							:(angle/10);
-	function gety_debug() = internal ? 
-						major_radius + minor_radius - clearance  
-						: 0; 
-
-	// ------------------------------------------------------
-	// plot thread
-	// -------------------------------------------------------
-	if(!debug)
-	{
-	if(internal)
-	{
-		// Thread for nut
-		difference()
-		{
-			thread();
-			difference() //subtract artifacts from bolt created by linear_extrude()
-			{
-				cylinder(length, major_radius+1, major_radius + 1);
-				cylinder(length, major_radius, major_radius);
-			}
-			printify(printify_top = printify_top,printify_bottom = printify_bottom);
-		}
-	}
-	else
-	{
-		// Thread for bolt
-		difference()
-		{
-			thread();
-			difference() //subtract artifacts from bolt created by linear_extrude()
-			{
-				cylinder(length, major_radius+1, major_radius + 1);
-				cylinder(length, major_radius, major_radius);
-			}
-		}
-		printify(printify_top,printify_bottom);
-	}
-	}
-	else
-	{
-		thread_2D_profile();
-	}
-
+	} // end module thread_polyhedron()
 }
 
