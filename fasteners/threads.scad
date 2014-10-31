@@ -599,6 +599,8 @@ module thread_polyhedron(
 	echo("upper_flat", upper_flat);
 	echo("right_angle", right_angle);
 	echo("right_flat", right_flat);
+	echo("lower_flat", lower_flat);
+	echo("tooth_flat", tooth_flat);
 	echo("clearance", clearance);
 	echo("backlash",backlash);
 	echo("major_radius",major_radius);
