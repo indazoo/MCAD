@@ -523,13 +523,15 @@ module thread_polyhedron(
     /*
                 upper flat
             ___________________
-           /|                 |\
-          / |                 | \
-    left /__|_________________|__\ right
-   angle|   |   lower flat    |   |angle
-        |   |                 |   |
+           /|                 |\   right
+          / |                 | \  angle
+    left /__|                 |__\______________
+   angle|   |                 |   |   lower     |
+        |   |                 |   |    flat     |
         |left                 |right
          flat                 |flat
+				tooth flat
+        <------------------------->
     */
 
    	left_angle = (90 - upper_angle); //right_handed ? (90 - upper_angle) : 90 - lower_angle;
@@ -577,8 +579,8 @@ module thread_polyhedron(
 
 	left_flat = tooth_height / accurateTan (left_angle);
 	right_flat = tooth_height / accurateTan (right_angle);
-	lower_flat = upper_flat + left_flat + right_flat;
-
+	tooth_flat = upper_flat + left_flat + right_flat;
+	lower_flat = pitch-tooth_flat;
 
 
 
