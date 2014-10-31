@@ -623,7 +623,7 @@ module thread_polyhedron(
 		} //end intersection
 
 		// Solid center, including Dmin truncation.
-		//cylinder(r=minor_rad, h=length, $fn=n_segments);
+		cylinder(r=minor_rad, h=length, $fn=n_segments);
 		
 	} // end union
 
