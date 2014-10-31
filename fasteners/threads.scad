@@ -675,9 +675,8 @@ module thread_polyhedron(
 	// ------------------------------------------------------------
 	module thread_polyhedron()
 	{
-		
-		x_incr_outer = 2*(accurateSin(seg_angle/2)*major_rad)+0.0; //overlapping not 
-		x_incr_inner = 2*(accurateSin(seg_angle/2)*minor_rad)+0.0; //need so far
+		x_incr_outer = 2*(accurateSin(seg_angle/2)*major_rad)+0.001; //overlapping needed 
+		x_incr_inner = 2*(accurateSin(seg_angle/2)*minor_rad)+0.001; //for simple=yes
 		z_incr = n_starts * pitch * fraction_circle;
 		z_incr_this_side = z_incr * (right_handed ? 0 : 1);
 		z_incr_back_side = z_incr * (right_handed ? 1 : 0);
