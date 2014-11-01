@@ -6,6 +6,7 @@
  * You are welcome to make free use of this software.  Retention of our
  * authorship credit would be appreciated.
  *
+ *   
  * TODO:
  *  - OpenScad issues warning the warning:
  *    "Normalized tree is growing past 200000 elements. Aborting normalization."
@@ -15,6 +16,11 @@
  *  - Use OpenScad 2014.QX features as soon
  *    it is officially released (feature: list-comprehensions).
  *
+ * Version 2.1  2014-10.27  indazoo  
+ *                          - improved polygon overlap for "simple = yes"  
+ *                          - fully sliced polyhedra without need for internal cylinder
+ *                          - improved corner cases where thread flats are zero
+ *                          - test code changed
  * Version 2.0  2014-10.27  indazoo            
  *                          merged polyhedra approach from
  *                            http://dkprojects.net/openscad-threads/threads.scad
@@ -147,7 +153,7 @@
 //$fn=32;
 //test_thread();
 //test_threads();
-//test_min_openscad_fs();
+//test_square_thread();
 //test_internal_difference_metric();
 //test_buttress();
 //test_leftright_buttress(5);
@@ -172,27 +178,31 @@ module test_thread ($fa=5, $fs=0.1)
 module test_threads ($fa=5, $fs=0.1)
 {
     // M8
-    metric_thread(8, 1.5, length=5);
+    metric_thread(8, pitch=1.5, length=5);
     translate ([-10, 0, 0])
-        metric_thread(8, 1.5, length=5, right_handed=false);
+        metric_thread(8, pitch=1.5, length=5, right_handed=false);
 
     translate ([10, 0, 0])
-    square_thread(8, 1.5, length=5);
+    square_thread(8, pitch=1.5, length=5);
 
     translate ([20, 0, 0])
-    acme_thread(8, 1.5, length=5);
+    acme_thread(8, pitch=1.5, length=5);
 
     translate ([30, 0, 0])
-    buttress_thread(8, 1.5, length=5);
+    buttress_thread(8, pitch=1.5, length=5);
 
     translate ([40, 0, 0])
-    english_thread(1/4, 20, length=1/4);
+    english_thread(1/4, pitch=20, length=1/4);
 
-    // Rohloff hub thread:
-    translate ([65, 0, 0])
-    metric_thread(34, 1, length=5, internal=true, n_starts=6);
+    // multiple start:
+    translate ([50, 0, 0])
+    metric_thread(8, pitch=1, length=5, internal=true, n_starts=3);
 }
 
+module test_square_thread()
+{	
+    square_thread(8, pitch=2, length=5);
+}
 
 module test_internal_difference_metric($fa=20, $fs=0.1)
 {
@@ -580,16 +590,17 @@ module thread_polyhedron(
 	left_flat = tooth_height / accurateTan (left_angle);
 	right_flat = tooth_height / accurateTan (right_angle);
 	tooth_flat = upper_flat + left_flat + right_flat;
-	lower_flat = pitch-tooth_flat;
+	lower_flat = (pitch-tooth_flat >= 0) ? pitch-tooth_flat : 0;
 
 
 
-/*	echo("**** polyhedron thread ******");
+	echo("**** polyhedron thread ******");
 	echo("internal", internal);
 	echo("right_handed", right_handed);
 	echo("tooth_height", tooth_height);
 	echo("fraction_circle",fraction_circle);
 	echo("n_segments",n_segments);
+	echo("seg_angle",seg_angle);
 	echo("$fa (slice step angle)",$fa);
 	echo("$fn (slice step angle)",$fn);
 
@@ -609,9 +620,8 @@ module thread_polyhedron(
 	echo("minor_rad",minor_rad);
 	echo("diameter",diameter);
 	echo("internal_play_offset",internal_play_offset());
-	echo("******************************"); */
-
-	union() {
+	echo("******************************"); 
+	// ----------------------------------------------------------------------------
 		intersection() {
 			// Start one below z = 0.  Gives an extra turn at each end.
 			for (i=[-1*n_starts : n_turns]) {
@@ -625,11 +635,6 @@ module thread_polyhedron(
 				cube([diameter*1.1, diameter*1.1, length], center=true);
 			}
 		} //end intersection
-
-		// Solid center, including Dmin truncation.
-		cylinder(r=minor_rad, h=length, $fn=n_segments);
-		
-	} // end union
 
 	// ----------------------------------------------------------------------------
 	module thread_turn()
@@ -672,6 +677,7 @@ module thread_polyhedron(
 					-(backlash/2-tan_right*clearance)
 				)
 			: 0;
+
 	// ------------------------------------------------------------
 	module thread_polyhedron()
 	{
@@ -680,69 +686,121 @@ module thread_polyhedron(
 		z_incr = n_starts * pitch * fraction_circle;
 		z_incr_this_side = z_incr * (right_handed ? 0 : 1);
 		z_incr_back_side = z_incr * (right_handed ? 1 : 0);
+		z_thread_lower = lower_flat >= 0.002 ? lower_flat/2 : 0.001;
+		z_tip_lower = z_thread_lower + right_flat;
+		z_tip_inner_middle = z_tip_lower + upper_flat/2;
+		z_tip_upper = (z_tip_lower + upper_flat <= pitch-0.002) ?
+							z_tip_lower + upper_flat
+							: pitch-0.002; 
+		z_thread_upper = (z_tip_upper + left_flat <= pitch-0.001) ?
+							z_tip_upper + left_flat
+							: pitch-0.001; 				
+		//to prevent errors if top slice barely touches bottom of next segement
+		//afterone full turn.
+		z_thread_top_simple_yes = 0.001;
 		// radius correction to place polyhedron correctly
 		// hint: polyhedron front ist straight, thread circle not
-		minor_rad_p = minor_rad - bow_to_face_distance(minor_rad)
-                            -0.01; //let polyhedra overlap with inner fill cylinder 
+		minor_rad_p = minor_rad - bow_to_face_distance(minor_rad);
 		major_rad_p = major_rad - bow_to_face_distance(major_rad);
 
-	/*    
-	(angles x0 and x3 inner are actually 60 deg)
+		/*echo(" *** polyhedron ***");
+		echo("lower_flat",lower_flat);
+		echo("upper_flat",lower_flat);
+		echo("lower_flat",lower_flat);
+		echo("z_thread_lower",z_thread_lower);
+		echo("z_tip_lower",z_tip_lower);
+		echo("z_tip_inner_middle",z_tip_inner_middle);
+		echo("z_tip_upper",z_tip_upper);
+		echo("z_thread_upper",z_thread_upper);
+		echo(slice_points());
+		echo(slice_faces());*/
 
-                          /\  (x2_inner, z2_inner) [2]
-                         /  \
-   (x3_inner, z3_inner) /    \
-                  [3]   \     \
-                        |\     \ (x2_outer, z2_outer) [6]
-                        | \    /
-                        |  \  /|
-             z          |[7]\/ / (x1_outer, z1_outer) [5]
-             |          |   | /
-             |   x      |   |/
-             |  /       |   / (x0_outer, z0_outer) [4]
-             | /        |  /     (behind: (x1_inner, z1_inner) [1]
-             |/         | /
-    y________|          |/
-   (r)                  / (x0_inner, z0_inner) [0]
+		polyhedron(	points = slice_points(),faces = slice_faces());
 
-   */
+
+		// ------------------------------------------------------------
+		function slice_points() = 
+			[
+			//tooth
+			[-x_incr_inner/2, -minor_rad_p, z_thread_lower + z_incr_this_side],    // [0]
+			[x_incr_inner/2, -minor_rad_p, z_thread_lower + z_incr_back_side],     // [1]
+			[x_incr_inner/2, -minor_rad_p, z_thread_upper  + z_incr_back_side],  // [2]
+			[-x_incr_inner/2, -minor_rad_p, z_thread_upper + z_incr_this_side],        // [3]
+			[-x_incr_outer/2, -major_rad_p, z_tip_lower + z_incr_this_side], // [4]
+			[x_incr_outer/2, -major_rad_p, z_tip_lower + z_incr_back_side],  // [5]
+			[x_incr_outer/2, -major_rad_p, z_tip_upper + z_incr_back_side], // [6]
+			[-x_incr_outer/2, -major_rad_p, z_tip_upper + z_incr_this_side],// [7]
+
+			//slice
+			[-x_incr_inner/2,-minor_rad_p,0 + z_incr_this_side], // [8]
+			[x_incr_inner/2,-minor_rad_p,0 + z_incr_back_side], // [9]
+			[x_incr_inner/2,-minor_rad_p, pitch + z_incr_back_side + z_thread_top_simple_yes], // [10]
+			[-x_incr_inner/2,-minor_rad_p, pitch + z_incr_this_side + z_thread_top_simple_yes], // [11]
+			[0,0,0], // [12]
+			[0,0,pitch + z_thread_top_simple_yes], // [13]
+			[-x_incr_inner/2,-minor_rad_p, z_tip_inner_middle + z_incr_this_side], // [14]
+			[+x_incr_inner/2,-minor_rad_p, z_tip_inner_middle + z_incr_back_side] // [15]
+		];
+	
+		// ------------------------------------------------------------
+		function slice_faces() =
+	
+		/*    
+		(angles x0 and x3 inner are actually 60 deg)
+	
+	
+	                       B-side(behind) _____[10](behind)
+	                                _____/    |
+	                         ______/         /|
+	                        /_______________/ |
+	                    [13]|          [11]|  |
+	                        |              | /\ [2](behind)
+	                        |              |/  \
+	                        |           [3]/    \
+	                  [3]   |              \     \
+	                        |              |\     \ [6](behind)
+	                        |    A-side    | \    /
+	                        |    (front)   |  \  /|
+	             z          |              |[7]\/ | [5](behind)
+	             |          |          [14]|   | /|
+	             |   x      |  (behind)[15]|   |/ /
+	             |  /       |              |[4]/ |
+	             | /        |              |  /  |   
+	             |/         |              | / _/|[1] (behind)
+	    y________|          |           [0]|/_/  |
+	   (r)                  |              |     |[9](behind)
+	                        |              |  __/
+	                    [12]|___________[8]|_/ 
+	
 
 		// Rule for face ordering: look at polyhedron from outside: points must
 		// be in clockwise order.
-
-		polyhedron(
-
-			points = [
-               	 [-x_incr_inner/2, -minor_rad_p, z_incr_this_side],    // [0]
-               	 [x_incr_inner/2, -minor_rad_p, z_incr_back_side],     // [1]
-               	 [x_incr_inner/2, -minor_rad_p,  right_flat + upper_flat + left_flat + z_incr_back_side],  // [2]
-                	[-x_incr_inner/2, -minor_rad_p, right_flat + upper_flat + left_flat + z_incr_this_side],        // [3]
-
-               	 [-x_incr_outer/2, -major_rad_p, right_flat + z_incr_this_side], // [4]
-               	 [x_incr_outer/2, -major_rad_p, right_flat + z_incr_back_side],  // [5]
-               	 [x_incr_outer/2, -major_rad_p, right_flat + upper_flat + z_incr_back_side], // [6]
-               	 [-x_incr_outer/2, -major_rad_p, right_flat + upper_flat + z_incr_this_side]  // [7]
-               	],
-
-			faces = [
-                	[0, 3, 7, 4],  // This-side trapezoid
-
-                	[1, 5, 6, 2],  // Back-side trapezoid
-
-                	[0, 1, 2, 3],  // Inner rectangle
-
-                	[4, 7, 6, 5],  // Outer rectangle
-
-                	// These are not planar, so do with separate triangles.
-                	[7, 2, 6],     // Upper rectangle, bottom
-               	 [7, 3, 2],     // Upper rectangle, top
-
-                	[0, 5, 1],     // Lower rectangle, bottom
-                	[0, 4, 5]      // Lower rectangle, top
- 	              ]
-		);
-
+   		*/
 	
+	 	[
+		//A side of slice
+		[12,13,11,3,0,8], // accepts it as "planar"
+		[3,7,4,0],
+		// B side of slice
+		[13,12,9,1,2,10], // accepts it as "planar"
+		[1,5,6,2],		
+		// bottom of slice
+		[12,8,9],
+		// top of slice	
+		[13,10,11], 						
+		//top inner of thread
+		[2,3,11,10],
+		//top flank of thread
+		[7,3,2], [2,6,7],
+		// tip/outer of thread	 	
+		[4,7,6,5],
+		//bottom flank of thread	
+		[0,4,5], [5,1,0], 					
+		//bottom inner of thread
+		//[8,0,1], [1,9,8],
+		[0,1,9,8]
+		];
+
 	} // end module thread_polyhedron()
 }
 
