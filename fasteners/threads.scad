@@ -8,6 +8,7 @@
  *
  *
  * TODO:
+ *  - angle alignment of flat_threads() is not exact at x==0
  *  - printify does notwork after v1.8
  *  - OpenScad issues warning the warning:
  *    "Normalized tree is growing past 200000 elements. Aborting normalization."
@@ -659,7 +660,8 @@ module thread(
 	echo("*** Thread dimensions !!! ***");
 	echo("outer diameter :",major_rad*2);
 	echo("inner diameter :",minor_rad*2);
-	echo("bore diameter :",hollow_rad*2);
+	if(is_hollow)
+		echo("bore diameter :",hollow_rad*2);
 
     // trapezoid calculation:
     // looking at the tooth profile along the upper part of a screw held
@@ -788,24 +790,18 @@ module thread(
 			: 0;
 
 	// ----------------------------------------------------------------------------
-
-	if(multiple_turns_over_height)
+	// Create the thread !!!
+	intersection() 
 	{
-		intersection() {
+		if(multiple_turns_over_height)
+		{
 			// Start one below z = 0.  Gives an extra turn at each end.
 			for (i=[-1*n_starts : n_turns]) {
 				translate([0, 0, i*pitch]) 
 					thread_turn(n_segments);
 			}
-			
-			// Cut to length.
-			translate([0, 0, length/2]) 
-				cube([diameter*1.1, diameter*1.1, length], center=true);
-		} //end intersection
-	}
-	else
-	{
-		difference()
+		}
+		else
 		{
 			for (i=[0:n_starts]) 
 			{
@@ -813,11 +809,11 @@ module thread(
 					translate([0, 0, (pitch>=length)? -pitch : 0]) 
 						flat_thread_turn(n_segments);
 			}
-			// Cut to length.
-			translate([0, 0,-length*(n_starts)  ]) 
-				cube([diameter*1.1, diameter*1.1, length*2*(n_starts)], center=true);
 		}
-	
+
+		// Cut to length.
+		translate([0, 0, length/2]) 
+			cube([diameter*1.1, diameter*1.1, length], center=true);
 	}
 
 	// ----------------------------------------------------------------------------
@@ -971,7 +967,7 @@ module thread(
 		minor_rad_p = minor_rad - bow_to_face_distance(minor_rad, seg_angle/2);
 		hollow_rad_p = hollow_rad - bow_to_face_distance(hollow_rad, seg_angle/2);
 
-		echo(" *** polyhedron ***");
+		/*echo(" *** polyhedron ***");
 		echo("lower_flat",lower_flat);
 		echo("upper_flat",lower_flat);
 		echo("lower_flat",lower_flat);
@@ -987,7 +983,7 @@ module thread(
 		echo("hollow_rad_p",hollow_rad_p);
 		
 		echo(slice_points());
-		echo(slice_faces());
+		echo(slice_faces());*/
 
 		polyhedron(	points = slice_points(),faces = slice_faces());
 		
