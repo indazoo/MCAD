@@ -6,8 +6,9 @@
  * You are welcome to make free use of this software.  Retention of our
  * authorship credit would be appreciated.
  *
- *   
+ *
  * TODO:
+ *  - printify does notwork after v1.8
  *  - OpenScad issues warning the warning:
  *    "Normalized tree is growing past 200000 elements. Aborting normalization."
  *    for medium to high $fn values ==> compile view is not correct. ==> use low 
@@ -16,12 +17,17 @@
  *  - Use OpenScad 2014.QX features as soon
  *    it is officially released (feature: list-comprehensions).
  *
- * Version 2.1  2014-10.27  indazoo  
+ * Version 2.2  2014-11-01  indazoo  
+ *                          - now with "flat threads" which have only one turn and
+ *                            no thread above last turn.
+ *                          - supports now a bore hole at the thread's axis.
+ *                          - some test code added
+ * Version 2.1  2014-10-27  indazoo  
  *                          - improved polygon overlap for "simple = yes"  
  *                          - fully sliced polyhedra without need for internal cylinder
  *                          - improved corner cases where thread flats are zero
  *                          - test code changed
- * Version 2.0  2014-10.27  indazoo            
+ * Version 2.0  2014-10-27  indazoo            
  *                          merged polyhedra approach from
  *                            http://dkprojects.net/openscad-threads/threads.scad
  *                          - removed too many turns (those for loops are tricky, eh?)
@@ -150,16 +156,17 @@
 // Test threads
 // -------------------------------------------------------------------
 
-//$fn=32;
+//$fn=12;
 //test_thread();
-//test_threads();
 //test_square_thread();
+//test_hollow_thread();
+//test_threads();
 //test_internal_difference_metric();
 //test_buttress();
 //test_leftright_buttress(5);
 //test_internal_difference_buttress();
 //test_internal_difference_buttress_lefthanded();
-
+//test_flat_thread();
 
 module test_thread ($fa=5, $fs=0.1)
 {
@@ -175,11 +182,27 @@ module test_thread ($fa=5, $fs=0.1)
 	);
 }
 
+module test_hollow_thread ($fa=5, $fs=0.1)
+{
+	metric_thread( diameter = 20,
+		pitch = 4, 
+		length = 5, 
+		internal=false, 
+		n_starts=2, 
+		thread_angles = [0,30],
+		right_handed=true,
+		clearance = 0.1, 
+		backlash=0.4,
+		printify_top = false,
+		bore_diameter = 7
+	);
+}
+
 module test_threads ($fa=5, $fs=0.1)
 {
     // M8
     metric_thread(8, pitch=1.5, length=5);
-    translate ([-10, 0, 0])
+    translate ([0, -15, 0])
         metric_thread(8, pitch=1.5, length=5, right_handed=false);
 
     translate ([10, 0, 0])
@@ -197,6 +220,10 @@ module test_threads ($fa=5, $fs=0.1)
     // multiple start:
     translate ([50, 0, 0])
     metric_thread(8, pitch=1, length=5, internal=true, n_starts=3);
+
+	translate ([-10, 0, 0])
+         test_flat_thread();
+
 }
 
 module test_square_thread()
@@ -290,6 +317,36 @@ module test_leftright_buttress($fa=20, $fs=0.1)
 					clearance = 0.1, backlash=0.4);
 }
 
+module test_flat_thread()
+{
+	flat_thread(
+		thread_diameter = 8,
+		pitch = 1,
+		turn_angle = 270,
+		length = 1,
+		internal = false,
+		n_starts = 1,
+		outer_flat_length = 0.2,
+		right_handed = true,
+		clearance = 0,
+		backlash = 0,
+		bore_diameter = 5
+		);
+
+	translate([0,-10,0])
+	flat_thread(
+		thread_diameter = 8,
+		pitch = 0.5,
+		turn_angle = 360,
+		length = 1,
+		internal = false,
+		n_starts = 1,
+		outer_flat_length = 0.2,
+		right_handed = false,
+		clearance = 0,
+		backlash = 0,
+		bore_diameter = 5);
+}
 
 // ----------------------------------------------------------------------------
 use <../general/utilities.scad>
@@ -307,10 +364,11 @@ module metric_thread (
 		clearance = 0,
 		backlash = 0,
 		printify_top = false,
-		printify_bottom = false
+		printify_bottom = false,
+		bore_diameter = -1
 )
 {
-    thread_polyhedron (
+    thread (
 			pitch = pitch,
 			length = length,
 			upper_angle = 30, 
@@ -324,7 +382,8 @@ module metric_thread (
 			clearance = clearance,
 			backlash =  backlash,
 			printify_top = printify_top,
-			printify_bottom = printify_bottom
+			printify_bottom = printify_bottom,
+			bore_diameter = bore_diameter
 			);
 }
 
@@ -338,10 +397,11 @@ module square_thread (
 		clearance = 0,
 		backlash = 0,
 		printify_top = false,
-		printify_bottom = false
+		printify_bottom = false,
+		bore_diameter = -1
 )
 {
-    thread_polyhedron (
+    thread (
 			pitch = pitch,
 			length = length,
 			upper_angle = 0, 
@@ -355,7 +415,8 @@ module square_thread (
 			clearance = clearance,
 			backlash =  backlash,
 			printify_top = printify_top,
-			printify_bottom = printify_bottom
+			printify_bottom = printify_bottom,
+			bore_diameter = bore_diameter
 			);
 }
 
@@ -369,10 +430,11 @@ module acme_thread (
 		clearance = 0,
 		backlash = 0,
 		printify_top = false,
-		printify_bottom = false
+		printify_bottom = false,
+		bore_diameter = -1
 )
 {
-    thread_polyhedron (
+    thread (
 			pitch = pitch,
 			length = length,
 			upper_angle = 29/2, 
@@ -386,7 +448,8 @@ module acme_thread (
 			clearance = clearance,
 			backlash =  backlash,
 			printify_top = printify_top,
-			printify_bottom = printify_bottom
+			printify_bottom = printify_bottom,
+			bore_diameter = bore_diameter
 			);
 }
 
@@ -403,10 +466,11 @@ module buttress_thread (
 		clearance = 0,
 		backlash = 0,
 		printify_top = false,
-		printify_bottom = false
+		printify_bottom = false,
+		bore_diameter = -1
 )
 {
-    thread_polyhedron (
+    thread (
 			pitch = pitch,
 			length = length,
 			upper_angle = buttress_angles[0], 
@@ -420,7 +484,8 @@ module buttress_thread (
 			clearance = clearance,
 			backlash =  backlash,
 			printify_top = printify_top,
-			printify_bottom = printify_bottom
+			printify_bottom = printify_bottom,
+			bore_diameter = bore_diameter
 			);
 }
 
@@ -438,7 +503,8 @@ module english_thread(
 		clearance = 0,
 		backlash = 0,
 		printify_top = false,
-		printify_bottom = false
+		printify_bottom = false,
+		bore_diameter = -1
 )
 {
 	// Convert to mm.
@@ -458,15 +524,68 @@ module english_thread(
 			clearance = clearance,
 			backlash =  backlash,
 			printify_top = printify_top,
-			printify_bottom = printify_bottom
+			printify_bottom = printify_bottom,
+			bore_diameter = bore_diameter
 			);
 }
 
+// ----------------------------------------------------------------------------
+//
+module flat_thread(
+		thread_diameter = 8,
+		pitch = 1,
+		turn_angle = 360,
+		length = 1,
+		internal = false,
+		n_starts = 1,
+		thread_angles = [0,45],
+		outer_flat_length = 0.125,
+		right_handed = true,
+		clearance = 0,
+		backlash = 0,
+		bore_diameter = -1		
+)
+{
 
+	if(turn_angle > 360)
+	{
+		echo("*** Warning !!! ***");
+		echo("flat_thread(): a flat thread cannot be larger than 360 degree!");
+	}
+	if(turn_angle*n_starts > 360)
+	{
+		echo("*** Warning !!! ***");
+		echo("flat_thread(): a flat thread cannot have turn_angle*n_starts larger than 360 degree!");
+	}
+	if(outer_flat_length >= length)
+	{
+		echo("*** Warning !!! ***");
+		echo("flat_thread(): tip of thread (outer_flat_length) cannot be larger than height!");
+	}
+	
+	thread (
+			pitch = pitch,
+			length = length,
+			upper_angle = thread_angles[0], 
+			lower_angle = thread_angles[1],
+			outer_flat_length = outer_flat_length,
+			major_radius = thread_diameter / 2,
+			minor_radius = thread_diameter / 2 - 5/8 * cos(thread_angles[1]) * pitch,
+			internal = internal,
+			n_starts = n_starts,
+			right_handed = right_handed,
+			clearance = clearance,
+			backlash =  backlash,
+			printify_top = false,
+			printify_bottom = false,
+			multiple_turns_over_height = false,
+			turn_angle = turn_angle,
+			bore_diameter = bore_diameter
+			);
+}
 
 // ---------------------------------------------------------------------
 // ---------------------------------------------------------------------
-
 // ---------------------------------------------------------------------
 // internal - true = clearances for internal thread (e.g., a nut).
 //            false = clearances for external thread (e.g., a bolt).
@@ -474,7 +593,7 @@ module english_thread(
 //            difference()).
 // n_starts - Number of thread starts (e.g., DNA, a "double helix," has
 //            n_starts=2).  See wikipedia Screw_thread.
-module thread_polyhedron(
+module thread(
 	pitch,
 	length,
 	upper_angle,
@@ -488,17 +607,29 @@ module thread_polyhedron(
 	clearance = 0,
 	backlash = 0,
 	printify_top = false,
-	printify_bottom = false
+	printify_bottom = false,
+	multiple_turns_over_height = true,
+	turn_angle = 360, //used for flat_threads
+	bore_diameter = -1
 )
 {
+	if(bore_diameter >= 2*minor_radius)
+	{
+		echo("*** Warning !!! ***");
+		echo("thread_polyhedron(): bore diameter larger than minor diameter of thread !");
+	}
 
 	// Number of turns needed.
 	n_turns = floor(length/pitch);
-	n_segments = $fn > 0 ? 
-					$fn :
-					max (30, min (2 * PI * minor_radius / $fs, 360 / $fa));
-	seg_angle = 360/n_segments;
-	fraction_circle = 1.0/n_segments;
+	n_segments_tmp =  $fn > 0 ? 
+						$fn :
+						max (30, min (2 * PI * minor_radius / $fs, 360 / $fa));
+	seg_angle = multiple_turns_over_height ?
+					360/n_segments_tmp  //std threads
+					: turn_angle/(round(turn_angle/(360/n_segments_tmp))) ; //flat threads
+	n_segments = multiple_turns_over_height ?
+					n_segments_tmp  //std threads
+					: turn_angle/seg_angle; //flat threads
 	min_openscad_fs = 0.01;
 
 	// Clearance:
@@ -509,8 +640,8 @@ module thread_polyhedron(
 	// this difference gets larger and may be even larger than the clearance itself
 	// but also for big $fn values this fact reduces clearance. If one prints a 
 	// thread/nut without addressing this they may not turn.
-	function bow_to_face_distance(radius) = 
-				radius*(1-accurateCos(seg_angle/2));
+	function bow_to_face_distance(radius, angle) = 
+				radius*(1-accurateCos(angle));
 
 	major_rad = (internal ? 
 					(major_radius+clearance)/accurateCos(seg_angle/2)
@@ -519,13 +650,16 @@ module thread_polyhedron(
 					(minor_radius+clearance)/accurateCos(seg_angle/2)
 					: minor_radius);
 
+	diameter = major_rad*2;
+	tooth_height = major_rad - minor_rad;
+	is_hollow = bore_diameter > 0;
+	hollow_rad = is_hollow ? bore_diameter/2 : minor_rad/2;
+
 	// Display useful data about thread to add other objects
 	echo("*** Thread dimensions !!! ***");
 	echo("outer diameter :",major_rad*2);
 	echo("inner diameter :",minor_rad*2);
-
-	diameter = major_rad*2;
-	tooth_height = major_rad - minor_rad;
+	echo("bore diameter :",hollow_rad*2);
 
     // trapezoid calculation:
     // looking at the tooth profile along the upper part of a screw held
@@ -592,14 +726,13 @@ module thread_polyhedron(
 	tooth_flat = upper_flat + left_flat + right_flat;
 	lower_flat = (pitch-tooth_flat >= 0) ? pitch-tooth_flat : 0;
 
-
-
-	echo("**** polyhedron thread ******");
+/*	echo("**** polyhedron thread ******");
 	echo("internal", internal);
 	echo("right_handed", right_handed);
 	echo("tooth_height", tooth_height);
-	echo("fraction_circle",fraction_circle);
 	echo("n_segments",n_segments);
+	echo("turn_angle",turn_angle);
+	echo("seg_angle*n_segments",turn_angle);
 	echo("seg_angle",seg_angle);
 	echo("$fa (slice step angle)",$fa);
 	echo("$fn (slice step angle)",$fn);
@@ -618,40 +751,11 @@ module thread_polyhedron(
 	echo("major_rad",major_rad);
 	echo("minor_radius",minor_radius);
 	echo("minor_rad",minor_rad);
-	echo("diameter",diameter);
+
 	echo("internal_play_offset",internal_play_offset());
-	echo("******************************"); 
-	// ----------------------------------------------------------------------------
-		intersection() {
-			// Start one below z = 0.  Gives an extra turn at each end.
-			for (i=[-1*n_starts : n_turns]) {
-				translate([0, 0, i*pitch]) {
-					thread_turn();
-				}
-			}
-
-			// Cut to length.
-			translate([0, 0, length/2]) {
-				cube([diameter*1.1, diameter*1.1, length], center=true);
-			}
-		} //end intersection
+	echo("******************************");*/
 
 	// ----------------------------------------------------------------------------
-	module thread_turn()
-	{
-		for (i=[0 : n_segments-1]) 
-		{
-			rotate([0, 0, poly_rotation_total(i)]) 
-			{
-				translate([0, 0, i*n_starts*pitch*fraction_circle
-									+ internal_play_offset()]) {
-									//]) {
-				thread_polyhedron();
-         		}
-      		}
-		}
-	} // end module metric_thread_turn()
-
 	// polyhedron axial orientation
 	function poly_rotation(i) =
 		(right_handed?1:-1)*(i*seg_angle);
@@ -661,8 +765,13 @@ module thread_polyhedron(
 	// the lower flat of the thread. 
 	function poly_rot_offset() = 
 		90 + ((right_handed?1:-1)*(seg_angle/2));
+	//the polyhedron slice has the tooth in the middle.
+	//Turn thread to align start of thread with flank 
+	function poly_rot_slice_offset() =
+			((right_handed?1:-1)*(360/n_starts/pitch* (lower_flat/2)));
+	//total poly rotation
 	function poly_rotation_total(i)	=
-			poly_rotation(i) + poly_rot_offset();
+			poly_rotation(i) + poly_rot_offset() + poly_rot_slice_offset();
 
 	// An internal thread must be rotated/moved because the calculation starts	
 	// at base corner of left flat which is not exactly over base
@@ -678,12 +787,170 @@ module thread_polyhedron(
 				)
 			: 0;
 
+	// ----------------------------------------------------------------------------
+
+	if(multiple_turns_over_height)
+	{
+		intersection() {
+			// Start one below z = 0.  Gives an extra turn at each end.
+			for (i=[-1*n_starts : n_turns]) {
+				translate([0, 0, i*pitch]) 
+					thread_turn(n_segments);
+			}
+			
+			// Cut to length.
+			translate([0, 0, length/2]) 
+				cube([diameter*1.1, diameter*1.1, length], center=true);
+		} //end intersection
+	}
+	else
+	{
+		difference()
+		{
+			for (i=[0:n_starts]) 
+			{
+				rotate([0,0,i*360/n_starts])
+					translate([0, 0, (pitch>=length)? -pitch : 0]) 
+						flat_thread_turn(n_segments);
+			}
+			// Cut to length.
+			translate([0, 0,-length*(n_starts)  ]) 
+				cube([diameter*1.1, diameter*1.1, length*2*(n_starts)], center=true);
+		}
+	
+	}
+
+	// ----------------------------------------------------------------------------
+	module thread_turn(n_segments)
+	{
+		for (i=[0 : n_segments-1]) 
+		{
+			rotate([0, 0, poly_rotation_total(i)]) 
+			{
+				translate([0, 0, i*n_starts*pitch*(seg_angle/360)
+									+ internal_play_offset()]) {
+									//]) {
+				thread_polyhedron(seg_angle);
+         		}
+      		}
+		}
+	} // end module metric_thread_turn()
+
+	// ----------------------------------------------------------------------------
+	module flat_thread_turn(n_segments)
+	{
+		current_seg_z_offset = 0;
+		for (i=[0 : n_segments-1]) 
+		{
+			rotate([0, 0, poly_rotation_total(i)]) 
+			{
+				assign(current_seg_z_offset = i*pitch*(seg_angle/360)
+									+ internal_play_offset())
+				{
+					translate([0, 0, current_seg_z_offset ]) 
+						flat_thread_polyhedron(seg_angle, current_seg_z_offset);
+         		}
+      		}
+		}
+	} // end module metric_thread_turn()
+
+
+		// ------------------------------------------------------------
+		function slice_faces() =
+	
+		/*    
+		(angles x0 and x3 inner are actually 60 deg)
+	
+	                             B-side(behind)
+	                                      _____[10](B)
+	                                _[18]/    |
+	                         ______/         /|
+	                        /_______________/ |
+	                    [13]|     [19] [11]|  |
+	                        |              | /\ [2](B)
+	                        |              |/  \
+	                        |           [3]/    \
+	                  [3]   |              \     \
+	                        |              |\     \ [6](B)
+	                        |    A-side    | \    /
+	                        |    (front)   |  \  /|
+	             z          |              |[7]\/ | [5](B)
+	             |          |          [14]|   | /|
+	             |   x      |  (behind)[15]|   |/ /
+	             |  /       |              |[4]/ |
+	             | /        |              |  /  |   
+	             |/         |              | / _/|[1] (B)
+	    y________|          |           [0]|/_/  |
+	   (r)                  |              |     |[9](B)
+	                        |    [17](B)   |  __/
+	                    [12]|___________[8]|_/ 
+	                             [16]
+
+		// Rule for face ordering: look at polyhedron from outside: points must
+		// be in clockwise order.
+   		*/
+		is_hollow ?
+		[
+		//A side of slice
+		[16,19,11,3,0,8], // accepts it as "planar"
+		[3,7,4,0],
+		// B side of slice
+		[18,17,9,1,2,10], // accepts it as "planar"
+		[1,5,6,2],		
+		// top of slice	
+		[19,18,10],[19,10,11],	
+		// bottom of slice
+		[16,8,9],[16,9,17],
+		//top inner of thread
+		[2,3,11,10],
+		//top flank of thread
+		[7,3,2], [2,6,7],
+		// tip/outer of thread	 	
+		[4,7,6,5],
+		//bottom flank of thread	
+		[0,4,5], [5,1,0], 					
+		//bottom inner of thread
+		//[8,0,1], [1,9,8],
+		[0,1,9,8],
+		//hollow inner
+		[17,19,16],[17,18,19]
+		]
+		:
+		[
+		//A side of slice
+		[12,13,19,16],// accepts it as "planar"
+		[16,19,11,3,0,8], // accepts it as "planar"
+		[3,7,4,0],
+		// B side of slice
+		[13,12,17,18], // accepts it as "planar"
+		[17,9,1,2,10,18], // accepts it as "planar"
+		[1,5,6,2],		
+		// top of slice	
+		[13,18,19],[19,18,10],[19,10,11],	
+		// bottom of slice
+		[12,16,17],[16,8,9],[16,9,17],
+		//top inner of thread
+		[2,3,11,10],
+		//top flank of thread
+		[7,3,2], [2,6,7],
+		// tip/outer of thread	 	
+		[4,7,6,5],
+		//bottom flank of thread	
+		[0,4,5], [5,1,0], 					
+		//bottom inner of thread
+		//[8,0,1], [1,9,8],
+		[0,1,9,8],	
+		];
+
+
 	// ------------------------------------------------------------
-	module thread_polyhedron()
+	module thread_polyhedron(seg_angle)
 	{
 		x_incr_outer = 2*(accurateSin(seg_angle/2)*major_rad)+0.001; //overlapping needed 
 		x_incr_inner = 2*(accurateSin(seg_angle/2)*minor_rad)+0.001; //for simple=yes
-		z_incr = n_starts * pitch * fraction_circle;
+		x_incr_hollow = 2*(accurateSin(seg_angle/2)*hollow_rad)+0.001; //for simple=yes
+
+		z_incr = n_starts * pitch * seg_angle/360;
 		z_incr_this_side = z_incr * (right_handed ? 0 : 1);
 		z_incr_back_side = z_incr * (right_handed ? 1 : 0);
 		z_thread_lower = lower_flat >= 0.002 ? lower_flat/2 : 0.001;
@@ -700,24 +967,30 @@ module thread_polyhedron(
 		z_thread_top_simple_yes = 0.001;
 		// radius correction to place polyhedron correctly
 		// hint: polyhedron front ist straight, thread circle not
-		minor_rad_p = minor_rad - bow_to_face_distance(minor_rad);
-		major_rad_p = major_rad - bow_to_face_distance(major_rad);
+		major_rad_p = major_rad - bow_to_face_distance(major_rad, seg_angle/2);
+		minor_rad_p = minor_rad - bow_to_face_distance(minor_rad, seg_angle/2);
+		hollow_rad_p = hollow_rad - bow_to_face_distance(hollow_rad, seg_angle/2);
 
-		/*echo(" *** polyhedron ***");
+		echo(" *** polyhedron ***");
 		echo("lower_flat",lower_flat);
 		echo("upper_flat",lower_flat);
 		echo("lower_flat",lower_flat);
+
 		echo("z_thread_lower",z_thread_lower);
 		echo("z_tip_lower",z_tip_lower);
 		echo("z_tip_inner_middle",z_tip_inner_middle);
 		echo("z_tip_upper",z_tip_upper);
 		echo("z_thread_upper",z_thread_upper);
+
+		echo("x_incr_hollow",x_incr_hollow);
+		echo("hollow_rad",hollow_rad);
+		echo("hollow_rad_p",hollow_rad_p);
+		
 		echo(slice_points());
-		echo(slice_faces());*/
+		echo(slice_faces());
 
 		polyhedron(	points = slice_points(),faces = slice_faces());
-
-
+		
 		// ------------------------------------------------------------
 		function slice_points() = 
 			[
@@ -739,68 +1012,100 @@ module thread_polyhedron(
 			[0,0,0], // [12]
 			[0,0,pitch + z_thread_top_simple_yes], // [13]
 			[-x_incr_inner/2,-minor_rad_p, z_tip_inner_middle + z_incr_this_side], // [14]
-			[+x_incr_inner/2,-minor_rad_p, z_tip_inner_middle + z_incr_back_side] // [15]
+			[+x_incr_inner/2,-minor_rad_p, z_tip_inner_middle + z_incr_back_side], // [15]
+			// inner shaft points
+			// bottom
+			[-x_incr_hollow/2,-hollow_rad_p,0 + z_incr_this_side], // [16]
+			[x_incr_hollow/2,-hollow_rad_p,0 + z_incr_back_side], // [17]
+			// top
+			[x_incr_hollow/2,-hollow_rad_p, pitch + z_incr_back_side + z_thread_top_simple_yes], // [18]
+			[-x_incr_hollow/2,-hollow_rad_p, pitch + z_incr_this_side + z_thread_top_simple_yes], // [19]
 		];
-	
-		// ------------------------------------------------------------
-		function slice_faces() =
-	
-		/*    
-		(angles x0 and x3 inner are actually 60 deg)
-	
-	
-	                       B-side(behind) _____[10](behind)
-	                                _____/    |
-	                         ______/         /|
-	                        /_______________/ |
-	                    [13]|          [11]|  |
-	                        |              | /\ [2](behind)
-	                        |              |/  \
-	                        |           [3]/    \
-	                  [3]   |              \     \
-	                        |              |\     \ [6](behind)
-	                        |    A-side    | \    /
-	                        |    (front)   |  \  /|
-	             z          |              |[7]\/ | [5](behind)
-	             |          |          [14]|   | /|
-	             |   x      |  (behind)[15]|   |/ /
-	             |  /       |              |[4]/ |
-	             | /        |              |  /  |   
-	             |/         |              | / _/|[1] (behind)
-	    y________|          |           [0]|/_/  |
-	   (r)                  |              |     |[9](behind)
-	                        |              |  __/
-	                    [12]|___________[8]|_/ 
-	
 
-		// Rule for face ordering: look at polyhedron from outside: points must
-		// be in clockwise order.
-   		*/
-	
-	 	[
-		//A side of slice
-		[12,13,11,3,0,8], // accepts it as "planar"
-		[3,7,4,0],
-		// B side of slice
-		[13,12,9,1,2,10], // accepts it as "planar"
-		[1,5,6,2],		
-		// bottom of slice
-		[12,8,9],
-		// top of slice	
-		[13,10,11], 						
-		//top inner of thread
-		[2,3,11,10],
-		//top flank of thread
-		[7,3,2], [2,6,7],
-		// tip/outer of thread	 	
-		[4,7,6,5],
-		//bottom flank of thread	
-		[0,4,5], [5,1,0], 					
-		//bottom inner of thread
-		//[8,0,1], [1,9,8],
-		[0,1,9,8]
-		];
 
 	} // end module thread_polyhedron()
-}
 
+	// ------------------------------------------------------------
+	module flat_thread_polyhedron(seg_angle, current_seg_z_offset)
+	{
+		x_incr_outer = 2*(accurateSin(seg_angle/2)*major_rad)+0.001; //overlapping needed 
+		x_incr_inner = 2*(accurateSin(seg_angle/2)*minor_rad)+0.001; //for simple=yes
+		x_incr_hollow = 2*(accurateSin(seg_angle/2)*hollow_rad)+0.001; //for simple=yes
+
+		z_incr =  pitch * seg_angle/360;
+		z_incr_this_side = z_incr * (right_handed ? 0 : 1);
+		z_incr_back_side = z_incr * (right_handed ? 1 : 0);
+		// a flat thread has all lower_flat really low... :-)
+		z_thread_lower = lower_flat >= 0.002 ? lower_flat-0.001 : 0.001;
+		z_tip_lower = z_thread_lower + right_flat;
+		z_tip_inner_middle = z_tip_lower + upper_flat/2;
+		z_tip_upper = (z_tip_lower + upper_flat <= pitch-0.002) ?
+							z_tip_lower + upper_flat
+							: pitch-0.002; 
+		z_thread_upper = (z_tip_upper + left_flat <= pitch-0.001) ?
+							z_tip_upper + left_flat
+							: pitch-0.001; 				
+		//to prevent errors if top slice barely touches bottom of next segement
+		//afterone full turn.
+		z_thread_top_simple_yes = 0.001;
+
+		// radius correction to place polyhedron correctly
+		// hint: polyhedron front ist straight, thread circle not
+		major_rad_p = major_rad - bow_to_face_distance(major_rad, seg_angle/2);
+		minor_rad_p = minor_rad - bow_to_face_distance(minor_rad, seg_angle/2);	
+		hollow_rad_p = hollow_rad - bow_to_face_distance(hollow_rad, seg_angle/2);
+
+		/*echo(" *** polyhedron ***");
+		echo("lower_flat",lower_flat);
+		echo("upper_flat",lower_flat);
+		echo("lower_flat",lower_flat);
+
+		echo("z_thread_lower",z_thread_lower);
+		echo("z_tip_lower",z_tip_lower);
+		echo("z_tip_inner_middle",z_tip_inner_middle);
+		echo("z_tip_upper",z_tip_upper);
+		echo("z_thread_upper",z_thread_upper);
+
+		echo("x_incr_hollow",x_incr_hollow);
+		echo("hollow_rad",hollow_rad);
+		echo("hollow_rad_p",hollow_rad_p);
+
+		echo(slice_points());
+		echo(slice_faces());*/
+
+		polyhedron(	points = slice_points(),faces = slice_faces());
+		
+		// ------------------------------------------------------------
+		function slice_points() = 
+			[
+			//tooth
+			[-x_incr_inner/2, -minor_rad_p, z_thread_lower + z_incr_this_side],    // [0]
+			[x_incr_inner/2, -minor_rad_p, z_thread_lower + z_incr_back_side],     // [1]
+			[x_incr_inner/2, -minor_rad_p, z_thread_upper  + z_incr_back_side],  // [2]
+			[-x_incr_inner/2, -minor_rad_p, z_thread_upper + z_incr_this_side],        // [3]
+			[-x_incr_outer/2, -major_rad_p, z_tip_lower + z_incr_this_side], // [4]
+			[x_incr_outer/2, -major_rad_p, z_tip_lower + z_incr_back_side],  // [5]
+			[x_incr_outer/2, -major_rad_p, z_tip_upper + z_incr_back_side], // [6]
+			[-x_incr_outer/2, -major_rad_p, z_tip_upper + z_incr_this_side],// [7]
+
+			//slice
+			[-x_incr_inner/2,-minor_rad_p,-current_seg_z_offset], // [8]
+			[x_incr_inner/2,-minor_rad_p,-current_seg_z_offset], // [9]
+			[x_incr_inner/2,-minor_rad_p, pitch + z_incr_back_side + z_thread_top_simple_yes], // [10]
+			[-x_incr_inner/2,-minor_rad_p, pitch + z_incr_this_side + z_thread_top_simple_yes], // [11]
+			[0,0,-current_seg_z_offset], // [12]
+			[0,0,pitch + z_thread_top_simple_yes], // [13]
+			[-x_incr_inner/2,-minor_rad_p, z_tip_inner_middle + z_incr_this_side], // [14]
+			[+x_incr_inner/2,-minor_rad_p, z_tip_inner_middle + z_incr_back_side], // [15]
+
+			// inner shaft points
+			// bottom
+			[-x_incr_hollow/2,-hollow_rad_p,-current_seg_z_offset], // [16]
+			[x_incr_hollow/2,-hollow_rad_p,-current_seg_z_offset], // [17]
+			// top
+			[x_incr_hollow/2,-hollow_rad_p, pitch + z_incr_back_side + z_thread_top_simple_yes], // [18]
+			[-x_incr_hollow/2,-hollow_rad_p, pitch + z_incr_this_side + z_thread_top_simple_yes], // [19]
+		];
+
+	} // end module flat_thread_polyhedron(seg_angle)
+} // end module thread()
