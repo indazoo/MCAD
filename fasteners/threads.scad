@@ -17,7 +17,14 @@
  *    in Menu=>Edit=>Preferences substantially (at least on Windows OS). 
  *  - Use OpenScad 2014.QX features as soon
  *    it is officially released (feature: list-comprehensions).
+ *  - a lot of standard definitions can be implemented (tolerance etc).
+ *  - big taper angles create invalid polygons (no limit checks implemented).
+ *  - test print BSP and NPT threads and check compatibility with std hardware.
+ *  - a 45 degree BSP/NPT variant which fits on metal std hardware and has no leaks.
  *
+ * Version 2.3  2014-11-02  indazoo
+ *                          - main thread() module supports now tapered threads
+ *                          - added tapered water pipe threads.
  * Version 2.2  2014-11-01  indazoo  
  *                          - now with "flat threads" which have only one turn and
  *                            no thread above last turn.
@@ -141,6 +148,8 @@
 //             fit exactly. For 3D prints "clearance" is probably needed if
 //             one does not uses a bigger "diameter" for the nut.
 //             "clearance" does not influence a bolt (internal = false)
+//             Not necesseraly needed for tapered threads. Use default (zero)
+//             for those.
 //  
 // printify_top
 // printify_bottom
@@ -168,6 +177,8 @@
 //test_internal_difference_buttress();
 //test_internal_difference_buttress_lefthanded();
 //test_flat_thread();
+//test_NPT();
+//test_BSP();
 
 module test_thread ($fa=5, $fs=0.1)
 {
@@ -349,6 +360,22 @@ module test_flat_thread()
 		bore_diameter = 5);
 }
 
+module test_NPT()
+{
+	US_national_pipe_thread(
+		nominal_pipe_size = 3/4,
+		length = 0.5,
+		internal  = false);
+}
+
+module test_BSP()
+{
+	BSP_thread(
+		nominal_pipe_size = 3/4,
+		length = 0.5,
+		internal  = false);
+}
+
 // ----------------------------------------------------------------------------
 use <../general/utilities.scad>
 use <../general/math.scad>
@@ -513,9 +540,6 @@ module english_thread(
 	mm_pitch = (1.0/threads_per_inch)*25.4;
 	mm_length = length*25.4;
 
-	echo(str("mm_diameter: ", mm_diameter));
-	echo(str("mm_pitch: ", mm_pitch));
-	echo(str("mm_length: ", mm_length));
 	metric_thread(mm_diameter, 
 			mm_pitch, 
 			mm_length, 
@@ -529,6 +553,272 @@ module english_thread(
 			bore_diameter = bore_diameter
 			);
 }
+
+
+//
+//-------------------------------------------------------------------
+//-------------------------------------------------------------------
+// BSPT (British Standard Pipe Taper)
+// Whitworth pipe thread DIN ISO 228 (DIN 259) 
+//
+// British Engineering Standard Association Reports No. 21 - 1938
+//
+// http://books.google.ch/books?id=rq69qn9WpQAC&pg=PA108&lpg=PA108&dq=British+Engineering+Standard+Association+Reports+No.+21+-+1938&source=bl&ots=KV2kxT-fFR&sig=3FBCPA3Kzhd62nl1Tz08g1QyyIY&hl=en&sa=X&ei=JehZVPWdA4LfPZyEgIAN&ved=0CBQQ6AEwAA#v=onepage&q=British%20Engineering%20Standard%20Association%20Reports%20No.%2021%20-%201938&f=false
+// 
+// http://valiagroups.net/dimensions-of-pipe-threads.htm
+// http://mdmetric.com/tech/thddat7.htm#pt
+// 
+// Male BSP is denoted as MBSP or MNPT
+// Female BSP is FBSP
+//
+// Notes:
+// a
+module BSP_thread(
+		nominal_pipe_size = 3/4,
+		length = 10,
+		internal  = false,
+		backlash = 0  //use backlash to correct too thight threads after 3D printing.
+)
+{
+	 //see http://mdmetric.com/tech/thddat19.htm
+	function get_n_threads(nominal_pipe_size) = 
+		 nominal_pipe_size == 1/16 ? 28
+		: nominal_pipe_size == 1/8 ? 28
+		: nominal_pipe_size == 1/4 ? 19
+		: nominal_pipe_size == 3/8 ? 19
+		: nominal_pipe_size == 1/2 ? 14
+		: nominal_pipe_size == 5/8 ? 14
+		: nominal_pipe_size == 3/4 ? 14
+		: nominal_pipe_size == 1 ? 11
+		: nominal_pipe_size == 5/4 ? 11
+		: nominal_pipe_size == 3/2 ? 11
+		: nominal_pipe_size == 2 ? 11
+		: nominal_pipe_size == 5/2 ? 11
+		: nominal_pipe_size == 3 ? 11
+		: nominal_pipe_size == 7/2 ? 11
+		: nominal_pipe_size == 4 ? 11
+		: nominal_pipe_size == 5 ? 11
+		: nominal_pipe_size == 6 ? 11
+		: 0
+		;
+	
+	 //see http://mdmetric.com/tech/thddat19.htm
+	function get_outside_diameter(nominal_pipe_size) =  
+		 nominal_pipe_size == 1/16 ? 0.304
+		: nominal_pipe_size == 1/8 ? 0.383	
+		: nominal_pipe_size == 1/4 ? 0.518
+		: nominal_pipe_size == 3/8 ? 0.656
+		: nominal_pipe_size == 1/2 ? 0.825
+		: nominal_pipe_size == 5/8 ? 0.902
+		: nominal_pipe_size == 3/4 ? 1.041
+		: nominal_pipe_size == 1 ? 1.309
+		: nominal_pipe_size == 5/4 ? 1.650
+		: nominal_pipe_size == 3/2 ? 1.882
+		: nominal_pipe_size == 2 ? 2.347
+		: nominal_pipe_size == 5/2 ? 2.960
+		: nominal_pipe_size == 3 ? 3.460
+		: nominal_pipe_size == 7/2 ? 3.950
+		: nominal_pipe_size == 4 ? 4.450
+		: nominal_pipe_size == 5 ? 5.450	
+		: nominal_pipe_size == 6 ? 6.450
+		: 0
+		;
+
+	// http://en.wikipedia.org/wiki/National_pipe_thread
+	// http://www.csgnetwork.com/mapminsecconv.html
+	//http://www.hasmi.nl/en/handleidingen/draadsoorten/american-standard-taper-pipe-threads-npt/
+	angle=27.5;
+	TPI_threads_per_inch = get_n_threads(nominal_pipe_size);
+	pitch = 1.0/TPI_threads_per_inch;
+	height = 0.960491 * pitch; //height from peak to peak , ideal without flat
+	max_height_inner_to_outer_flat = 0.640327 * pitch; 
+	
+	//Simple rules for all threads, not really correct
+	//So far, exact clearance not implemented.
+	//This is a rough approximation derived from mdmetric.com data	
+	min_clearance_to_outer_peak = (height-max_height_inner_to_outer_flat)/2;
+	max_clearance_to_outer_peak = 2 * min_clearance_to_outer_peak; // no idea, honestly
+	min_outer_flat = 2 * accurateTan(angle) * min_clearance_to_outer_peak;
+	max_outer_flat = 2 * accurateTan(angle) * max_clearance_to_outer_peak;
+	/*
+	echo(str("min_clearance_to_outer_peak: ", min_clearance_to_outer_peak));
+	echo(str("max_clearance_to_outer_peak: ", max_clearance_to_outer_peak));
+	echo(str("min_outer_flat: ", min_outer_flat));
+	echo(str("min_outer_flat calculated: ", 2 * accurateTan(30) * min_clearance_to_outer_peak));
+	echo(str("max_outer_flat: ", max_outer_flat));
+	*/
+
+	//so far, exact clearance not implemented.
+	//This is a rough approximation derived from mdmetric.com data	
+	clearance = internal ? max_clearance_to_outer_peak - min_clearance_to_outer_peak
+							: 0;
+
+	// outside diameter is defined in table
+	outside_diameter = get_outside_diameter(nominal_pipe_size);
+	mm_diameter = outside_diameter*25.4;
+
+	mm_pitch = (1.0/TPI_threads_per_inch)*25.4;
+	mm_length = length*25.4;
+	mm_outer_flat = (internal ? max_outer_flat : min_outer_flat) * 25.4;
+	mm_max_height_inner_to_outer_flat = max_height_inner_to_outer_flat *25.4;
+	mm_bore = nominal_pipe_size * 25.4;
+
+	thread (
+			pitch = mm_pitch,
+			length = mm_length,
+			upper_angle = angle, 
+			lower_angle = angle,
+			outer_flat_length = mm_outer_flat,
+			major_radius = mm_diameter / 2,
+			minor_radius = mm_diameter / 2 - mm_max_height_inner_to_outer_flat,
+			internal = internal,
+			n_starts = 1,
+			right_handed = true,
+			clearance = clearance,
+			backlash =  0,
+			printify_top = false,
+			printify_bottom = false,
+			bore_diameter = mm_bore,
+			taper_angle = atan(1/32) //tan−1(1⁄32) = 1.7899° = 1° 47′ 24.474642599928302″.
+			);	
+
+}
+
+//-------------------------------------------------------------------
+//-------------------------------------------------------------------
+// 
+// http://machiningproducts.com/html/NPT-Thread-Dimensions.html
+// http://www.piping-engineering.com/nominal-pipe-size-nps-nominal-bore-nb-outside-diameter-od.html
+// http://mdmetric.com/tech/thddat19.htm
+// 
+// Male NPT is denoted as either MPT or MNPT
+// Female NPT is either FPT or FNPT
+// Notes:
+//  - As itseems, a ideal model of a thread has no vanish section
+//    because there is no die with a chamfer which cuts the thread.
+module US_national_pipe_thread(
+		nominal_pipe_size = 3/4,
+		length = 10,
+		internal  = false,
+		backlash = 0  //use backlash to correct too thight threads after 3D printing.
+)
+{
+	 //see http://mdmetric.com/tech/thddat19.htm
+	function get_n_threads(nominal_pipe_size) = 
+		  nominal_pipe_size == 1/16 ? 27
+		: nominal_pipe_size == 1/8 ? 27
+		: nominal_pipe_size == 1/4 ? 18
+		: nominal_pipe_size == 3/8 ? 18
+		: nominal_pipe_size == 1/2 ? 14
+		: nominal_pipe_size == 3/4 ? 14
+		: nominal_pipe_size == 1 ? 11.5
+		: nominal_pipe_size == 5/4 ? 11.5
+		: nominal_pipe_size == 3/2 ? 11.5
+		: nominal_pipe_size == 2 ? 11.5
+		: nominal_pipe_size == 5/2 ? 8
+		: nominal_pipe_size == 3 ? 8
+		: nominal_pipe_size == 7/2 ? 8
+		: nominal_pipe_size == 4 ? 8
+		: nominal_pipe_size == 5 ? 8
+		: nominal_pipe_size == 6 ? 8
+		: nominal_pipe_size == 8 ? 8
+		: nominal_pipe_size == 10 ? 8
+		: nominal_pipe_size == 12 ? 8
+		: nominal_pipe_size == 14 ? 8
+		: nominal_pipe_size == 16 ? 8
+		: nominal_pipe_size == 18 ? 8
+		: nominal_pipe_size == 20 ? 8
+		: nominal_pipe_size == 24 ? 8
+		: 0
+		;
+	
+	 //see http://mdmetric.com/tech/thddat19.htm
+	function get_outside_diameter(nominal_pipe_size) =  
+		  nominal_pipe_size == 1/16 ? 0.3125
+		: nominal_pipe_size == 1/8 ? 0.405
+		: nominal_pipe_size == 1/4 ? 0.540
+		: nominal_pipe_size == 3/8 ? 0.675
+		: nominal_pipe_size == 1/2 ? 0.840
+		: nominal_pipe_size == 3/4 ? 1.050
+		: nominal_pipe_size == 1 ? 1.315
+		: nominal_pipe_size == 5/4 ? 1.660
+		: nominal_pipe_size == 3/2 ? 1.900
+		: nominal_pipe_size == 2 ? 2.375
+		: nominal_pipe_size == 5/2 ? 2.875
+		: nominal_pipe_size == 3 ? 3.500
+		: nominal_pipe_size == 7/2 ? 4
+		: nominal_pipe_size == 4 ? 4.5
+		: nominal_pipe_size == 5 ? 5.563
+		: nominal_pipe_size == 6 ? 6.625
+		: nominal_pipe_size == 8 ? 8.625
+		: nominal_pipe_size == 10 ? 10.750
+		: nominal_pipe_size == 12 ? 12.750
+		: nominal_pipe_size == 14 ? 14
+		: nominal_pipe_size == 16 ? 16
+		: nominal_pipe_size == 18 ? 18
+		: nominal_pipe_size == 20 ? 20
+		: nominal_pipe_size == 24 ? 24
+		: 0
+		;
+
+	// http://en.wikipedia.org/wiki/National_pipe_thread
+	// http://www.csgnetwork.com/mapminsecconv.html
+	//http://www.hasmi.nl/en/handleidingen/draadsoorten/american-standard-taper-pipe-threads-npt/
+	angle = 30;
+	TPI_threads_per_inch = get_n_threads(nominal_pipe_size);
+	pitch = 1.0/TPI_threads_per_inch;
+	height = 0.866025 * pitch; //height from peak to peak , ideal without flat
+	max_height_inner_to_outer_flat = 0.8 * pitch; 
+	
+	//Simple rules for all threads, not really correct
+	//So far, exact clearance not implemented.
+	//This is a rough approximation derived from mdmetric.com data	
+	min_clearance_to_outer_peak = 0.033 * pitch; // value  from website  
+	max_clearance_to_outer_peak = 0.088 * pitch; // aproximation, is dependent on thread size
+	min_outer_flat = 0.038 * pitch;
+	max_outer_flat = 2 * accurateTan(angle) * max_clearance_to_outer_peak;
+	/*
+	echo(str("min_clearance_to_outer_peak: ", min_clearance_to_outer_peak));
+	echo(str("max_clearance_to_outer_peak: ", max_clearance_to_outer_peak));
+	echo(str("min_outer_flat: ", min_outer_flat));
+	echo(str("min_outer_flat calculated: ", 2 * accurateTan(30) * min_clearance_to_outer_peak));
+	echo(str("max_outer_flat: ", max_outer_flat));
+	*/
+
+	//so far, exact clearance not implemented.
+	//This is a rough approximation derived from mdmetric.com data	
+	clearance = internal ? max_clearance_to_outer_peak - min_clearance_to_outer_peak
+							: 0;
+	outside_diameter = get_outside_diameter(nominal_pipe_size);
+
+	// Convert to mm.
+	mm_diameter = outside_diameter*25.4;
+	mm_pitch = (1.0/TPI_threads_per_inch)*25.4;
+	mm_length = length*25.4;
+	mm_outer_flat = (internal ? max_outer_flat : min_outer_flat) * 25.4;
+	mm_max_height_inner_to_outer_flat = max_height_inner_to_outer_flat *25.4;
+	mm_bore = nominal_pipe_size * 25.4;
+
+	thread (
+			pitch = mm_pitch,
+			length = mm_length,
+			upper_angle = angle, 
+			lower_angle = angle,
+			outer_flat_length = mm_outer_flat,
+			major_radius = mm_diameter / 2,
+			minor_radius = mm_diameter / 2 - mm_max_height_inner_to_outer_flat,
+			internal = internal,
+			n_starts = 1,
+			right_handed = true,
+			clearance = clearance,
+			backlash =  0,
+			printify_top = false,
+			printify_bottom = false,
+			bore_diameter = mm_bore,
+			taper_angle = atan(1/32) //tan−1(1⁄32) = 1.7899° = 1° 47′ 24.474642599928302″.
+			);	
+}
+
 
 // ----------------------------------------------------------------------------
 //
@@ -611,7 +901,8 @@ module thread(
 	printify_bottom = false,
 	multiple_turns_over_height = true,
 	turn_angle = 360, //used for flat_threads
-	bore_diameter = -1
+	bore_diameter = -1, //-1 = no bore hole. Use it for pipes 
+	taper_angle = 0
 )
 {
 	if(bore_diameter >= 2*minor_radius)
@@ -631,6 +922,10 @@ module thread(
 	n_segments = multiple_turns_over_height ?
 					n_segments_tmp  //std threads
 					: turn_angle/seg_angle; //flat threads
+	
+	taper_per_segment = accurateTan(taper_angle)*length   //total taper
+						/ (length/pitch) / n_segments;
+	
 	min_openscad_fs = 0.01;
 
 	// Clearance:
@@ -753,6 +1048,8 @@ module thread(
 	echo("major_rad",major_rad);
 	echo("minor_radius",minor_radius);
 	echo("minor_rad",minor_rad);
+	echo("taper_angle",taper_angle);	
+	echo("taper_per_segment",taper_per_segment);
 
 	echo("internal_play_offset",internal_play_offset());
 	echo("******************************");*/
@@ -798,7 +1095,7 @@ module thread(
 			// Start one below z = 0.  Gives an extra turn at each end.
 			for (i=[-1*n_starts : n_turns]) {
 				translate([0, 0, i*pitch]) 
-					thread_turn(n_segments);
+					thread_turn(n_segments, i+n_starts+1);
 			}
 		}
 		else
@@ -817,16 +1114,19 @@ module thread(
 	}
 
 	// ----------------------------------------------------------------------------
-	module thread_turn(n_segments)
+	module thread_turn(n_segments, current_turn)
 	{
 		for (i=[0 : n_segments-1]) 
 		{
 			rotate([0, 0, poly_rotation_total(i)]) 
 			{
 				translate([0, 0, i*n_starts*pitch*(seg_angle/360)
-									+ internal_play_offset()]) {
-									//]) {
-				thread_polyhedron(seg_angle);
+									+ internal_play_offset()]) 
+				{
+					if(taper_per_segment == 0)
+						thread_polyhedron(seg_angle);
+					else
+						thread_polyhedron_tapered(seg_angle, current_turn*n_segments + i);
          		}
       		}
 		}
@@ -938,6 +1238,90 @@ module thread(
 		[0,1,9,8],	
 		];
 
+	// ------------------------------------------------------------
+	module thread_polyhedron_tapered(seg_angle, current_segment)
+	{
+		current_major_rad = major_rad-current_segment*taper_per_segment;
+		current_minor_rad = minor_rad-current_segment*taper_per_segment;
+
+		x_incr_outer = 2*(accurateSin(seg_angle/2)*current_major_rad)+0.001; //overlapping needed 
+		x_incr_inner = 2*(accurateSin(seg_angle/2)*current_minor_rad)+0.001; //for simple=yes
+		x_incr_hollow = 2*(accurateSin(seg_angle/2)*hollow_rad)+0.001; //for simple=yes
+
+		z_incr = n_starts * pitch * seg_angle/360;
+		z_incr_this_side = z_incr * (right_handed ? 0 : 1);
+		z_incr_back_side = z_incr * (right_handed ? 1 : 0);
+		z_thread_lower = lower_flat >= 0.002 ? lower_flat/2 : 0.001;
+		z_tip_lower = z_thread_lower + right_flat;
+		z_tip_inner_middle = z_tip_lower + upper_flat/2;
+		z_tip_upper = (z_tip_lower + upper_flat <= pitch-0.002) ?
+							z_tip_lower + upper_flat
+							: pitch-0.002; 
+		z_thread_upper = (z_tip_upper + left_flat <= pitch-0.001) ?
+							z_tip_upper + left_flat
+							: pitch-0.001; 				
+		//to prevent errors if top slice barely touches bottom of next segement
+		//afterone full turn.
+		z_thread_top_simple_yes = 0.001;
+		// radius correction to place polyhedron correctly
+		// hint: polyhedron front ist straight, thread circle not
+		major_rad_p = current_major_rad - bow_to_face_distance(current_major_rad, seg_angle/2);
+		minor_rad_p = current_minor_rad - bow_to_face_distance(current_minor_rad, seg_angle/2);
+		hollow_rad_p = hollow_rad - bow_to_face_distance(hollow_rad, seg_angle/2);
+
+		/*echo(" *** polyhedron ***");
+		echo("lower_flat",lower_flat);
+		echo("upper_flat",lower_flat);
+		echo("lower_flat",lower_flat);
+
+		echo("z_thread_lower",z_thread_lower);
+		echo("z_tip_lower",z_tip_lower);
+		echo("z_tip_inner_middle",z_tip_inner_middle);
+		echo("z_tip_upper",z_tip_upper);
+		echo("z_thread_upper",z_thread_upper);
+
+		echo("x_incr_hollow",x_incr_hollow);
+		echo("hollow_rad",hollow_rad);
+		echo("hollow_rad_p",hollow_rad_p);
+		
+		echo(slice_points());
+		echo(slice_faces());*/
+
+		polyhedron(	points = slice_points(),faces = slice_faces());
+		
+		// ------------------------------------------------------------
+		function slice_points() = 
+			[
+			//tooth
+			[-x_incr_inner/2, -minor_rad_p, z_thread_lower + z_incr_this_side],    // [0]
+			[x_incr_inner/2, -minor_rad_p, z_thread_lower + z_incr_back_side],     // [1]
+			[x_incr_inner/2, -minor_rad_p, z_thread_upper  + z_incr_back_side],  // [2]
+			[-x_incr_inner/2, -minor_rad_p, z_thread_upper + z_incr_this_side],        // [3]
+			[-x_incr_outer/2, -major_rad_p, z_tip_lower + z_incr_this_side], // [4]
+			[x_incr_outer/2, -major_rad_p, z_tip_lower + z_incr_back_side],  // [5]
+			[x_incr_outer/2, -major_rad_p, z_tip_upper + z_incr_back_side], // [6]
+			[-x_incr_outer/2, -major_rad_p, z_tip_upper + z_incr_this_side],// [7]
+
+			//slice
+			[-x_incr_inner/2,-minor_rad_p,0 + z_incr_this_side], // [8]
+			[x_incr_inner/2,-minor_rad_p,0 + z_incr_back_side], // [9]
+			[x_incr_inner/2,-minor_rad_p, pitch + z_incr_back_side + z_thread_top_simple_yes], // [10]
+			[-x_incr_inner/2,-minor_rad_p, pitch + z_incr_this_side + z_thread_top_simple_yes], // [11]
+			[0,0,0], // [12]
+			[0,0,pitch + z_thread_top_simple_yes], // [13]
+			[-x_incr_inner/2,-minor_rad_p, z_tip_inner_middle + z_incr_this_side], // [14]
+			[+x_incr_inner/2,-minor_rad_p, z_tip_inner_middle + z_incr_back_side], // [15]
+			// inner shaft points
+			// bottom
+			[-x_incr_hollow/2,-hollow_rad_p,0 + z_incr_this_side], // [16]
+			[x_incr_hollow/2,-hollow_rad_p,0 + z_incr_back_side], // [17]
+			// top
+			[x_incr_hollow/2,-hollow_rad_p, pitch + z_incr_back_side + z_thread_top_simple_yes], // [18]
+			[-x_incr_hollow/2,-hollow_rad_p, pitch + z_incr_this_side + z_thread_top_simple_yes], // [19]
+		];
+
+
+	} // end module thread_polyhedron_tapered()
 
 	// ------------------------------------------------------------
 	module thread_polyhedron(seg_angle)
