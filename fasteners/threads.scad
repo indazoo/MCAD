@@ -1,7 +1,7 @@
 /*
  * Dan Kirshner - dan_kirshner@yahoo.com
  * Chow Loong Jin - hyperair@debian.org
- * indazoo - callNSAforemail@brotherswearemaybe.internet
+ * indazoo 
  *
  * You are welcome to make free use of this software.  Retention of our
  * authorship credit would be appreciated.
