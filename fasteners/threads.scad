@@ -356,7 +356,7 @@ module test_flat_thread()
 	flat_thread(
 		thread_diameter = 8,
 		pitch = 1,
-		turn_angle = 270,
+		turn_angle = 360,
 		length = 1,
 		internal = false,
 		n_starts = 1,
@@ -1061,9 +1061,9 @@ module thread(
 					+ backlash/2-tan_left*clearance
 			  )
 			+ (tan_right*clearance >= backlash/2 ?
-					+ tan_right*clearance-backlash/2
+					- tan_right*clearance-backlash/2
 					: 
-					- backlash/2-tan_right*clearance
+					+ backlash/2-tan_right*clearance
 			  )
 		:0);
 	if(upper_flat<=0)
