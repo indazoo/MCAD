@@ -282,11 +282,11 @@ module test_internal_difference_metric($fa=20, $fs=0.1)
 {
 	difference()
 	{
-		metric_thread(diameter=17.7, pitch=2, length=4.3,
+		metric_thread(diameter=17.7, pitch=2, length=10,
 						internal=true, n_starts=3, 
 						clearance = 0.1, backlash=0.4);
 		rotate([0,0,$fa/2])
-		metric_thread(diameter=17.7, pitch=2, length=4.3, 
+		metric_thread(diameter=17.7, pitch=2, length=10, 
 						internal=false, n_starts=3, 
 						clearance = 0.1, backlash=0.4);
 		translate([10,10,0]) cube([20,20,20], center=true);
@@ -298,11 +298,11 @@ module test_internal_difference_buttress($fa=20, $fs=0.1)
 {
 	difference()
 	{
-		buttress_thread(diameter=17.7, pitch=1.9, length=4.3, 
+		buttress_thread(diameter=17.7, pitch=1.9, length=11.1, 
 					internal=true, n_starts=1,
 					buttress_angles = [13, 33], 
 					clearance = 0.1, backlash=0.4);
-		buttress_thread(diameter=17.7, pitch=1.9, length=4.3, 
+		buttress_thread(diameter=17.7, pitch=1.9, length=11.1, 
 					internal=false, n_starts=1, 
 					buttress_angles = [13, 33],
 					clearance = 0.1, backlash=0.4);
@@ -314,12 +314,12 @@ module test_internal_difference_buttress_lefthanded($fa=20, $fs=0.1)
 {
 	difference()
 	{
-		buttress_thread(diameter=17.7, pitch=1.9, length=4.3, 
+		buttress_thread(diameter=17.7, pitch=1.9, length=11.1, 
 					internal=true, n_starts=1,
 					buttress_angles = [7, 44], 
 					right_handed = false,
 					clearance = 0.1, backlash=0.4);
-		buttress_thread(diameter=17.7, pitch=1.9, length=4.3, 
+		buttress_thread(diameter=17.7, pitch=1.9, length=11.1, 
 					internal=false, n_starts=1, 
 					buttress_angles = [7, 44],
 					right_handed = false,
@@ -330,7 +330,7 @@ module test_internal_difference_buttress_lefthanded($fa=20, $fs=0.1)
 
 module test_buttress($fa=20, $fs=0.1)
 {
-	buttress_thread(diameter=8, pitch=4, length=4.3, 
+	buttress_thread(diameter=8, pitch=4, length=4, 
 					internal=false, n_starts=1,
 					buttress_angles = [45, 3], right_handed=true ,
 					clearance = 0, backlash=0);
@@ -340,12 +340,12 @@ module test_leftright_buttress($fa=20, $fs=0.1)
 {
 
 	translate([20,0,0])
-		buttress_thread(diameter=20, pitch=1.9, length=4.3, 
+		buttress_thread(diameter=20, pitch=1.9, length=5.1, 
 					internal=true, n_starts=1,
 					buttress_angles = [15, 40], right_handed=true ,
 					clearance = 0.1, backlash=0.4);
 
-		buttress_thread(diameter=20, pitch=1.9, length=4.3, 
+		buttress_thread(diameter=20, pitch=1.9, length=5.1, 
 					internal=true, n_starts=1,
 					buttress_angles = [15, 40], right_handed=false ,
 					clearance = 0.1, backlash=0.4);
