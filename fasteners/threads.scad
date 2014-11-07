@@ -269,10 +269,10 @@ module test_internal_difference_metric($fa=20, $fs=0.1)
 {
 	difference()
 	{
-		metric_thread(diameter=34, pitch=2, length=10, 
+		metric_thread(diameter=34, pitch=2, length=4.3, 
 						internal=true, n_starts=1, 
 						clearance = 0.1, backlash=0.4);
-		metric_thread(diameter=34, pitch=2, length=10, 
+		metric_thread(diameter=34, pitch=2, length=4.3, 
 						internal=false, n_starts=1, 
 						clearance = 0.1, backlash=0.4);
 	}
@@ -1167,7 +1167,7 @@ module thread(
 			for (i=[0:n_starts-1]) 
 			{
 				rotate([0,0,i*360/n_starts])
-					translate([0, 0, (total_flat() >= len)? total_flat() : 0]) 
+					translate([0, 0, (total_flat() >= len)? -total_flat() : 0]) 
 						flat_thread_turn(n_segments);
 			}
 		}
@@ -1191,8 +1191,8 @@ module thread(
 						thread_polyhedron(seg_angle);
 					else
 						thread_polyhedron_tapered(seg_angle, current_turn*n_segments + i);
-         		}
-      		}
+				}
+			}
 		}
 	} // end module metric_thread_turn()
 
@@ -1503,7 +1503,6 @@ module thread(
 		echo("seg_angle",seg_angle);
 		echo("lower_flat",lower_flat);
 		echo("upper_flat",upper_flat);
-		echo("current_seg_z_offset",current_seg_z_offset);
 		echo("internal_play_offset()",internal_play_offset());
 		echo("z_thread_upper",z_thread_upper);
 		echo("z_incr_this_side",z_incr_this_side);
