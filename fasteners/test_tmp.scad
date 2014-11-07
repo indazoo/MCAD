@@ -196,7 +196,7 @@
 //test_internal_difference_metric();
 //test_buttress();
 //test_leftright_buttress(5);
-//test_internal_difference_buttress();
+test_internal_difference_buttress();
 //test_internal_difference_buttress_lefthanded();
 //test_flat_thread();
 //test_NPT();
@@ -1079,7 +1079,7 @@ module thread(
 	tooth_flat = upper_flat + left_flat + right_flat;
 	lower_flat = (total_flat()-tooth_flat >= 0) ? total_flat()-tooth_flat : 0;
 
-/*	echo("**** polyhedron thread ******");
+	echo("**** polyhedron thread ******");
 	echo("internal", internal);
 	echo("length", len);
 	echo("pitch", pitch);
@@ -1111,7 +1111,7 @@ module thread(
 	echo("taper_per_segment",taper_per_segment);
 	echo("poly_rot_slice_offset()",poly_rot_slice_offset());
 	echo("internal_play_offset",internal_play_offset());
-	echo("******************************");*/
+	echo("******************************");
 
 	// ----------------------------------------------------------------------------
 	// polyhedron axial orientation
