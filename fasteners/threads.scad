@@ -8,7 +8,6 @@
  *
  *
  * TODO:
- *  - angle alignment of flat_threads() is not exact at x==0
  *  - printify does notwork after v1.8
  *  - OpenScad issues warning the warning:
  *    "Normalized tree is growing past 200000 elements. Aborting normalization."
@@ -21,20 +20,41 @@
  *  - big taper angles create invalid polygons (no limit checks implemented).
  *  - test print BSP and NPT threads and check compatibility with std hardware.
  *  - a 45 degree BSP/NPT variant which fits on metal std hardware and has no leaks.
+ *  - reduce number of polygons for a tooth (speed). 
+ *  - The current design creates polyhedra with the possibility of an inner flat
+ *    (at minor_rad) on bottom and on top. This is useful if each tooth segment is 
+ *    being individually calculated for its position in the thread which needs a
+ *    variable inner flat on top and on bottom. With dynamically created polyhedra
+ *    only the necessary polyhedra must be created. The current design creates too
+ *    many of them and cuts the unneeded on top and bottom. So, with less polyhedra 
+ *    speed can be improved. But the last and first polyhedra may 
+ *    be tricky to create because they end with height = 0 on one side.
+ *    Perhaps, this speed trick should be implemented AFTER moving to list-comprehensions.
  *
+ * Version 2.4  2011-11-10  indazoo
+ *                          - thread was not complete for fractions of 
+ *                            pitch/length relationships
+ *                          - more comments and output texts
+ *                          - channel threads further debugged
+ *                          - tests improved
+ *                          - thread flats calculation improved
+ *                          - "flat_thread" (still beta) renamed to "channel_thread" 
+ *                            due to name conflicts with tooth flats of thread .
+ *                          - removed external dependencies (MCAD)  
+ *                          - internal_play_offset deactivated                         
  * Version 2.3  2014-11-06  indazoo
- *                          - flat_thread has now clearance also on top
+ *                          - channel_thread has now clearance also on top
  *                          - some comments improved
- *                          - bugs with flat threads removed
- *                          - flat thread created too many polygons
+ *                          - bugs with channel threads removed
+ *                          - channel thread created too many polygons
  *                          - flat polygon now independent of angle/location
  *                          - parameter "exact_clearance" added
  * Version 2.3  2014-11-02  indazoo
  *                          - main thread() module supports now tapered threads
  *                          - added tapered water pipe threads.
  * Version 2.2  2014-11-01  indazoo  
- *                          - now with "flat threads" which have only one turn and
- *                            no thread above last turn.
+ *                          - now with "channel threads" which have only one turn and
+ *                            no thread above that turn.
  *                          - supports now a bore hole at the thread's axis.
  *                          - some test code added
  * Version 2.1  2014-10-27  indazoo  
@@ -43,8 +63,9 @@
  *                          - improved corner cases where thread flats are zero
  *                          - test code changed
  * Version 2.0  2014-10-27  indazoo            
- *                          merged polyhedra approach from
+ *                          dropped linear_extrude() infavor of polyhedra approach from
  *                            http://dkprojects.net/openscad-threads/threads.scad
+ *                          ==> thread is accurate and "nice"
  *                          - removed too many turns (those for loops are tricky, eh?)
  *                          - merged modules/functions for less parameters
  *                          - calculation of inner outer diameter for polygon now correct
@@ -62,39 +83,38 @@
  * 
  * Version 1.8  2014-10-27  indazoo
  *
- * Important  !!!!
- * Use that library (all versions <= 1.8) on your own risk!
- * Yes there are risks.
- * This library was forked from hyperair/MCAD. Thought it would be ok to use/extend 
- * the code. Then I found some bugs and fixed them. Unfortunately I discovered a real BUG.
- * Below in the history you see, the comment for version 1.2:
- * ==> "Use discrete polyhedra rather than linear_extrude()"
- * This has never been implemented or was erased! Why is this important ? 
- * Because it is impossible to create a accurate thread with linear_extrude'ing
- * a cross section of a thread. It is always an aproximation.
- * Case A: Create the cross section with constant angles matching that of linear_extrude.
- *         This gives a nice ouput. But! It cuts or adds too much of/to the corners 
- *         of your thread. You need to have a high $fn to get an APROXIMATION. Very
- *         likely your 3D printed nut/bolt will not fit.
- * Case B: Create the cross section with angles matching the thread corners (as I 
- *         implemented it (version 1.4 and above). This creates an accurate cross section
- *         of the thread's tooth profile but linear_extrude messes it up creating 
- *         polygons in a way, that the surface is distorted/rough.
- *         This is,because the polygons/corners of the cross section 
- *         aren't even spaced by the same angle ($fa) which is being used by 
- *         linear_extrude(). Atleast with high $fn the "roughness" gets small.
- * 
- *  ==> If you want accurate threads use V1.8 but check if the roughess is OK for you.
- *      See "radius bug" below in the TODO list
- *  ==> All versions < v1.8 are only an aproximation.
- *  ==> This code (version 1.3 and below) is a good sample of "never believe 
- *      source code you find in the internet".
+ *                          Important note for coders not for users :
+ *                          This library was forked from hyperair/MCAD. Thought it 
+ *                          would be ok to use/extend the code. Then I found some bugs
+ *                          and fixed them. Below in the history you see, the comment 
+ *                          for version 1.2:
+ *                          ==> "Use discrete polyhedra rather than linear_extrude()"
+ *                          This has never been implemented or was erased! 
+ *                          Why is this important ? 
+ *                          Because it is impossible to create a accurate thread with 
+ *                          linear_extrude'ing a cross section of a thread (at least up
+ *                          until OpenSCAD 2014.QX. It is always an aproximation.
  *
- * Back to the missing polyhedra implementation:
- * It seems the version 1.2 with poylhedra flies around:
- * http://dkprojects.net/openscad-threads/threads.scad
+ *                          Case A: Create the cross section with constant angles matching
+ *                          that of linear_extrude.
+ *                          This gives a nice ouput. But! It cuts or adds too much of/to
+ *                          the corners of your thread. You need to have a high $fn to 
+ *                          get an APROXIMATION. Very likely your 3D printed nut/bolt 
+ *                          will not fit/turn.
+ *
+ *                          Case B: Create the cross section with angles matching the 
+ *                          thread corners (as I implemented it (version 1.4 and above).
+ *                          This creates in theory an accurate cross section of the 
+ *                          thread's tooth profile but linear_extrude messes it up 
+ *                          creating polygons in a way, that the surface is distorted/rough.
+ *                          This is,because the polygons/corners of the cross section
+ *                          aren't even spaced by the same angle ($fa) which is being used
+ *                          by linear_extrude(). At least with high $fn the "roughness" 
+ *                          gets small.
  * 
- *          
+ *                          ==> If you want accurate threads use V1.8 but check if the
+ *                              roughess is OK for you.
+ *                          ==> All versions < v1.8 are only an aproximation.
  * Version 1.7   2014-10-19   indazoo
  *                            - added printify for inset threads so no
  *                              90 degree overhang ocurs.
@@ -169,10 +189,10 @@
 //             printing the thread vertically). 
 //
 // exact_clearance
-//             Usefuly only for "internal" threads. Default "true".
-//             "true" expands outer diameter more than clearance.
+//             Usefuly only for "internal" threads. Default "true" (exact).
+//             Using "false" expands outer diameter more than clearance:
 //             ==> outer diameter changes with different $fn but bolt will surely turn.
-//             "false" adds only exact clearance to outer diameter
+//             Using "true" adds only exact clearance to outer diameter
 //             ==> outer diameter is fix for all $fn, but your bolt may be unturnable
 //             Reason:
 //             The outer walls of the created threads are not circular. They consist
@@ -185,7 +205,7 @@
 
 
 // -------------------------------------------------------------------
-// Test threads
+// Test/demo threads
 // -------------------------------------------------------------------
 
 //$fn=12;
@@ -198,7 +218,8 @@
 //test_leftright_buttress(5);
 //test_internal_difference_buttress();
 //test_internal_difference_buttress_lefthanded();
-//test_flat_thread();
+//test_channel_thread();
+//test_channel_thread_diff();
 //test_NPT();
 //test_BSP();
 
@@ -256,7 +277,7 @@ module test_threads ($fa=5, $fs=0.1)
     metric_thread(8, pitch=1, length=5, internal=true, n_starts=3);
 
 	translate ([-10, 0, 0])
-         test_flat_thread();
+         test_channel_thread();
 
 }
 
@@ -273,8 +294,7 @@ module test_internal_difference_metric($fa=20, $fs=0.1)
 						internal=true, n_starts=1, 
 						clearance = 0.1, backlash=0.4);
 		metric_thread(diameter=34, pitch=2, length=4.3, 
-						internal=false, n_starts=1, 
-						clearance = 0.1, backlash=0.4);
+						internal=false, n_starts=1);
 	}
 }
 
@@ -282,13 +302,12 @@ module test_internal_difference_metric($fa=20, $fs=0.1)
 {
 	difference()
 	{
-		metric_thread(diameter=17.7, pitch=2, length=4.3,
+		metric_thread(diameter=17.7, pitch=2, length=2.3,
 						internal=true, n_starts=3, 
 						clearance = 0.1, backlash=0.4);
 		rotate([0,0,$fa/2])
-		metric_thread(diameter=17.7, pitch=2, length=4.3, 
-						internal=false, n_starts=3, 
-						clearance = 0.1, backlash=0.4);
+		metric_thread(diameter=17.7, pitch=2, length=2.3, 
+						internal=false, n_starts=3);
 		translate([10,10,0]) cube([20,20,20], center=true);
 	}
 }
@@ -298,14 +317,13 @@ module test_internal_difference_buttress($fa=20, $fs=0.1)
 {
 	difference()
 	{
-		buttress_thread(diameter=17.7, pitch=1.9, length=4.3, 
+		buttress_thread(diameter=17.7, pitch=1.9, length=2.3, 
 					internal=true, n_starts=1,
 					buttress_angles = [13, 33], 
 					clearance = 0.1, backlash=0.4);
-		buttress_thread(diameter=17.7, pitch=1.9, length=4.3, 
+		buttress_thread(diameter=17.7, pitch=1.9, length=2.3, 
 					internal=false, n_starts=1, 
-					buttress_angles = [13, 33],
-					clearance = 0.1, backlash=0.4);
+					buttress_angles = [13, 33]);
 		translate([10,10,0]) cube([20,20,20], center=true);
 	}
 }
@@ -314,17 +332,17 @@ module test_internal_difference_buttress_lefthanded($fa=20, $fs=0.1)
 {
 	difference()
 	{
-		buttress_thread(diameter=17.7, pitch=1.9, length=4.3, 
+		buttress_thread(diameter=17.7, pitch=1.9, length=2.3, 
 					internal=true, n_starts=1,
 					buttress_angles = [7, 44], 
 					right_handed = false,
 					clearance = 0.1, backlash=0.4);
-		buttress_thread(diameter=17.7, pitch=1.9, length=4.3, 
+		buttress_thread(diameter=17.7, pitch=1.9, length=2.3, 
 					internal=false, n_starts=1, 
 					buttress_angles = [7, 44],
-					right_handed = false,
-					clearance = 0.1, backlash=0.4);
+					right_handed = false);
 
+		translate([10,10,0]) cube([20,20,20], center=true);
 	}
 }
 
@@ -332,8 +350,7 @@ module test_buttress($fa=20, $fs=0.1)
 {
 	buttress_thread(diameter=8, pitch=4, length=4.3, 
 					internal=false, n_starts=1,
-					buttress_angles = [45, 3], right_handed=true ,
-					clearance = 0, backlash=0);
+					buttress_angles = [45, 3], right_handed=true);
 	
 }
 module test_leftright_buttress($fa=20, $fs=0.1)
@@ -347,19 +364,19 @@ module test_leftright_buttress($fa=20, $fs=0.1)
 
 		buttress_thread(diameter=20, pitch=1.9, length=4.3, 
 					internal=true, n_starts=1,
-					buttress_angles = [15, 40], right_handed=false ,
-					clearance = 0.1, backlash=0.4);
+					buttress_angles = [15, 40], right_handed=false);
 }
 
-module test_flat_thread()
+module test_channel_thread()
 {
-	flat_thread(
+	channel_thread(
 		thread_diameter = 8,
 		pitch = 1,
 		turn_angle = 360,
 		length = 1,
 		internal = false,
 		n_starts = 1,
+		thread_angles = [20,45],
 		outer_flat_length = 0.2,
 		right_handed = true,
 		clearance = 0,
@@ -368,18 +385,53 @@ module test_flat_thread()
 		);
 
 	translate([0,-10,0])
-	flat_thread(
+	channel_thread(
 		thread_diameter = 8,
 		pitch = 0.5,
 		turn_angle = 360,
 		length = 1,
 		internal = false,
 		n_starts = 1,
+		thread_angles = [0,45],
 		outer_flat_length = 0.2,
 		right_handed = false,
 		clearance = 0,
 		backlash = 0,
 		bore_diameter = 5);
+	
+}
+
+module test_channel_thread_diff()
+{
+	angles= [10,30];
+	difference()
+	{
+		channel_thread(
+			thread_diameter = 8,
+			pitch = 0.5,
+			turn_angle = 360,
+			length = 1,
+			internal = true,
+			n_starts = 1,
+			thread_angles = angles,
+			outer_flat_length = 0.2,
+			right_handed = false,
+			clearance = 0.1,
+			backlash = 0.1,
+			bore_diameter = 5);
+		channel_thread(
+			thread_diameter = 8,
+			pitch = 0.5,
+			turn_angle = 360,
+			length = 1,
+			internal = false,
+			n_starts = 1,
+			thread_angles = angles,
+			outer_flat_length = 0.2,
+			right_handed = false,
+			bore_diameter = 5);
+		translate([-2.5,-2.5,0]) cube([5,5,5], center=true);
+	}
 }
 
 module test_NPT()
@@ -399,9 +451,6 @@ module test_BSP()
 }
 
 // ----------------------------------------------------------------------------
-use <../general/utilities.scad>
-use <../general/math.scad>
-
 // ----------------------------------------------------------------------------
             
 module metric_thread (
@@ -416,7 +465,7 @@ module metric_thread (
 		printify_top = false,
 		printify_bottom = false,
 		bore_diameter = -1,
-		exact_clearance = false
+		exact_clearance = true
 )
 {
     thread (
@@ -451,7 +500,7 @@ module square_thread (
 		printify_top = false,
 		printify_bottom = false,
 		bore_diameter = -1,
-		exact_clearance = false
+		exact_clearance = true
 )
 {
     thread (
@@ -486,7 +535,7 @@ module acme_thread (
 		printify_top = false,
 		printify_bottom = false,
 		bore_diameter = -1,
-		exact_clearance = false
+		exact_clearance = true
 )
 {
     thread (
@@ -524,7 +573,7 @@ module buttress_thread (
 		printify_top = false,
 		printify_bottom = false,
 		bore_diameter = -1,
-		exact_clearance = false
+		exact_clearance = true
 )
 {
     thread (
@@ -563,7 +612,7 @@ module english_thread(
 		printify_top = false,
 		printify_bottom = false,
 		bore_diameter = -1,
-		exact_clearance = false
+		exact_clearance = true
 )
 {
 	// Convert to mm.
@@ -854,7 +903,7 @@ module US_national_pipe_thread(
 
 // ----------------------------------------------------------------------------
 //
-module flat_thread(
+module channel_thread(
 		thread_diameter = 8,
 		pitch = 1,
 		turn_angle = 360,
@@ -867,23 +916,23 @@ module flat_thread(
 		clearance = 0,
 		backlash = 0,
 		bore_diameter = -1,
-		exact_clearance = false		
+		exact_clearance = true		
 )
 {
 	if(turn_angle > 360)
 	{
 		echo("*** Warning !!! ***");
-		echo("flat_thread(): a flat thread cannot be larger than 360 degree!");
+		echo("channel_thread(): a channel thread cannot be larger than 360 degree!");
 	}
 	if(turn_angle*n_starts > 360)
 	{
 		echo("*** Warning !!! ***");
-		echo("flat_thread(): a flat thread cannot have turn_angle*n_starts larger than 360 degree!");
+		echo("channel_thread(): a channel thread cannot have turn_angle*n_starts larger than 360 degree!");
 	}
 	if(outer_flat_length >= length)
 	{
 		echo("*** Warning !!! ***");
-		echo("flat_thread(): tip of thread (outer_flat_length) cannot be larger than height!");
+		echo("channel_thread(): tip of thread (outer_flat_length) cannot be larger than height!");
 	}
 	
 	thread (
@@ -910,6 +959,82 @@ module flat_thread(
 
 // ---------------------------------------------------------------------
 // ---------------------------------------------------------------------
+// OpenSCAD version 2014.03 and also 2014.QX (only for tan) created
+// incorrect values for "even" angles.
+function accurateCos(x) = 
+(x%30)!=0?cos(x): (x<360?simpleCos(x):simpleCos(x-floor(x/360)*360));
+function simpleCos(x) =
+x==0 ? 1 :
+x==60 ? 0.5 :
+x==90 ? 0 :
+x==120 ? -0.5 :
+x==180 ? -1 :
+x==240 ? -0.5 :
+x==270 ? 0 :
+x==300 ? 0.5 :
+x==360 ? 1 : cos(x);
+// TEST
+/*
+echo("cos");
+for (angle = [0:1:361]) 
+{
+	if((cos(angle)-accurateCos(angle)) != 0)	
+		echo(angle," ", cos(angle)-accurateCos(angle));
+}
+*/
+function accurateSin(x) = 
+(x%15)!=0?sin(x): (x<360?simpleSin(x):simpleSin(x-floor(x/360)*360));
+function simpleSin(x) =
+x==0 ? 0 :
+x==30 ? 0.5 :
+x==90 ? 1 :
+x==150 ? 0.5 :
+x==180 ? 0 :
+x==210 ? -0.5 :
+x==270 ? -1 :
+x==330 ? -0.5 :
+x==360 ? 0 : sin(x);
+//TEST
+/*
+echo("sin");
+for (angle = [0:1:361]) 
+{
+	if((sin(angle)-accurateSin(angle)) != 0)	
+		echo(angle," ", sin(angle)-accurateSin(angle));
+}
+*/
+
+function accurateTan(x) = 
+(x%15)!=0?tan(x): (x<360?simpleTan(x):simpleTan(x-floor(x/360)*360));
+function simpleTan(x) =
+x==0 ? 0 :
+x==30 ? 1/sqrt(3):
+x==45 ? 1 :
+x==60 ? sqrt(3):
+x==120 ? -sqrt(3):
+x==135 ? -1 :
+x==150 ? -1/sqrt(3):
+x==180 ? 0 :
+x==210 ? 1/sqrt(3):
+x==225 ? 1 :
+x==240 ? sqrt(3):
+x==300 ? -sqrt(3):
+x==315 ? -1 :
+x==330 ? -1/sqrt(3):
+x==360 ? 0 : tan(x);
+// TEST
+/*
+echo("tan");
+for (angle = [0:1:721]) 
+{
+   if((tan(angle)-accurateTan(angle)) != 0)
+   echo(angle, tan(angle)-accurateTan(angle));
+}
+*/
+
+
+// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
 // ---------------------------------------------------------------------
 // internal - true = clearances for internal thread (e.g., a nut).
 //            false = clearances for external thread (e.g., a bolt).
@@ -933,90 +1058,48 @@ module thread(
 	printify_top = false,
 	printify_bottom = false,
 	multiple_turns_over_height = true,
-	turn_angle = 360, //used for flat_threads
+	turn_angle = 360, //used for channel_threads
 	bore_diameter = -1, //-1 = no bore hole. Use it for pipes 
 	taper_angle = 0,
-	exact_clearance = false
+	exact_clearance = true
 )
 {
 
-	if(bore_diameter >= 2*minor_radius)
-	{
-		echo("*** Warning !!! ***");
-		echo("thread_polyhedron(): bore diameter larger than minor diameter of thread !");
-	}
-
-	//internal flat threads have on top a backlash too
+	//internal channel threads have on top a backlash too
 	len = internal && !multiple_turns_over_height ? length+backlash/2 : length;
-	// Number of turns needed.
-	n_turns = floor(len/pitch);
+	
+	// ------------------------------------------------------------------
+	// Segments and its angle, number of turns
+	// ------------------------------------------------------------------
+	n_turns = floor(len/pitch); // Number of turns needed.
 	n_segments_tmp =  $fn > 0 ? 
 						$fn :
 						max (30, min (2 * PI * minor_radius / $fs, 360 / $fa));
 	seg_angle = multiple_turns_over_height ?
 					360/n_segments_tmp  //std threads
-					: turn_angle/(round(turn_angle/(360/n_segments_tmp))) ; //flat threads
+					: turn_angle/(round(turn_angle/(360/n_segments_tmp))) ; //channel threads
 	n_segments = multiple_turns_over_height ?
 					n_segments_tmp  //std threads
-					: turn_angle/seg_angle; //flat threads
+					: turn_angle/seg_angle; //channel threads
 	
 	taper_per_segment = accurateTan(taper_angle)*len   //total taper
 						/ (len/pitch) / n_segments;
 	
 	min_openscad_fs = 0.01;
 
-	// Clearance:
-	// The outer walls of the created threads are not circular. They consist
-	// of polyhydrons with planar front rectangles. Because the corners of 
-	// these polyhedrons are located at major radius (x,y), the middle of these
-	// rectangles is a little bit inside of major_radius. So, with low $fn
-	// this difference gets larger and may be even larger than the clearance itself
-	// but also for big $fn values clearance is being reduced. If one prints a 
-	// thread/nut without addressing this they may not turn.
-	function bow_to_face_distance(radius, angle) = 
-				radius*(1-accurateCos(angle/2));
-	function clearance_radius(radius, internal_thread) =
-				(internal_thread ? 
-					( exact_clearance ?
-						radius+clearance
-						:(radius+clearance)/accurateCos(seg_angle/2)
-					)
-					: radius);
 
-	major_rad = clearance_radius(major_radius, internal);
-	minor_rad = clearance_radius(minor_radius, internal);
 
-	//collision test: only possible when clearance defined (internal)
-	if(internal 
-		&& (clearance_radius(major_radius, true)
-			-bow_to_face_distance(clearance_radius(major_radius, true), seg_angle)
-		<  major_radius))
-	{
-		echo("*** Warning !!! ***");
-		echo("thread(): With these parameters (clearance and $fn) a bolt will not turn in internal/nut thread!");
-		echo("Consider using larger clearance, higher $fn and/or exact_clearance parameter.");
-	}
+	// ------------------------------------------------------------------
+    // trapezoid calculation
+	// ------------------------------------------------------------------
 
-	diameter = major_rad*2;
-	tooth_height = major_rad - minor_rad;
-	is_hollow = bore_diameter > 0;
-	hollow_rad = is_hollow ? bore_diameter/2 : minor_rad/2;
-
-	// Display useful data about thread to add other objects
-	echo("*** Thread dimensions !!! ***");
-	echo("outer diameter :",major_rad*2);
-	echo("inner diameter :",minor_rad*2);
-	if(is_hollow)
-		echo("bore diameter :",hollow_rad*2);
-
-    // trapezoid calculation:
     // looking at the tooth profile along the upper part of a screw held
     // horizontally, which is a trapezoid longer at the bottom flat
     /*
                 upper flat
-            ___________________
-           /|                 |\   right
-          / |                 | \  angle
+ upper angle___________________lower angle 
+           /|                 |\   
+          / |                 | \  right angle
     left /__|                 |__\______________
    angle|   |                 |   |   lower     |
         |   |                 |   |    flat     |
@@ -1024,13 +1107,9 @@ module thread(
          flat                 |flat
 				tooth flat
         <------------------------->
-    */
 
-   	left_angle = (90 - upper_angle); //right_handed ? (90 - upper_angle) : 90 - lower_angle;
-   	right_angle = (90 - lower_angle); //right_handed ? (90 - lower_angle) : 90 - upper_angle;
-
+	
 	// extreme difference of the clearance/backlash combinations
-	/*
 
       large clearance        small clearance
       small backlash         large backlash
@@ -1050,57 +1129,182 @@ module thread(
     ________/              _______________/    
 
 	*/
-	tan_left = accurateTan(90-left_angle);
-	tan_right = accurateTan(90-right_angle);
+   	left_angle = (90 - upper_angle);
+   	right_angle = (90 - lower_angle);
+	tan_left = accurateTan(upper_angle);
+	tan_right = accurateTan(lower_angle);
+	
+	// ------------------------------------------------------------------
+	// Flat calculations
+	// ------------------------------------------------------------------
+	// The thread is primarly defined by outer diameter, pitch, angles.
+	// The parameter outer_flat_length is only secondary.
+	// For external threads inner diameter is important too but for
+	// internal threads inner diameter is not so important. Depending on
+    // the values of backlash and clearance inner diameter may get bigger 
+    // than major_radius-tooth_height.
+	// Because this module has many parameters the code here must be
+    // robust to check for illegal inputs.
+	
+	function calc_left_flat(h_tooth) = h_tooth / accurateTan (left_angle);
+	function calc_right_flat(h_tooth) = h_tooth / accurateTan (right_angle);
+	function param_tooth_height() = major_radius - minor_radius;
+	function calc_tooth_height()=
+				calc_left_flat(param_tooth_height())+calc_right_flat(param_tooth_height())
+					< pitch ?
+				( // Standard case, full tooth height possible
+					param_tooth_height()
+				)
+				: ( // Angle of flanks don't allow full tooth height.
+					// Flats under angles cover at least whole pitch
+					// so tooth height is being reduced.
+					pitch/(accurateTan(upper_angle)+accurateTan(lower_angle)) 
+				);
 
-	upper_flat = outer_flat_length + 
+	function calc_upper_flat() =
+		outer_flat_length + 
 		(internal ?
 			  (tan_left*clearance >= backlash/2 ?
-					- tan_left*clearance-backlash/2
+					- (tan_left*clearance-backlash/2)
 					: 
-					+ backlash/2-tan_left*clearance
+					+ (backlash/2-tan_left*clearance)
 			  )
 			+ (tan_right*clearance >= backlash/2 ?
-					- tan_right*clearance-backlash/2
+					- (tan_right*clearance-backlash/2)
 					: 
-					+ backlash/2-tan_right*clearance
+					+ (backlash/2-tan_right*clearance)
 			  )
 		:0);
-	if(upper_flat<=0)
+	function max_upper_flat(leftflat, rightflat) =
+				pitch-leftflat-rightflat > 0 ?
+					(pitch-leftflat-rightflat > calc_upper_flat() ?
+						calc_upper_flat()
+						: pitch-leftflat-rightflat)
+					:0;
+
+	tooth_height = calc_tooth_height();
+	// calculate first the flank angles because they are 
+	// more important than outer_flat_length
+	left_flat = calc_left_flat(tooth_height);
+	right_flat = calc_right_flat(tooth_height);
+	// then, if there is some pitch left assign it to upper_flat
+	upper_flat = max_upper_flat(left_flat,right_flat);
+
+	tooth_flat = upper_flat + left_flat + right_flat;
+	//finally, if still some pitch left, assign it to lower_flat
+	lower_flat = (pitch-tooth_flat >= 0) ? pitch-tooth_flat : 0;
+
+	// ------------------------------------------------------------------
+	// Radius / Diameter
+	// ------------------------------------------------------------------
+	//
+	// Clearance:
+	// The outer walls of the created threads are not circular. They consist
+	// of polyhydrons with planar front rectangles. Because the corners of 
+	// these polyhedrons are located at major radius (x,y), the middle of these
+	// rectangles is a little bit inside of major_radius. So, with low $fn
+	// this difference gets larger and may be even larger than the clearance itself
+	// but also for big $fn values clearance is being reduced. If one prints a 
+	// thread/nut without addressing this they may not turn.
+	function bow_to_face_distance(radius, angle) = 
+				radius*(1-accurateCos(angle/2));
+	function clearance_radius(radius, internal_thread) =
+				(internal_thread ? 
+					( exact_clearance ?
+						radius+clearance
+						:(radius+clearance)/accurateCos(seg_angle/2)
+					)
+					: radius);
+
+	major_rad = clearance_radius(major_radius, internal);
+	minor_rad = major_rad-tooth_height;
+
+	diameter = major_rad*2;
+	is_hollow = bore_diameter > 0;
+	hollow_rad = is_hollow ? bore_diameter/2 : minor_rad/2;
+
+
+	// ------------------------------------------------------------------
+	// Warnings / Messages
+	// ------------------------------------------------------------------
+	if(bore_diameter >= 2*minor_radius)
 	{
 		echo("*** Warning !!! ***");
-		echo("thread_polyhedron(): upper_flat is smaller than zero!");
+		echo("thread(): bore diameter larger than minor diameter of thread !");
+	}
+	//collision test: only possible when clearance defined (internal)
+	if(internal 
+		&& (clearance_radius(major_radius, true)
+			-bow_to_face_distance(clearance_radius(major_radius, true), seg_angle)
+			+ 0.00001 //ignore floating point errors
+		<  major_radius))
+	{
+		echo("*** Warning !!! ***");
+		echo("thread(): With these parameters (clearance and $fn) a bolt will not turn in internal/nut thread!");
+		echo("Consider using higher $fn,larger clearance and/or exact_clearance parameter.");
+	}
+	if(tooth_height != param_tooth_height())
+	{
+		echo("*** Warning !!! ***");
+		echo("thread(): Depth of thread has been reduced due to flank angles.");
+		echo("depth expected", param_tooth_height());
+		echo("depth calculated", tooth_height);
+	}
+	if((!internal && outer_flat_length != upper_flat
+		|| (internal && calc_upper_flat() != upper_flat)))
+	{
+		echo("*** Warning !!! ***");
+		echo("thread(): calculated upper_flat is not as expected!");
+		echo("outer_flat_length", outer_flat_length);
+		echo("upper_flat", upper_flat);
+	}
+	if(upper_flat<0)
+	{
+		echo("*** Warning !!! ***");
+		echo("thread(): upper_flat is negative!");
+	}
+	if(!internal && clearance != 0)
+	{
+		echo("*** Warning !!! ***");
+		echo("thread(): Clearance has no effect on external threads.");
+	}
+	if(!internal && backlash != 0)
+	{
+		echo("*** Warning !!! ***");
+		echo("thread(): Backlash has no effect on external threads.");
 	}
 
-	function total_flat() = internal && !multiple_turns_over_height ? 
-								pitch+backlash/2 : pitch;
-	left_flat = tooth_height / accurateTan (left_angle);
-	right_flat = tooth_height / accurateTan (right_angle);
-	tooth_flat = upper_flat + left_flat + right_flat;
-	lower_flat = (total_flat()-tooth_flat >= 0) ? total_flat()-tooth_flat : 0;
-
-/*	echo("**** polyhedron thread ******");
+	// ------------------------------------------------------------------
+	// Display useful data about thread to add other objects
+	// ------------------------------------------------------------------
+/*	echo("*** Thread dimensions !!! ***");
+	echo("outer diameter :",major_rad*2);
+	echo("inner diameter :",minor_rad*2);
+	if(is_hollow)
+		echo("bore diameter :",hollow_rad*2);
+	echo("**** polyhedron thread ******");
 	echo("internal", internal);
 	echo("length", len);
 	echo("pitch", pitch);
 	echo("right_handed", right_handed);
-	echo("tooth_height", tooth_height);
+	echo("tooth_height param", param_tooth_height());
+	echo("tooth_height calc", tooth_height);
 	echo("n_segments",n_segments);
 	echo("turn_angle",turn_angle);
 	echo("seg_angle*n_segments",turn_angle);
 	echo("seg_angle",seg_angle);
 	echo("$fa (slice step angle)",$fa);
 	echo("$fn (slice step angle)",$fn);
-
 	echo("outer_flat_length", outer_flat_length);
 	echo("left_angle", left_angle);	
 	echo("left_flat", left_flat);
-	echo("upper_flat", upper_flat);
+	echo("upper flat param", outer_flat_length);
+	echo("upper flat calc", upper_flat);
 	echo("right_angle", right_angle);
 	echo("right_flat", right_flat);
 	echo("lower_flat", lower_flat);
 	echo("tooth_flat", tooth_flat);
-	echo("total_flats", tooth_flat + lower_flat, "diff", total_flat()-(tooth_flat + lower_flat));
+	echo("total_flats", tooth_flat + lower_flat, "diff", pitch-(tooth_flat + lower_flat));
 	echo("clearance", clearance);
 	echo("backlash", backlash);
 	echo("major_radius",major_radius);
@@ -1112,63 +1316,91 @@ module thread(
 	echo("poly_rot_slice_offset()",poly_rot_slice_offset());
 	echo("internal_play_offset",internal_play_offset());
 	echo("******************************");*/
-
 	// ----------------------------------------------------------------------------
 	// polyhedron axial orientation
+	// ------------------------------------------------------------------
 	function poly_rotation(i) =
 		(right_handed?1:-1)*(i*seg_angle);
 	// The facettes of OpenSCAD's cylinder() command start at x=0,y=radius.
 	// But so far, the created polygon starts at x=-1/2 facette,y=-radius.
 	// So, the cylinder's facettes are not aligned with the thread ones,
 	// creating holes in the thread behind the lower flat of the thread.
-	// Flat threads: Because segment angle for flat threads is not equal
-	// to $fn, for flat threads this corrects only the start.
+	// channel threads: Because segment angle for channel threads is not equal
+	// to $fn, for channel threads this corrects only the start.
 	function poly_rot_offset() = 
 		90 + ((right_handed?1:-1)*(seg_angle/2));
 	//Correction angle so at x=0 is left_flat/angle
-	//Not needed for flat threads so far. 
+	//Not needed so far. Two problems:
+	//Internal and external threads have different lower_flats and therefore
+	//a different turn angle. ==> no nice thread differences.
+	//With parameter "exact_clearance" a problem occurs. 
 	function poly_rot_slice_offset() =
 			((multiple_turns_over_height ? 1 : 0)
 			 *(right_handed?1:-1)
 			 *(360/n_starts/pitch* (lower_flat/2)));
 	//total poly rotation
 	function poly_rotation_total(i)	=
-			poly_rotation(i) + poly_rot_offset() + poly_rot_slice_offset();
+			poly_rotation(i) + poly_rot_offset() ;//+ poly_rot_slice_offset();
 
 	// An internal thread must be rotated/moved because the calculation starts	
 	// at base corner of left flat which is not exactly over base
 	// corner of bolt (clearance and backlash)
 	// Combination of small backlash and large clearance gives 
 	// positive numbers, large backlash and small clearance negative ones.
-	// This is not necessary for flat_threads.
+	// This is not necessary for channel_threads.
 	function internal_play_offset() = 
 		internal && multiple_turns_over_height ?
+				0/*
 				( 	tan_right*clearance >= backlash/2 ?
 					-tan_right*clearance-backlash/2
 					: 
 					-(backlash/2-tan_right*clearance)
-				)
+				)*/
 			: 0;
+	
+	// z offset includes length added to upper_flat on left angle side
+	function channel_thread_z_offset() = 
+				((pitch >= len)? -pitch : 0)
+				+ (internal ?
+			  		(tan_left*clearance >= backlash/2 ?
+						- (tan_left*clearance-backlash/2)
+						: (backlash/2-tan_left*clearance))
+					:0);
 
 	// ----------------------------------------------------------------------------
-	// Create the thread !!!
+	// Create the thread 
+	// ------------------------------------------------------------------
 	intersection() 
 	{
-		if(multiple_turns_over_height)
+		union()
 		{
-			// Start one below z = 0.  Gives an extra turn at each end.
-			for (i=[-1*n_starts : n_turns]) {
-				translate([0, 0, i*pitch]) 
-					thread_turn(n_segments, i+n_starts+1);
-			}
-		}
-		else
-		{
-			for (i=[0:n_starts-1]) 
+			if(multiple_turns_over_height)
 			{
-				rotate([0,0,i*360/n_starts])
-					translate([0, 0, (total_flat() >= len)? -total_flat() : 0]) 
-						flat_thread_turn(n_segments);
+				// Start one below z = 0.  Gives an extra turn at each end.
+				for (i=[-1*n_starts : n_turns]) {
+					translate([0, 0, i*pitch]) 
+						thread_turn(n_segments, i+n_starts+1);
+				}
+			}
+			else
+			{
+				for (i=[0:n_starts-1]) 
+				{
+					rotate([0,0,i*360/n_starts])
+					{
+						translate([0, 0, channel_thread_z_offset()]) 
+						{
+							channel_thread_turn(n_segments);
+							// an internal (cutout) channel thread needs a thread above
+							// to create enough space to insert the male thread.
+							if(internal)
+							{
+								translate([0, 0, pitch+lower_flat/2]) 
+									thread_turn(n_segments,1);
+							}
+						}
+					}
+				}
 			}
 		}
 
@@ -1185,7 +1417,8 @@ module thread(
 			rotate([0, 0, poly_rotation_total(i)]) 
 			{
 				translate([0, 0, i*n_starts*pitch*(seg_angle/360)
-									+ internal_play_offset()]) 
+									+ internal_play_offset()
+							]) 
 				{
 					if(taper_per_segment == 0)
 						thread_polyhedron(seg_angle);
@@ -1197,18 +1430,17 @@ module thread(
 	} // end module metric_thread_turn()
 
 	// ----------------------------------------------------------------------------
-	module flat_thread_turn(n_segments)
+	module channel_thread_turn(n_segments)
 	{
 		current_seg_z_offset = 0;
 		for (i=[0 : n_segments-1]) 
 		{
 			rotate([0, 0, poly_rotation_total(i)]) 
 			{
-				assign(current_seg_z_offset = i*total_flat()*(seg_angle/360)
-									+ internal_play_offset())
+				assign(current_seg_z_offset = i*pitch*(seg_angle/360)) 
 				{
 					translate([0, 0, current_seg_z_offset ]) 
-						flat_thread_polyhedron(seg_angle, current_seg_z_offset, i);
+						channel_thread_polyhedron(seg_angle, current_seg_z_offset, i);
          		}
       		}
 		}
@@ -1470,25 +1702,27 @@ module thread(
 	} // end module thread_polyhedron()
 
 	// ------------------------------------------------------------
-	module flat_thread_polyhedron(seg_angle)
+	module channel_thread_polyhedron(seg_angle)
 	{
 		x_incr_outer = 2*(accurateSin(seg_angle/2)*major_rad)+0.001; //overlapping needed 
 		x_incr_inner = 2*(accurateSin(seg_angle/2)*minor_rad)+0.001; //for simple=yes
 		x_incr_hollow = 2*(accurateSin(seg_angle/2)*hollow_rad)+0.001; //for simple=yes
 
-		z_incr =  total_flat() * seg_angle/360;
+		function top_z() = internal ? pitch + len : pitch;
+		z_incr =  pitch * seg_angle/360;
+
 		z_incr_this_side = z_incr * (right_handed ? 0 : 1);
 		z_incr_back_side = z_incr * (right_handed ? 1 : 0);
-		// a flat thread has all lower_flat really low... :-)
+		// a channel thread has all lower_flat really low... :-)
 		z_thread_lower = lower_flat >= 0.002 ? lower_flat-0.001 : 0.001;
 		z_tip_lower = z_thread_lower + right_flat;
 		z_tip_inner_middle = z_tip_lower + upper_flat/2;
-		z_tip_upper = (z_tip_lower + upper_flat <= total_flat()-0.002) ?
+		z_tip_upper = (z_tip_lower + upper_flat <= pitch-0.002) ?
 							z_tip_lower + upper_flat
-							: total_flat()-0.002; 
-		z_thread_upper = (z_tip_upper + left_flat <= total_flat()-0.001) ?
+							: pitch-0.002; 
+		z_thread_upper = (z_tip_upper + left_flat <= pitch-0.001) ?
 							z_tip_upper + left_flat
-							: total_flat()-0.001; 				
+							: pitch-0.001; 				
 		//to prevent errors if top slice barely touches bottom of next segement
 		//afterone full turn.
 		z_thread_top_simple_yes = 0.001;
@@ -1498,7 +1732,7 @@ module thread(
 		major_rad_p = major_rad - bow_to_face_distance(major_rad, seg_angle);
 		minor_rad_p = minor_rad - bow_to_face_distance(minor_rad, seg_angle);	
 		hollow_rad_p = hollow_rad - bow_to_face_distance(hollow_rad, seg_angle);
-
+	
 		/*echo(" *** polyhedron ***");
 		echo("seg_angle",seg_angle);
 		echo("lower_flat",lower_flat);
@@ -1517,7 +1751,6 @@ module thread(
 		echo("hollow_rad_p",hollow_rad_p);
 		echo(flat_slice_points());
 		echo(slice_faces());*/
-
 		polyhedron(	points = flat_slice_points(),faces = slice_faces());
 		
 		// ------------------------------------------------------------
@@ -1536,10 +1769,10 @@ module thread(
 			//slice
 			[-x_incr_inner/2,-minor_rad_p,-len], // [8]
 			[x_incr_inner/2,-minor_rad_p,-len], // [9]
-			[x_incr_inner/2,-minor_rad_p, total_flat() + z_incr_back_side + z_thread_top_simple_yes], // [10]
-			[-x_incr_inner/2,-minor_rad_p, total_flat() + z_incr_this_side + z_thread_top_simple_yes], // [11]
+			[x_incr_inner/2,-minor_rad_p, top_z() + z_incr_back_side + z_thread_top_simple_yes], // [10]
+			[-x_incr_inner/2,-minor_rad_p, top_z() + z_incr_this_side + z_thread_top_simple_yes], // [11]
 			[0,0,-len], // [12]
-			[0,0,total_flat() + z_thread_top_simple_yes], // [13]
+			[0,0,top_z() + z_thread_top_simple_yes], // [13]
 			[-x_incr_inner/2,-minor_rad_p, z_tip_inner_middle + z_incr_this_side], // [14]
 			[+x_incr_inner/2,-minor_rad_p, z_tip_inner_middle + z_incr_back_side], // [15]
 
@@ -1548,9 +1781,9 @@ module thread(
 			[-x_incr_hollow/2,-hollow_rad_p,-len], // [16]
 			[x_incr_hollow/2,-hollow_rad_p,-len], // [17]
 			// top
-			[x_incr_hollow/2,-hollow_rad_p, total_flat() + z_incr_back_side + z_thread_top_simple_yes], // [18]
-			[-x_incr_hollow/2,-hollow_rad_p, total_flat() + z_incr_this_side + z_thread_top_simple_yes], // [19]
+			[x_incr_hollow/2,-hollow_rad_p, top_z() + z_incr_back_side + z_thread_top_simple_yes], // [18]
+			[-x_incr_hollow/2,-hollow_rad_p, top_z() + z_incr_this_side + z_thread_top_simple_yes], // [19]
 		];
 
-	} // end module flat_thread_polyhedron(seg_angle)
+	} // end module channel_thread_polyhedron(seg_angle)
 } // end module thread()
