@@ -721,13 +721,6 @@ module BSP_thread(
 	max_clearance_to_outer_peak = 2 * min_clearance_to_outer_peak; // no idea, honestly
 	min_outer_flat = 2 * accurateTan(angle) * min_clearance_to_outer_peak;
 	max_outer_flat = 2 * accurateTan(angle) * max_clearance_to_outer_peak;
-	/*
-	echo(str("min_clearance_to_outer_peak: ", min_clearance_to_outer_peak));
-	echo(str("max_clearance_to_outer_peak: ", max_clearance_to_outer_peak));
-	echo(str("min_outer_flat: ", min_outer_flat));
-	echo(str("min_outer_flat calculated: ", 2 * accurateTan(30) * min_clearance_to_outer_peak));
-	echo(str("max_outer_flat: ", max_outer_flat));
-	*/
 
 	//so far, exact clearance not implemented.
 	//This is a rough approximation derived from mdmetric.com data	
@@ -858,13 +851,6 @@ module US_national_pipe_thread(
 	max_clearance_to_outer_peak = 0.088 * pitch; // aproximation, is dependent on thread size
 	min_outer_flat = 0.038 * pitch;
 	max_outer_flat = 2 * accurateTan(angle) * max_clearance_to_outer_peak;
-	/*
-	echo(str("min_clearance_to_outer_peak: ", min_clearance_to_outer_peak));
-	echo(str("max_clearance_to_outer_peak: ", max_clearance_to_outer_peak));
-	echo(str("min_outer_flat: ", min_outer_flat));
-	echo(str("min_outer_flat calculated: ", 2 * accurateTan(30) * min_clearance_to_outer_peak));
-	echo(str("max_outer_flat: ", max_outer_flat));
-	*/
 
 	//so far, exact clearance not implemented.
 	//This is a rough approximation derived from mdmetric.com data	
@@ -1227,6 +1213,14 @@ module thread(
 	// ------------------------------------------------------------------
 	// Warnings / Messages
 	// ------------------------------------------------------------------
+	
+	//to add other objects to a thread it may be useful to know the diameters
+	echo("*** Thread dimensions !!! ***");
+	echo("outer diameter :",major_rad*2);
+	echo("inner diameter :",minor_rad*2);
+	if(is_hollow)
+		echo("bore diameter :",hollow_rad*2);
+
 	if(bore_diameter >= 2*minor_radius)
 	{
 		echo("*** Warning !!! ***");
@@ -1277,12 +1271,7 @@ module thread(
 	// ------------------------------------------------------------------
 	// Display useful data about thread to add other objects
 	// ------------------------------------------------------------------
-/*	echo("*** Thread dimensions !!! ***");
-	echo("outer diameter :",major_rad*2);
-	echo("inner diameter :",minor_rad*2);
-	if(is_hollow)
-		echo("bore diameter :",hollow_rad*2);
-	echo("**** polyhedron thread ******");
+/*	echo("**** polyhedron thread ******");
 	echo("internal", internal);
 	echo("length", len);
 	echo("pitch", pitch);
