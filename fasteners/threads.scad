@@ -31,7 +31,13 @@
  *    be tricky to create because they end with height = 0 on one side.
  *    Perhaps, this speed trick should be implemented AFTER moving to list-comprehensions.
  *
- * Version 2.4  2011-11-10  indazoo
+
+ * Version 2.5  2015-01-14  indazoo
+ *                          - large clearance increases backlash when upper_flat
+ *                            is zero on internal thread.
+ *                          - negative upper_flat prohibited.
+ *                          - channel thread improved
+ * Version 2.4  2014-11-10  indazoo
  *                          - thread was not complete for fractions of 
  *                            pitch/length relationships
  *                          - more comments and output texts
@@ -218,7 +224,7 @@
 //test_leftright_buttress(5);
 //test_internal_difference_buttress();
 //test_internal_difference_buttress_lefthanded();
-//test_channel_thread();
+//test_channel_thread(30);
 //test_channel_thread_diff();
 //test_NPT();
 //test_BSP();
@@ -277,7 +283,7 @@ module test_threads ($fa=5, $fs=0.1)
     metric_thread(8, pitch=1, length=5, internal=true, n_starts=3);
 
 	translate ([-10, 0, 0])
-         test_channel_thread();
+         test_channel_thread(8);
 
 }
 
@@ -305,7 +311,6 @@ module test_internal_difference_metric($fa=20, $fs=0.1)
 		metric_thread(diameter=17.7, pitch=2, length=2.3,
 						internal=true, n_starts=3, 
 						clearance = 0.1, backlash=0.4);
-		rotate([0,0,$fa/2])
 		metric_thread(diameter=17.7, pitch=2, length=2.3, 
 						internal=false, n_starts=3);
 		translate([10,10,0]) cube([20,20,20], center=true);
@@ -348,7 +353,7 @@ module test_internal_difference_buttress_lefthanded($fa=20, $fs=0.1)
 
 module test_buttress($fa=20, $fs=0.1)
 {
-	buttress_thread(diameter=8, pitch=4, length=4.3, 
+	buttress_thread(diameter=20, pitch=4, length=4.3, 
 					internal=false, n_starts=1,
 					buttress_angles = [45, 3], right_handed=true);
 	
@@ -367,78 +372,96 @@ module test_leftright_buttress($fa=20, $fs=0.1)
 					buttress_angles = [15, 40], right_handed=false);
 }
 
-module test_channel_thread()
+module test_channel_thread(dia = 10)
 {
+	angles = [20,45];
+	len = 8;
+	backlash = 0.13;
+	outer_flat_length = 0.5;
+	clearance = 0.17;
+
+
 	channel_thread(
-		thread_diameter = 8,
-		pitch = 1,
+		thread_diameter = dia,
+		pitch = 2,
 		turn_angle = 360,
-		length = 1,
+		length = len,
 		internal = false,
 		n_starts = 1,
-		thread_angles = [20,45],
-		outer_flat_length = 0.2,
+		thread_angles = angles,
+		outer_flat_length = outer_flat_length,
 		right_handed = true,
-		clearance = 0,
-		backlash = 0,
-		bore_diameter = 5
+		clearance = clearance,
+		backlash = backlash,
+		bore_diameter = 0
 		);
 
-	translate([0,-10,0])
-	channel_thread(
-		thread_diameter = 8,
-		pitch = 0.5,
+/*
+ translate([0,0,len+1])
+	rotate([0,0,0])
+channel_thread(
+		thread_diameter = dia,
+		pitch = 2,
 		turn_angle = 360,
-		length = 1,
-		internal = false,
+		length = len,
+		internal = true,
 		n_starts = 1,
-		thread_angles = [0,45],
-		outer_flat_length = 0.2,
-		right_handed = false,
-		clearance = 0,
-		backlash = 0,
-		bore_diameter = 5);
-	
+		thread_angles = angles,
+		outer_flat_length = outer_flat_length,
+		right_handed = true,
+		bore_diameter = 0,
+		clearance = clearance,
+		backlash = backlash,
+		bore_diameter = 0);
+*/
 }
+
 
 module test_channel_thread_diff()
 {
-	angles= [10,30];
+	dia = 8;
+	//angles= [30,30];
+	angles= [10,50];  //[upper, lower]
+	backlash = 0.3;
+	clearance = 0.3;
 	difference()
 	{
 		channel_thread(
-			thread_diameter = 8,
-			pitch = 0.5,
+			thread_diameter = dia,
+			pitch = 1,
 			turn_angle = 360,
-			length = 1,
+			length = 2,
 			internal = true,
 			n_starts = 1,
 			thread_angles = angles,
 			outer_flat_length = 0.2,
-			right_handed = false,
-			clearance = 0.1,
-			backlash = 0.1,
+			right_handed = true,
+			clearance = clearance,
+			backlash = backlash, 
 			bore_diameter = 5);
 		channel_thread(
-			thread_diameter = 8,
-			pitch = 0.5,
+			thread_diameter = dia,
+			pitch = 1,
 			turn_angle = 360,
-			length = 1,
+			length = 2,
 			internal = false,
 			n_starts = 1,
 			thread_angles = angles,
 			outer_flat_length = 0.2,
-			right_handed = false,
+			right_handed = true,
+			clearance = clearance,
+			backlash = backlash,
 			bore_diameter = 5);
 		translate([-2.5,-2.5,0]) cube([5,5,5], center=true);
 	}
 }
 
+
 module test_NPT()
 {
 	US_national_pipe_thread(
 		nominal_pipe_size = 3/4,
-		length = 0.5,
+		length = 0.5, //inches
 		internal  = false);
 }
 
@@ -446,7 +469,7 @@ module test_BSP()
 {
 	BSP_thread(
 		nominal_pipe_size = 3/4,
-		length = 0.5,
+		length = 0.5, //inches
 		internal  = false);
 }
 
@@ -928,7 +951,7 @@ module channel_thread(
 			lower_angle = thread_angles[1],
 			outer_flat_length = outer_flat_length,
 			major_radius = thread_diameter / 2,
-			minor_radius = thread_diameter / 2 - 5/8 * cos(thread_angles[1]) * pitch,
+			minor_radius = thread_diameter / 2 - 5/8 * cos(30) * pitch,,
 			internal = internal,
 			n_starts = n_starts,
 			right_handed = right_handed,
@@ -1050,14 +1073,55 @@ module thread(
 	exact_clearance = true
 )
 {
+	m_thread (
+			pitch = pitch,
+			length = length,
+			upper_angle = upper_angle,
+			lower_angle = lower_angle,
+			outer_flat_length = outer_flat_length,
+			major_radius = major_radius,
+			minor_radius = minor_radius,
+			internal = internal,
+			n_starts = n_starts,
+			right_handed = right_handed,
+			clearance = (internal ? clearance : 0),
+			backlash = (internal ? backlash : 0),
+			printify_top = printify_top,
+			printify_bottom = printify_bottom,
+			multiple_turns_over_height = multiple_turns_over_height,
+			turn_angle = turn_angle,
+			bore_diameter = bore_diameter,
+			taper_angle = taper_angle,
+			exact_clearance = exact_clearance
+			);
+}
 
-	//internal channel threads have on top a backlash too
-	len = internal && !multiple_turns_over_height ? length+backlash/2 : length;
-	
+module m_thread(
+	pitch,
+	length,
+	upper_angle,
+	lower_angle,
+	outer_flat_length,
+	major_radius,
+	minor_radius,
+	internal = false,
+	n_starts = 1,
+	right_handed = true,
+	clearance = 0,
+	backlash = 0,
+	printify_top = false,
+	printify_bottom = false,
+	multiple_turns_over_height = true,
+	turn_angle = 360, //used for channel_threads
+	bore_diameter = -1, //-1 = no bore hole. Use it for pipes 
+	taper_angle = 0,
+	exact_clearance = true
+)
+{
 	// ------------------------------------------------------------------
 	// Segments and its angle, number of turns
 	// ------------------------------------------------------------------
-	n_turns = floor(len/pitch); // Number of turns needed.
+	n_turns = floor(length/pitch); // Number of turns needed.
 	n_segments_tmp =  $fn > 0 ? 
 						$fn :
 						max (30, min (2 * PI * minor_radius / $fs, 360 / $fa));
@@ -1068,8 +1132,8 @@ module thread(
 					n_segments_tmp  //std threads
 					: turn_angle/seg_angle; //channel threads
 	
-	taper_per_segment = accurateTan(taper_angle)*len   //total taper
-						/ (len/pitch) / n_segments;
+	taper_per_segment = accurateTan(taper_angle)*length   //total taper
+						/ (length/pitch) / n_segments;
 	
 	min_openscad_fs = 0.01;
 
@@ -1132,12 +1196,34 @@ module thread(
 	// Because this module has many parameters the code here must be
     // robust to check for illegal inputs.
 	
-	function calc_left_flat(h_tooth) = h_tooth / accurateTan (left_angle);
-	function calc_right_flat(h_tooth) = h_tooth / accurateTan (right_angle);
+	function calc_left_flat(h_tooth) = 
+				get_left_flat(h_tooth) < 0.0001 ? 0 : get_left_flat(h_tooth);
+	function get_left_flat(h_tooth) = h_tooth / accurateTan (left_angle);
+	function calc_right_flat(h_tooth) = 
+				get_right_flat(h_tooth) < 0.0001 ? 0 : get_right_flat(h_tooth);
+	function get_right_flat(h_tooth) = h_tooth / accurateTan (right_angle)	;
+
+	function get_minor_radius() =
+				// - A large backlash fills thread depth at minor_radius 
+				//   therefore increases minor_radius, decreases tooth_height
+				// - Threads with variable angles have no minor radius defined
+				//   we need to calculate it
+				(calc_upper_flat()
+					+ calc_left_flat(param_tooth_height())
+					+ calc_right_flat(param_tooth_height())
+				) <= pitch ?
+					(minor_radius != 0 ? minor_radius : calc_minor_radius())
+				: calc_minor_radius()
+				;
+	function calc_minor_radius() =
+				major_radius-
+				((pitch-calc_upper_flat()) 
+					/ (accurateTan(upper_angle)+accurateTan(lower_angle)))
+				;
 	function param_tooth_height() = major_radius - minor_radius;
 	function calc_tooth_height()=
 				calc_left_flat(param_tooth_height())+calc_right_flat(param_tooth_height())
-					< pitch ?
+					<= pitch ?
 				( // Standard case, full tooth height possible
 					param_tooth_height()
 				)
@@ -1146,28 +1232,39 @@ module thread(
 					// so tooth height is being reduced.
 					pitch/(accurateTan(upper_angle)+accurateTan(lower_angle)) 
 				);
-
 	function calc_upper_flat() =
-		outer_flat_length + 
-		(internal ?
-			  (tan_left*clearance >= backlash/2 ?
-					- (tan_left*clearance-backlash/2)
-					: 
-					+ (backlash/2-tan_left*clearance)
-			  )
-			+ (tan_right*clearance >= backlash/2 ?
-					- (tan_right*clearance-backlash/2)
-					: 
-					+ (backlash/2-tan_right*clearance)
-			  )
-		:0);
+				get_upper_flat(backlash) > 0 ? get_upper_flat(backlash) : 0
+				;
+	function get_upper_flat(f_backlash) =
+				outer_flat_length + 
+				(internal ?
+			  		+left_flank_diff(f_backlash) + right_flank_diff(f_backlash)
+					:0)
+				;
+	function left_flank_diff(f_backlash) =
+				tan_left*clearance >= f_backlash/2 ?
+					-(tan_left*clearance-f_backlash/2)
+					: +(f_backlash/2-tan_left*clearance)
+				;
+	function right_flank_diff(f_backlash) =
+				tan_right*clearance >= f_backlash/2 ?
+					 -(tan_right*clearance-f_backlash/2)
+					: +(f_backlash/2-tan_right*clearance)
+				;
+	function get_backlash() =
+				get_upper_flat(backlash) >= 0 ? backlash 
+				: backlash + (-1)*get_upper_flat(backlash)
+				;
 	function max_upper_flat(leftflat, rightflat) =
 				pitch-leftflat-rightflat > 0 ?
 					(pitch-leftflat-rightflat > calc_upper_flat() ?
 						calc_upper_flat()
 						: pitch-leftflat-rightflat)
-					:0;
+					:0
+				;
 
+	backlash = get_backlash();
+	minor_radius = get_minor_radius();
 	tooth_height = calc_tooth_height();
 	// calculate first the flank angles because they are 
 	// more important than outer_flat_length
@@ -1181,9 +1278,15 @@ module thread(
 	lower_flat = (pitch-tooth_flat >= 0) ? pitch-tooth_flat : 0;
 
 	// ------------------------------------------------------------------
-	// Radius / Diameter
+	// Radius / Diameter /length
 	// ------------------------------------------------------------------
 	//
+
+	//internal channel threads have backlash on bottom too
+	len = !internal || multiple_turns_over_height ? length
+			: length + backlash/2 
+			 ;
+
 	// Clearance:
 	// The outer walls of the created threads are not circular. They consist
 	// of polyhydrons with planar front rectangles. Because the corners of 
@@ -1271,7 +1374,8 @@ module thread(
 	// ------------------------------------------------------------------
 	// Display useful data about thread to add other objects
 	// ------------------------------------------------------------------
-/*	echo("**** polyhedron thread ******");
+
+	echo("**** polyhedron thread ******");
 	echo("internal", internal);
 	echo("length", len);
 	echo("pitch", pitch);
@@ -1285,26 +1389,35 @@ module thread(
 	echo("$fa (slice step angle)",$fa);
 	echo("$fn (slice step angle)",$fn);
 	echo("outer_flat_length", outer_flat_length);
+	echo("upper_angle",upper_angle);
 	echo("left_angle", left_angle);	
 	echo("left_flat", left_flat);
 	echo("upper flat param", outer_flat_length);
+	echo("max_upper_flat(left_flat,right_flat)",max_upper_flat(left_flat,right_flat));
 	echo("upper flat calc", upper_flat);
+	echo("left_flank_diff", left_flank_diff(backlash));
+	echo("right_flank_diff", right_flank_diff(backlash));
+	echo("lower_angle",lower_angle);
 	echo("right_angle", right_angle);
 	echo("right_flat", right_flat);
 	echo("lower_flat", lower_flat);
 	echo("tooth_flat", tooth_flat);
 	echo("total_flats", tooth_flat + lower_flat, "diff", pitch-(tooth_flat + lower_flat));
+	echo("sum flat calc", calc_upper_flat()
+					+ calc_left_flat(calc_tooth_height())
+					+ calc_right_flat(calc_tooth_height()));
 	echo("clearance", clearance);
 	echo("backlash", backlash);
 	echo("major_radius",major_radius);
 	echo("major_rad",major_rad);
 	echo("minor_radius",minor_radius);
 	echo("minor_rad",minor_rad);
+	echo("is_hollow", is_hollow);
 	echo("taper_angle",taper_angle);	
 	echo("taper_per_segment",taper_per_segment);
 	echo("poly_rot_slice_offset()",poly_rot_slice_offset());
 	echo("internal_play_offset",internal_play_offset());
-	echo("******************************");*/
+	echo("******************************");
 	// ----------------------------------------------------------------------------
 	// polyhedron axial orientation
 	// ------------------------------------------------------------------
@@ -1346,57 +1459,86 @@ module thread(
 					-(backlash/2-tan_right*clearance)
 				)*/
 			: 0;
-	
+
+	// The segement algorithm starts at the same z for
+	// internal and external threads. But the internal thread
+	// has a bigger diameter because of clearance/backlash so the
+	// internal thread must be shifted higher.	
+	function channel_thread_bottom_spacer() =
+			(internal ? clearance/accurateTan (left_angle)  : 0)
+			;
 	// z offset includes length added to upper_flat on left angle side
 	function channel_thread_z_offset() = 
-				((pitch >= len)? -pitch : 0)
-				+ (internal ?
-			  		(tan_left*clearance >= backlash/2 ?
-						- (tan_left*clearance-backlash/2)
-						: (backlash/2-tan_left*clearance))
-					:0);
+				-len // "len" contains backlash already
+				+ channel_thread_bottom_spacer()
+				;
 
-	// ----------------------------------------------------------------------------
+	// ------------------------------------------------------------------
 	// Create the thread 
 	// ------------------------------------------------------------------
-	intersection() 
+	if(multiple_turns_over_height)
 	{
-		union()
+		// normal threads with multiple turns
+		intersection() 
 		{
-			if(multiple_turns_over_height)
+			make_thread();
+			// Cut to length.
+			translate([0, 0, (len+0.001)/2]) //0.001 : "simple=no" for square threads
+				cube([diameter*1.1, diameter*1.1, len+0.001], center=true);
+		}//end intersection
+	}
+	else
+	{
+		
+		//Channel threads
+		intersection() 
+		{
+			make_channel_thread();
+			translate([0, 0, -(len+0.001)/2]) //0.001 : "simple=no" for square threads
+				cube([diameter*1.1, diameter*1.1, len+0.001], center=true);
+		}//end intersection
+		/* DEBUG
+		#translate([0, diameter*1.1/2+0.05, -len/2]) 
+				cube([diameter*1.1, diameter*1.1, len], center=true);
+		#translate([diameter*1.1/2+0.05,0 , -len/2]) 
+				cube([diameter*1.1, diameter*1.1, len], center=true);
+		#translate([-backlash/4, -diameter*1.1/2+2 , -len+backlash/4])
+				cube([backlash/2, backlash/2, backlash/2], center=true);
+		*/
+	}
+
+	// ------------------------------------------------------------------
+	// Thread modules
+	// ------------------------------------------------------------------
+	module make_thread()
+	{
+		// Start one below z = 0.  Gives an extra turn at each end.
+		for (i=[-1*n_starts : n_turns]) {
+			translate([0, 0, i*pitch]) 
+				thread_turn(n_segments, i+n_starts+1);
+		}
+	}//end module make_thread()
+
+	module make_channel_thread()
+	{
+		for (i=[0:n_starts-1]) 
+		{
+			rotate([0,0,i*360/n_starts])
 			{
-				// Start one below z = 0.  Gives an extra turn at each end.
-				for (i=[-1*n_starts : n_turns]) {
-					translate([0, 0, i*pitch]) 
-						thread_turn(n_segments, i+n_starts+1);
-				}
-			}
-			else
-			{
-				for (i=[0:n_starts-1]) 
+				translate([0, 0, channel_thread_z_offset()]) 
 				{
-					rotate([0,0,i*360/n_starts])
+					channel_thread_turn(n_segments, open_top=false, is_bottom_turn=true);
+					// an internal (cutout) channel thread needs a thread above
+					// to create enough space to insert the male thread.
+					if(internal)
 					{
-						translate([0, 0, channel_thread_z_offset()]) 
-						{
-							channel_thread_turn(n_segments);
-							// an internal (cutout) channel thread needs a thread above
-							// to create enough space to insert the male thread.
-							if(internal)
-							{
-								translate([0, 0, pitch+lower_flat/2]) 
-									thread_turn(n_segments,1);
-							}
-						}
+						translate([0, 0, pitch])
+							channel_thread_turn(n_segments, open_top=true, is_bottom_turn=false);
 					}
 				}
 			}
 		}
-
-		// Cut to length.
-		translate([0, 0, len/2]) 
-			cube([diameter*1.1, diameter*1.1, len], center=true);
-	}
+	}//end module make_channel_thread()
 
 	// ----------------------------------------------------------------------------
 	module thread_turn(n_segments, current_turn)
@@ -1410,7 +1552,7 @@ module thread(
 							]) 
 				{
 					if(taper_per_segment == 0)
-						thread_polyhedron(seg_angle);
+						thread_polyhedron(seg_angle,i);
 					else
 						thread_polyhedron_tapered(seg_angle, current_turn*n_segments + i);
 				}
@@ -1419,7 +1561,7 @@ module thread(
 	} // end module metric_thread_turn()
 
 	// ----------------------------------------------------------------------------
-	module channel_thread_turn(n_segments)
+	module channel_thread_turn(n_segments, open_top=false, is_bottom_turn = true )
 	{
 		current_seg_z_offset = 0;
 		for (i=[0 : n_segments-1]) 
@@ -1429,10 +1571,11 @@ module thread(
 				assign(current_seg_z_offset = i*pitch*(seg_angle/360)) 
 				{
 					translate([0, 0, current_seg_z_offset ]) 
-						channel_thread_polyhedron(seg_angle, current_seg_z_offset, i);
+						channel_thread_polyhedron(seg_angle, open_top, i, is_bottom_turn);
          		}
       		}
 		}
+
 	} // end module metric_thread_turn()
 
 
@@ -1523,6 +1666,77 @@ module thread(
 		[0,1,9,8],	
 		];
 
+/* 
+	// More complex polyhedron to get a smoother slope on
+	// bottom of channel thread (still Beta)
+
+		is_hollow ?
+		[
+		//A side of slice
+		[19,11,3], [19,3,14],[3,7,14],[14,7,4], 
+		[19,14,16],[16,14,0],[0,14,4],[16,0,8],
+		// B side of slice
+		[18,2,10], [18,15,2],[6,2,15],[15,5,6], 
+		[18,17,15],[17,1,15],[1,5,15],[17,9,1],
+
+		// top of slice	
+		[19, 18, 10], [19, 10, 11],
+		//bottom
+		[16, 8, 9], [16, 9, 17], 
+		//top inner of thread
+		[2,3,11,10],
+		//top flank of thread
+		[7,3,2], [2,6,7],
+		// tip/outer of thread	 	
+		[4,7,6,5],
+		//bottom flank of thread	
+		[0,4,5], [5,1,0], 					
+		//bottom inner of thread
+		//[8,0,1], [1,9,8],
+		[0,1,9,8],
+		//hollow inner
+		[17,19,16],[17,18,19]
+		]
+		:
+		[
+		//A side of slice
+		[19,11,3], [19,3,14],[3,7,14],[14,7,4], 
+		[19,14,16],[16,14,0],[0,14,4],[16,0,8],
+		// B side of slice
+		[18,2,10], [18,15,2],[6,2,15],[15,5,6], 
+		[18,17,15],[17,1,15],[1,5,15],[17,9,1],
+
+		// top of slice	
+		[19, 18, 10], [19, 10, 11],
+		//bottom
+		[16, 8, 9], [16, 9, 17], 
+		//top inner of thread
+		[2,3,11,10],
+		//top flank of thread
+		[7,3,2], [2,6,7],
+		// tip/outer of thread	 	
+		[4,7,6,5],
+		//bottom flank of thread	
+		[0,4,5], [5,1,0], 					
+		//bottom inner of thread
+		//[8,0,1], [1,9,8],
+		[0,1,9,8],
+		
+		//center
+		//slice center, this side
+		[13,19,16],[13,16,12],
+		//slice center ,back side
+		[18,21,20],[18,20,17],
+		//slice center close
+		[20,21,13],[13,12,20],
+		//slice center bottom
+		[17,20,12],	[16,17,12],
+		//slice center top
+		[19,21,18],[19,13,21],
+
+
+		];
+*/
 	// ------------------------------------------------------------
 	module thread_polyhedron_tapered(seg_angle, current_segment)
 	{
@@ -1537,13 +1751,13 @@ module thread(
 		z_incr_this_side = z_incr * (right_handed ? 0 : 1);
 		z_incr_back_side = z_incr * (right_handed ? 1 : 0);
 		z_thread_lower = lower_flat >= 0.002 ? lower_flat/2 : 0.001;
-		z_tip_lower = z_thread_lower + right_flat;
+		z_tip_lower = z_thread_lower + left_flat;
 		z_tip_inner_middle = z_tip_lower + upper_flat/2;
 		z_tip_upper = (z_tip_lower + upper_flat <= pitch-0.002) ?
 							z_tip_lower + upper_flat
 							: pitch-0.002; 
-		z_thread_upper = (z_tip_upper + left_flat <= pitch-0.001) ?
-							z_tip_upper + left_flat
+		z_thread_upper = (z_tip_upper + right_flat <= pitch-0.001) ?
+							z_tip_upper + right_flat
 							: pitch-0.001; 				
 		//to prevent errors if top slice barely touches bottom of next segement
 		//afterone full turn.
@@ -1603,13 +1817,15 @@ module thread(
 			// top
 			[x_incr_hollow/2,-hollow_rad_p, pitch + z_incr_back_side + z_thread_top_simple_yes], // [18]
 			[-x_incr_hollow/2,-hollow_rad_p, pitch + z_incr_this_side + z_thread_top_simple_yes], // [19]
+			[0.001,0,z_thread_lower+z_incr_back_side], // [20]
+			[0,0,pitch + z_thread_top_simple_yes+z_incr_back_side] // [21]
 		];
 
 
 	} // end module thread_polyhedron_tapered()
 
 	// ------------------------------------------------------------
-	module thread_polyhedron(seg_angle)
+	module thread_polyhedron(seg_angle,i)
 	{
 		x_incr_outer = 2*(accurateSin(seg_angle/2)*major_rad)+0.001; //overlapping needed 
 		x_incr_inner = 2*(accurateSin(seg_angle/2)*minor_rad)+0.001; //for simple=yes
@@ -1619,13 +1835,13 @@ module thread(
 		z_incr_this_side = z_incr * (right_handed ? 0 : 1);
 		z_incr_back_side = z_incr * (right_handed ? 1 : 0);
 		z_thread_lower = lower_flat >= 0.002 ? lower_flat/2 : 0.001;
-		z_tip_lower = z_thread_lower + right_flat;
+		z_tip_lower = z_thread_lower + left_flat;
 		z_tip_inner_middle = z_tip_lower + upper_flat/2;
 		z_tip_upper = (z_tip_lower + upper_flat <= pitch-0.002) ?
 							z_tip_lower + upper_flat
 							: pitch-0.002; 
-		z_thread_upper = (z_tip_upper + left_flat <= pitch-0.001) ?
-							z_tip_upper + left_flat
+		z_thread_upper = (z_tip_upper + right_flat <= pitch-0.001) ?
+							z_tip_upper + right_flat
 							: pitch-0.001; 				
 		//to prevent errors if top slice barely touches bottom of next segement
 		//afterone full turn.
@@ -1650,12 +1866,16 @@ module thread(
 		echo("x_incr_hollow",x_incr_hollow);
 		echo("hollow_rad",hollow_rad);
 		echo("hollow_rad_p",hollow_rad_p);
-		
+		if(i==0)
+		{
 		echo(slice_points());
-		echo(slice_faces());*/
+		echo(slice_faces());
+		}
+		*/
+
 
 		polyhedron(	points = slice_points(),faces = slice_faces());
-		
+
 		// ------------------------------------------------------------
 		function slice_points() = 
 			[
@@ -1685,32 +1905,40 @@ module thread(
 			// top
 			[x_incr_hollow/2,-hollow_rad_p, pitch + z_incr_back_side + z_thread_top_simple_yes], // [18]
 			[-x_incr_hollow/2,-hollow_rad_p, pitch + z_incr_this_side + z_thread_top_simple_yes], // [19]
+			[0.001,0,z_thread_lower+z_incr_back_side], // [20]
+			[0.001,0,pitch + z_thread_top_simple_yes+z_incr_back_side] // [21]
 		];
-
 
 	} // end module thread_polyhedron()
 
 	// ------------------------------------------------------------
-	module channel_thread_polyhedron(seg_angle)
+	module channel_thread_polyhedron(seg_angle,open_top = false, i, is_bottom_turn = false)
 	{
+		// Notes:
+		// - length of thread (variable "len") is only a limiting factor if pitch is > 1
+		// - The z-reference of the thread is x==0. this is the planar area where
+		//   other objects are being connected. All other z-values are negative.
+		//
 		x_incr_outer = 2*(accurateSin(seg_angle/2)*major_rad)+0.001; //overlapping needed 
 		x_incr_inner = 2*(accurateSin(seg_angle/2)*minor_rad)+0.001; //for simple=yes
 		x_incr_hollow = 2*(accurateSin(seg_angle/2)*hollow_rad)+0.001; //for simple=yes
-
+		function bottom_z_space() = is_bottom_turn ? channel_thread_bottom_spacer() : 0;
 		function top_z() = internal ? pitch + len : pitch;
 		z_incr =  pitch * seg_angle/360;
 
 		z_incr_this_side = z_incr * (right_handed ? 0 : 1);
 		z_incr_back_side = z_incr * (right_handed ? 1 : 0);
+
+		z_thread_bottom = -bottom_z_space();
 		// a channel thread has all lower_flat really low... :-)
-		z_thread_lower = lower_flat >= 0.002 ? lower_flat-0.001 : 0.001;
-		z_tip_lower = z_thread_lower + right_flat;
+		z_thread_lower = 0.001; 
+		z_tip_lower = z_thread_lower + left_flat;
 		z_tip_inner_middle = z_tip_lower + upper_flat/2;
 		z_tip_upper = (z_tip_lower + upper_flat <= pitch-0.002) ?
 							z_tip_lower + upper_flat
 							: pitch-0.002; 
-		z_thread_upper = (z_tip_upper + left_flat <= pitch-0.001) ?
-							z_tip_upper + left_flat
+		z_thread_upper = (z_tip_upper + right_flat <= pitch-0.001) ?
+							z_tip_upper + right_flat
 							: pitch-0.001; 				
 		//to prevent errors if top slice barely touches bottom of next segement
 		//afterone full turn.
@@ -1721,8 +1949,20 @@ module thread(
 		major_rad_p = major_rad - bow_to_face_distance(major_rad, seg_angle);
 		minor_rad_p = minor_rad - bow_to_face_distance(minor_rad, seg_angle);	
 		hollow_rad_p = hollow_rad - bow_to_face_distance(hollow_rad, seg_angle);
-	
-		/*echo(" *** polyhedron ***");
+
+		//allow flat thread to be inserted
+		x_incr_bottom = x_incr_inner;
+		x_incr_top = open_top ? x_incr_outer : x_incr_inner;
+		bottom_minor_rad_p = minor_rad_p;
+		top_minor_rad_p = open_top ? major_rad_p : minor_rad_p; 
+		/*if(i==0)
+		{
+		echo(" *** polyhedron ***");
+		echo("internal",internal);
+		echo("x_incr_outer",x_incr_outer);
+		echo("x_incr_inner",x_incr_inner);
+		
+		echo("open_top",open_top);
 		echo("seg_angle",seg_angle);
 		echo("lower_flat",lower_flat);
 		echo("upper_flat",upper_flat);
@@ -1738,28 +1978,69 @@ module thread(
 		echo("x_incr_hollow",x_incr_hollow);
 		echo("hollow_rad",hollow_rad);
 		echo("hollow_rad_p",hollow_rad_p);
-		echo(flat_slice_points());
-		echo(slice_faces());*/
-		polyhedron(	points = flat_slice_points(),faces = slice_faces());
-		
+		echo(channel_slice_points());
+		echo(slice_faces());
+		}*/
+
+		polyhedron(	points = channel_slice_points(),faces = slice_faces());
+
 		// ------------------------------------------------------------
-		function flat_slice_points() = 
+		function channel_slice_points() = 
 			[
 			//tooth
-			[-x_incr_inner/2, -minor_rad_p, z_thread_lower + z_incr_this_side],    // [0]
-			[x_incr_inner/2, -minor_rad_p, z_thread_lower + z_incr_back_side],     // [1]
-			[x_incr_inner/2, -minor_rad_p, z_thread_upper  + z_incr_back_side],  // [2]
-			[-x_incr_inner/2, -minor_rad_p, z_thread_upper + z_incr_this_side],        // [3]
+			[-x_incr_bottom/2, -bottom_minor_rad_p, z_thread_lower + z_incr_this_side],    // [0]
+			[x_incr_bottom/2, -bottom_minor_rad_p, z_thread_lower + z_incr_back_side],     // [1]
+			[x_incr_top/2, -top_minor_rad_p, z_thread_upper  + z_incr_back_side],  // [2]
+			[-x_incr_top/2, -top_minor_rad_p, z_thread_upper + z_incr_this_side],        // [3]
 			[-x_incr_outer/2, -major_rad_p, z_tip_lower + z_incr_this_side], // [4]
 			[x_incr_outer/2, -major_rad_p, z_tip_lower + z_incr_back_side],  // [5]
 			[x_incr_outer/2, -major_rad_p, z_tip_upper + z_incr_back_side], // [6]
 			[-x_incr_outer/2, -major_rad_p, z_tip_upper + z_incr_this_side],// [7]
 
 			//slice
-			[-x_incr_inner/2,-minor_rad_p,-len], // [8]
-			[x_incr_inner/2,-minor_rad_p,-len], // [9]
-			[x_incr_inner/2,-minor_rad_p, top_z() + z_incr_back_side + z_thread_top_simple_yes], // [10]
-			[-x_incr_inner/2,-minor_rad_p, top_z() + z_incr_this_side + z_thread_top_simple_yes], // [11]
+			[-x_incr_bottom/2,-bottom_minor_rad_p,z_thread_bottom+ z_incr_this_side], // [8]
+			[x_incr_bottom/2,-bottom_minor_rad_p,z_thread_bottom+ z_incr_back_side], // [9]
+			[x_incr_top/2,-top_minor_rad_p, len + z_incr_back_side], // [10]
+			[-x_incr_top/2,-top_minor_rad_p, len + z_incr_this_side], // [11]
+			[(internal?-0.02:-0.2),0,z_thread_lower + z_incr_this_side], // [12]
+			[0.001,0,len + z_incr_this_side], // [13]
+			[-x_incr_bottom/2,-minor_rad_p, z_tip_inner_middle + z_incr_this_side], // [14]
+			[+x_incr_inner/2,-minor_rad_p, z_tip_inner_middle + z_incr_back_side], // [15]
+
+			// inner shaft points
+			// bottom
+			[-x_incr_hollow/2,-hollow_rad_p,z_thread_bottom+ z_incr_this_side], // [16]
+			[x_incr_hollow/2,-hollow_rad_p,z_thread_bottom+ z_incr_back_side], // [17]
+			// top
+			[x_incr_hollow/2,-hollow_rad_p, len + z_incr_back_side], // [18]
+			[-x_incr_hollow/2,-hollow_rad_p, len + z_incr_this_side], // [19]
+			[0.001,0,z_thread_bottom+z_incr_back_side], // [20]
+			[0,0,len + z_thread_top_simple_yes+z_incr_back_side] // [21]
+			];
+	}
+	// ------------------------------------------------------------
+	module channel_thread_polyhedron_orig(seg_angle, open_top=false, i)
+	{
+
+		
+		// ------------------------------------------------------------
+		function flat_slice_points() = 
+			[
+			//tooth
+			[-x_incr_bottom/2, -bottom_minor_rad_p, z_thread_lower + z_incr_this_side],    // [0]
+			[x_incr_bottom/2, -bottom_minor_rad_p, z_thread_lower + z_incr_back_side],     // [1]
+			[x_incr_top/2, -top_minor_rad_p, z_thread_upper  + z_incr_back_side],  // [2]
+			[-x_incr_top/2, -top_minor_rad_p, z_thread_upper + z_incr_this_side],        // [3]
+			[-x_incr_outer/2, -major_rad_p, z_tip_lower + z_incr_this_side], // [4]
+			[x_incr_outer/2, -major_rad_p, z_tip_lower + z_incr_back_side],  // [5]
+			[x_incr_outer/2, -major_rad_p, z_tip_upper + z_incr_back_side], // [6]
+			[-x_incr_outer/2, -major_rad_p, z_tip_upper + z_incr_this_side],// [7]
+
+			//slice
+			[-x_incr_bottom/2,-bottom_minor_rad_p,-len], // [8]
+			[x_incr_bottom/2,-bottom_minor_rad_p,-len], // [9]
+			[x_incr_top/2,-top_minor_rad_p, top_z() + z_incr_back_side + z_thread_top_simple_yes], // [10]
+			[-x_incr_top/2,-top_minor_rad_p, top_z() + z_incr_this_side + z_thread_top_simple_yes], // [11]
 			[0,0,-len], // [12]
 			[0,0,top_z() + z_thread_top_simple_yes], // [13]
 			[-x_incr_inner/2,-minor_rad_p, z_tip_inner_middle + z_incr_this_side], // [14]
@@ -1771,7 +2052,7 @@ module thread(
 			[x_incr_hollow/2,-hollow_rad_p,-len], // [17]
 			// top
 			[x_incr_hollow/2,-hollow_rad_p, top_z() + z_incr_back_side + z_thread_top_simple_yes], // [18]
-			[-x_incr_hollow/2,-hollow_rad_p, top_z() + z_incr_this_side + z_thread_top_simple_yes], // [19]
+			[-x_incr_hollow/2,-hollow_rad_p, top_z() + z_incr_this_side + z_thread_top_simple_yes] // [19]
 		];
 
 	} // end module channel_thread_polyhedron(seg_angle)
