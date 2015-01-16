@@ -224,7 +224,7 @@
 //test_leftright_buttress(5);
 //test_internal_difference_buttress();
 //test_internal_difference_buttress_lefthanded();
-//test_channel_thread(30);
+test_channel_thread(8);
 //test_channel_thread_diff();
 //test_NPT();
 //test_BSP();
@@ -393,27 +393,8 @@ module test_channel_thread(dia = 10)
 		right_handed = true,
 		clearance = clearance,
 		backlash = backlash,
-		bore_diameter = 0
+		bore_diameter = dia-4
 		);
-
-/*
- translate([0,0,len+1])
-	rotate([0,0,0])
-channel_thread(
-		thread_diameter = dia,
-		pitch = 2,
-		turn_angle = 360,
-		length = len,
-		internal = true,
-		n_starts = 1,
-		thread_angles = angles,
-		outer_flat_length = outer_flat_length,
-		right_handed = true,
-		bore_diameter = 0,
-		clearance = clearance,
-		backlash = backlash,
-		bore_diameter = 0);
-*/
 }
 
 
