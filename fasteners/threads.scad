@@ -33,6 +33,8 @@
  *
 
  * Version 2.5  2015-01-14  indazoo
+ *                          - multipoint polygons were not "planar" for all cases
+ * Version 2.5  2015-01-14  indazoo
  *                          - large clearance increases backlash when upper_flat
  *                            is zero on internal thread.
  *                          - negative upper_flat prohibited.
@@ -224,7 +226,8 @@
 //test_leftright_buttress(5);
 //test_internal_difference_buttress();
 //test_internal_difference_buttress_lefthanded();
-test_channel_thread(8);
+//test_channel_thread(8);
+//test_channel_thread2(); 
 //test_channel_thread_diff();
 //test_NPT();
 //test_BSP();
@@ -374,12 +377,12 @@ module test_leftright_buttress($fa=20, $fs=0.1)
 
 module test_channel_thread(dia = 10)
 {
-	angles = [20,45];
+	angles = [50,0];
 	len = 8;
 	backlash = 0.13;
 	outer_flat_length = 0.5;
 	clearance = 0.17;
-
+	backlash = 0.1;
 
 	channel_thread(
 		thread_diameter = dia,
@@ -394,6 +397,32 @@ module test_channel_thread(dia = 10)
 		clearance = clearance,
 		backlash = backlash,
 		bore_diameter = dia-4
+		);
+}
+
+module test_channel_thread2(dia = 26.8)
+{
+	//top cuts through upper thread (no shaft)
+	angles = [50,0]; //second angle needs to be zero for test case.
+	len = 4;
+	backlash = 0.13;
+	outer_flat_length = 0.5;
+	clearance = 0.2;
+	backlash = 0.2;
+
+	channel_thread(
+		thread_diameter = dia,
+		pitch = 2,
+		turn_angle = 360,
+		length = len,
+		internal = true,
+		n_starts = 1,
+		thread_angles = angles,
+		outer_flat_length = outer_flat_length,
+		right_handed = true,
+		clearance = clearance,
+		backlash = backlash,
+		bore_diameter = 9.6
 		);
 }
 
@@ -1596,12 +1625,12 @@ module m_thread(
    		*/
 		is_hollow ?
 		[
-		//A side of slice
-		[16,19,11,3,0,8], // accepts it as "planar"
-		[3,7,4,0],
-		// B side of slice
-		[18,17,9,1,2,10], // accepts it as "planar"
-		[1,5,6,2],		
+		//A side of slice, multi point polygons did not worked
+		[19,11,3], [19,3,14],[3,7,14],[14,7,4], 
+		[19,14,16],[16,14,0],[0,14,4],[16,0,8],
+		// B side of slice, multi point polygons did not worked
+		[18,2,10], [18,15,2],[6,2,15],[15,5,6], 
+		[18,17,15],[17,1,15],[1,5,15],[17,9,1],	
 		// top of slice	
 		[19,18,10],[19,10,11],	
 		// bottom of slice
@@ -1615,21 +1644,20 @@ module m_thread(
 		//bottom flank of thread	
 		[0,4,5], [5,1,0], 					
 		//bottom inner of thread
-		//[8,0,1], [1,9,8],
 		[0,1,9,8],
 		//hollow inner
 		[17,19,16],[17,18,19]
 		]
 		:
 		[
-		//A side of slice
+		//A side of slice, multi point polygons did not worked
+		[19,11,3], [19,3,14],[3,7,14],[14,7,4], 
+		[19,14,16],[16,14,0],[0,14,4],[16,0,8],
 		[12,13,19,16],// accepts it as "planar"
-		[16,19,11,3,0,8], // accepts it as "planar"
-		[3,7,4,0],
-		// B side of slice
+		// B side of slice, multi point polygons did not worked
+		[18,2,10], [18,15,2],[6,2,15],[15,5,6], 
+		[18,17,15],[17,1,15],[1,5,15],[17,9,1],	
 		[13,12,17,18], // accepts it as "planar"
-		[17,9,1,2,10,18], // accepts it as "planar"
-		[1,5,6,2],		
 		// top of slice	
 		[13,18,19],[19,18,10],[19,10,11],	
 		// bottom of slice
@@ -1652,56 +1680,9 @@ module m_thread(
 	// bottom of channel thread (still Beta)
 
 		is_hollow ?
-		[
-		//A side of slice
-		[19,11,3], [19,3,14],[3,7,14],[14,7,4], 
-		[19,14,16],[16,14,0],[0,14,4],[16,0,8],
-		// B side of slice
-		[18,2,10], [18,15,2],[6,2,15],[15,5,6], 
-		[18,17,15],[17,1,15],[1,5,15],[17,9,1],
-
-		// top of slice	
-		[19, 18, 10], [19, 10, 11],
-		//bottom
-		[16, 8, 9], [16, 9, 17], 
-		//top inner of thread
-		[2,3,11,10],
-		//top flank of thread
-		[7,3,2], [2,6,7],
-		// tip/outer of thread	 	
-		[4,7,6,5],
-		//bottom flank of thread	
-		[0,4,5], [5,1,0], 					
-		//bottom inner of thread
-		//[8,0,1], [1,9,8],
-		[0,1,9,8],
-		//hollow inner
-		[17,19,16],[17,18,19]
-		]
+		[]
 		:
 		[
-		//A side of slice
-		[19,11,3], [19,3,14],[3,7,14],[14,7,4], 
-		[19,14,16],[16,14,0],[0,14,4],[16,0,8],
-		// B side of slice
-		[18,2,10], [18,15,2],[6,2,15],[15,5,6], 
-		[18,17,15],[17,1,15],[1,5,15],[17,9,1],
-
-		// top of slice	
-		[19, 18, 10], [19, 10, 11],
-		//bottom
-		[16, 8, 9], [16, 9, 17], 
-		//top inner of thread
-		[2,3,11,10],
-		//top flank of thread
-		[7,3,2], [2,6,7],
-		// tip/outer of thread	 	
-		[4,7,6,5],
-		//bottom flank of thread	
-		[0,4,5], [5,1,0], 					
-		//bottom inner of thread
-		//[8,0,1], [1,9,8],
-		[0,1,9,8],
 		
 		//center
 		//slice center, this side
