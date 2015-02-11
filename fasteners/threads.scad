@@ -1994,45 +1994,7 @@ module m_thread(
 			[0.001,0,z_thread_bottom+z_incr_back_side], // [20]
 			[0,0,len + z_thread_top_simple_yes+z_incr_back_side] // [21]
 			];
-	}
-	// ------------------------------------------------------------
-	module channel_thread_polyhedron_orig(seg_angle, open_top=false, i)
-	{
-
-		
-		// ------------------------------------------------------------
-		function flat_slice_points() = 
-			[
-			//tooth
-			[-x_incr_bottom/2, -bottom_minor_rad_p, z_thread_lower + z_incr_this_side],    // [0]
-			[x_incr_bottom/2, -bottom_minor_rad_p, z_thread_lower + z_incr_back_side],     // [1]
-			[x_incr_top/2, -top_minor_rad_p, z_thread_upper  + z_incr_back_side],  // [2]
-			[-x_incr_top/2, -top_minor_rad_p, z_thread_upper + z_incr_this_side],        // [3]
-			[-x_incr_outer/2, -major_rad_p, z_tip_lower + z_incr_this_side], // [4]
-			[x_incr_outer/2, -major_rad_p, z_tip_lower + z_incr_back_side],  // [5]
-			[x_incr_outer/2, -major_rad_p, z_tip_upper + z_incr_back_side], // [6]
-			[-x_incr_outer/2, -major_rad_p, z_tip_upper + z_incr_this_side],// [7]
-
-			//slice
-			[-x_incr_bottom/2,-bottom_minor_rad_p,-len], // [8]
-			[x_incr_bottom/2,-bottom_minor_rad_p,-len], // [9]
-			[x_incr_top/2,-top_minor_rad_p, top_z() + z_incr_back_side + z_thread_top_simple_yes], // [10]
-			[-x_incr_top/2,-top_minor_rad_p, top_z() + z_incr_this_side + z_thread_top_simple_yes], // [11]
-			[0,0,-len], // [12]
-			[0,0,top_z() + z_thread_top_simple_yes], // [13]
-			[-x_incr_inner/2,-minor_rad_p, z_tip_inner_middle + z_incr_this_side], // [14]
-			[+x_incr_inner/2,-minor_rad_p, z_tip_inner_middle + z_incr_back_side], // [15]
-
-			// inner shaft points
-			// bottom
-			[-x_incr_hollow/2,-hollow_rad_p,-len], // [16]
-			[x_incr_hollow/2,-hollow_rad_p,-len], // [17]
-			// top
-			[x_incr_hollow/2,-hollow_rad_p, top_z() + z_incr_back_side + z_thread_top_simple_yes], // [18]
-			[-x_incr_hollow/2,-hollow_rad_p, top_z() + z_incr_this_side + z_thread_top_simple_yes] // [19]
-		];
-
-	} // end module channel_thread_polyhedron(seg_angle)
+	} // end module channel_thread_polyhedron()
 } // end module thread()
 
 
