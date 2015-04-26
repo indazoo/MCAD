@@ -2240,10 +2240,10 @@ module slots_metric(
 			tabWidth_angle=13,	//use tab_angle or tabWidth
 			rotation=25,	//how far to rotate to lock, never set to 
 							//more than 360/tabNumber
-			tabNumber=2, 	//don't recomeend using 1 for physical 
-							//use but is handy for testing things
-			tolerance=0.1, //self explanetry really, this will be 
-							//dependant on printer
+			tabNumber=2, 	//Number of tabs >= 1.
+			tolerance=0.1, //Space hull around path of tab to provide 
+							//some play. The total play in one direction
+							//is 2*tolerance.
 			clockwise=true, //which way you want to rotate
 			gap=0.5, 		// gap (play) between tab zylinder and slot cylinder
 			lock=0, 		//this adds a little indent and nub at the final 
@@ -2291,10 +2291,10 @@ module slots(
 			tabWidth_angle=0,	//use tab_angle or tabWidth
 			rotation=24,	//how far to rotate to lock, never set to 
 							//more than 360/tabNumber
-			tabNumber=2, 	//don't recomeend using 1 for physical 
-							//use but is handy for testing things
-			tolerance=0.1, //self explanetry really, this will be 
-							//dependant on printer
+			tabNumber=2, 	//Number of tabs >= 1.
+			tolerance=0.1, //Space hull around path of tab to provide 
+							//some play. The total play in one direction
+							//is 2*tolerance.
 			clockwise=true, //which way you want to rotate
 			gap=0.5, 		// gap (play) between tab zylinder and slot cylinder
 			lock=0, 		//this adds a little indent and nub at the final 
@@ -2329,8 +2329,9 @@ module slots(
 
 	inner_radius = tabs_outward ? slot_minor_radius : slot_major_radius;
 	outer_radius = tabs_outward ? slot_major_radius : slot_minor_radius;
-
-
+	echo("SLOTS");
+	echo("inner_radius",inner_radius);
+	echo("outer_radius",outer_radius);
 	if(tabWidth!=0 && tabWidth_angle!=0)
 	{	echo("Warning !!!");
 		echo("Use either tabWidth or tabWidth_angle but not both.");}
