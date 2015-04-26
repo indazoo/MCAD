@@ -221,8 +221,13 @@
 // Test/demo threads
 // -------------------------------------------------------------------
 
-//$fn=12;
-//test_thread();
+//$fn=25;
+//test_threads();
+//test_channel_threads();
+//test_slot_tabs();
+
+//test_metric_right();
+//test_metric_left();
 //test_square_thread();
 //test_hollow_thread();
 //test_threads();
@@ -231,24 +236,83 @@
 //test_leftright_buttress(5);
 //test_internal_difference_buttress();
 //test_internal_difference_buttress_lefthanded();
-//test_channel_thread(30);
+//test_channel_thread(8);
 //test_channel_thread2(); 
+//test_channel_thread3();
 //test_channel_thread_diff();
 //test_NPT();
 //test_BSP();
 
-module test_thread ($fa=5, $fs=0.1)
+
+module test_threads ($fa=5, $fs=0.1)
+{
+    // M8
+    metric_thread(8, pitch=1.5, length=5);
+    translate ([0, 15, 0])
+        metric_thread(8, pitch=1.5, length=5, right_handed=false);
+    // multiple start:
+    translate ([0, -15, 0])
+    metric_thread(8, pitch=3, length=5, internal=false, n_starts=3);
+
+
+    translate ([10, 0, 0])
+    square_thread(8, pitch=1.5, length=5);
+
+    translate ([20, 0, 0])
+    acme_thread(8, pitch=1.5, length=5);
+
+    translate ([30, 0, 0])
+    buttress_thread(8, pitch=1.5, length=5);
+
+    translate ([40, 0, 0])
+    english_thread(1/4, pitch=20, length=1/4);
+
+}
+
+module test_channel_threads()
+{
+	// channel thread
+	translate ([10, 0, 0])
+         test_channel_thread(8);
+	
+	translate ([-10, 0, 0])
+         test_channel_thread2();
+}
+
+module test_slot_tabs()
+{
+	// tabs & slots
+	translate ([0, 0, +5])
+		test_tabs(ref_dia = 10);
+	color("LemonChiffon")
+	translate ([0, 0, -5])
+		test_slots(ref_dia = 10);
+}
+
+
+
+
+
+module test_metric_thread ($fa=5, $fs=0.1)
 {
 	metric_thread( diameter = 20,
 		pitch = 4, 
 		length = 3, 
 		internal=false, 
-		n_starts=1, 
+		n_starts=3, 
 		right_handed=true,
 		clearance = 0.1, 
 		backlash=0.4,
 		printify_top = false
 	);
+}
+module test_metric_left()
+{
+	metric_thread(8, 
+				pitch=1.5, 
+				internal=false, 
+				length=3, 
+				right_handed=false);
 }
 
 module test_hollow_thread ($fa=5, $fs=0.1)
@@ -265,38 +329,6 @@ module test_hollow_thread ($fa=5, $fs=0.1)
 		printify_top = false,
 		bore_diameter = 7
 	);
-}
-
-module test_threads ($fa=5, $fs=0.1)
-{
-    // M8
-    metric_thread(8, pitch=1.5, length=5);
-    translate ([0, -15, 0])
-        metric_thread(8, pitch=1.5, length=5, right_handed=false);
-
-    translate ([10, 0, 0])
-    square_thread(8, pitch=1.5, length=5);
-
-    translate ([20, 0, 0])
-    acme_thread(8, pitch=1.5, length=5);
-
-    translate ([30, 0, 0])
-    buttress_thread(8, pitch=1.5, length=5);
-
-    translate ([40, 0, 0])
-    english_thread(1/4, pitch=20, length=1/4);
-
-    // multiple start:
-    translate ([50, 0, 0])
-    metric_thread(8, pitch=1, length=5, internal=true, n_starts=3);
-
-	translate ([-10, 0, 0])
-         test_channel_thread(8);
-
-	translate ([-25,0,0])
-		test_slots(ref_dia = 8);
-	translate ([-25,15,0])
-		test_tabs(ref_dia = 8);
 }
 
 
@@ -388,12 +420,109 @@ module test_leftright_buttress($fa=20, $fs=0.1)
 
 module test_channel_thread(dia = 10)
 {
-	angles = [50,0];
-	len = 8;
+	angles = [0,50];
+	len = 15;
 	backlash = 0.13;
 	outer_flat_length = 0.5;
 	clearance = 0.17;
 	backlash = 0.1;
+	starts = 1;
+
+	translate([0,0,len+5])
+	channel_thread(
+		thread_diameter = dia,
+		pitch = 2,
+		turn_angle = 360,
+		length = len,
+		internal = false,
+		n_starts = starts,
+		thread_angles = angles,
+		outer_flat_length = outer_flat_length,
+		right_handed = true,
+		clearance = clearance,
+		backlash = backlash,
+		bore_diameter = dia-4
+		);
+
+	color("LemonChiffon")
+	translate([0,0,-5])
+	channel_thread(
+		thread_diameter = dia,
+		pitch = 2,
+		turn_angle = 360,
+		length = len,
+		internal = true,
+		n_starts = starts,
+		thread_angles = angles,
+		outer_flat_length = outer_flat_length,
+		right_handed = true,
+		clearance = clearance,
+		backlash = backlash,
+		bore_diameter = dia-4
+		);
+}
+
+module test_channel_thread2()
+{
+	//top cuts through upper thread (no shaft)
+	angles = [0,30]; 
+	len = 1;
+	outer_flat_length = 0.2;
+	clearance = 0.2;
+	backlash = 0.15;
+	function getdia(n) = 5 + n * 5;
+	for (n=[1 : 3])
+	{
+	translate([0,0,len+5])
+	channel_thread(
+		thread_diameter = getdia(n),
+		pitch = 1,
+		turn_angle = 360,
+		length = len,
+		internal = false,
+		n_starts = 1,
+		thread_angles = angles,
+		outer_flat_length = outer_flat_length,
+		right_handed = true,
+		clearance = clearance,
+		backlash = backlash,
+		bore_diameter = getdia(n)-4
+		);
+
+	color("LemonChiffon")
+		translate([0,0,-5])
+	channel_thread(
+		thread_diameter = getdia(n),
+		pitch = 1,
+		turn_angle = 360,
+		length = len,
+		internal = true,
+		n_starts = 1,
+		thread_angles = angles,
+		outer_flat_length = outer_flat_length,
+		right_handed = true,
+		clearance = clearance,
+		backlash = backlash,
+		bore_diameter = getdia(n)-4
+		);
+	}
+}
+module test_channel_thread3()
+{
+	//this sample created degenerated faces in netfabb
+	//because the angles created lower/upper_flat = 0 (or 0.0001)
+	wall_width = 2;
+	dia = 30 - 2*wall_width;
+	pitch = 2;
+	len = 4;
+	angles = [50,50]; //second angle needs to be zero for test case.
+	outer_flat_length = 0.5;
+	clearance = 0;
+	backlash = 0;
+	exact_clearance = false;
+	cutout = true;
+	cutout_space = 0.2;
+	h_cutout = cutout ? cutout_space : 0;
 
 	channel_thread(
 		thread_diameter = dia,
@@ -405,37 +534,13 @@ module test_channel_thread(dia = 10)
 		thread_angles = angles,
 		outer_flat_length = outer_flat_length,
 		right_handed = true,
-		clearance = clearance,
-		backlash = backlash,
-		bore_diameter = dia-4
+		clearance = h_cutout,
+		backlash = h_cutout,
+		bore_diameter = 10,
+		exact_clearance = exact_clearance
 		);
 }
 
-module test_channel_thread2(dia = 26.8)
-{
-	//top cuts through upper thread (no shaft)
-	angles = [50,0]; //second angle needs to be zero for test case.
-	len = 4;
-	backlash = 0.13;
-	outer_flat_length = 0.5;
-	clearance = 0.2;
-	backlash = 0.2;
-
-	channel_thread(
-		thread_diameter = dia,
-		pitch = 2,
-		turn_angle = 360,
-		length = len,
-		internal = true,
-		n_starts = 1,
-		thread_angles = angles,
-		outer_flat_length = outer_flat_length,
-		right_handed = true,
-		clearance = clearance,
-		backlash = backlash,
-		bore_diameter = 9.6
-		);
-}
 
 
 module test_channel_thread_diff()
@@ -2082,10 +2187,9 @@ module test_slots_metric(ref_dia = 30)
 //test_slots();
 module test_slots(ref_dia = 30)
 {
-	$fn=60;
 	depth = 5;
-	dia = 30 - 2*2.5;
-	numtabs=7;
+	dia = ref_dia ;
+	numtabs=4;
 	tabWidth_angle = 12;
 	rotation = 48;
 
@@ -2329,7 +2433,7 @@ module test_tabs(ref_dia = 30)
 		tabHeight=ref_dia/12,
 		tabWidth=ref_dia/8,
 		tabWidth_angle=0,	
-		tabNumber=33,	
+		tabNumber=4,	
 		tolerance=0.1,
 		gap=0.5,
 		lock=0.2,
@@ -2347,10 +2451,10 @@ module test_tabs_metric(outer_dia=30)
 		tabHeight=outer_dia/12,
 		tabWidth=outer_dia/16,
 		tabWidth_angle=0,	
-		tabNumber=2,	
+		tabNumber=4,	
 		tolerance=0.2,
 		gap=0.5,
-		lock=0,
+		lock=0.3,
 		stop=1,
 		pitch=pitch,
 		tabs_outward=true);
