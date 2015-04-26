@@ -20,7 +20,6 @@
  *  - big taper angles create invalid polygons (no limit checks implemented).
  *  - test print BSP and NPT threads and check compatibility with std hardware.
  *  - a 45 degree BSP/NPT variant which fits on metal std hardware and has no leaks.
- *  - reduce number of polygons for a tooth (speed). 
  *  - The current design creates polyhedra with the possibility of an inner flat
  *    (at minor_rad) on bottom and on top. This is useful if each tooth segment is 
  *    being individually calculated for its position in the thread which needs a
@@ -30,10 +29,12 @@
  *    speed can be improved. But the last and first polyhedra may 
  *    be tricky to create because they end with height = 0 on one side.
  *    Perhaps, this speed trick should be implemented AFTER moving to list-comprehensions.
- *  - Channel threads: internal channel thread needs to remove more material above thread so
- *    a thread can be inserted into a deeply located channel thread. For a long part
- *    with a channel thread attached to its end inserted deep into another part.
- *
+ * 
+ * Version 2.7  2015-02-16  indazoo
+ *                          - removed the "holes" reported by netfabb.
+ *                          - channel thread supports now deep sunken threads
+ *                          - modularized polygon calculation
+ *                          - test/demo samples extended
  * Version 2.6  2015-01-14  indazoo
  *                          - tab & slot connections added. Heavily modified code
  *                            of SimCity.
@@ -598,6 +599,23 @@ module test_BSP()
 		length = 0.5, //inches
 		internal  = false);
 }
+
+// ----------------------------------------------------------------------------
+// Definitions
+// ----------------------------------------------------------------------------
+
+	// netfabb recognises/marks a triangle as "degenerated" if it is too small
+	// This value has been evaluated by try and error by exporting a STL to netfabb.
+	// Values:
+	// 0.0015 was necessary for a channel thread to suppress degenerated message 
+	//        in netfabb.
+	// 0.001 seems to be the trigger level in netfab. ==> See Settings in Netfab.
+	// THe message in Netfabb about degenerated faces can be reduced by
+	// changing the treshold to 0.0001.
+	function nefabb_degenerated_min() = 0.0011; 
+	// OpenScad unfortunately works with CSG. So coincident faces (exact match) 
+	// do not work. Objects must always overlap.
+	csg_min = nefabb_degenerated_min();///2;
 
 // ----------------------------------------------------------------------------
 // ----------------------------------------------------------------------------
@@ -1248,6 +1266,7 @@ module m_thread(
 	exact_clearance = true
 )
 {
+
 	// ------------------------------------------------------------------
 	// Segments and its angle, number of turns
 	// ------------------------------------------------------------------
@@ -1613,9 +1632,9 @@ module m_thread(
 		{
 			make_thread();
 			// Cut to length.
-			translate([0, 0, (len+0.001)/2]) //0.001 : "simple=no" for square threads
-				cube([diameter*1.1, diameter*1.1, len+0.001], center=true);
-		}//end intersection
+			translate([0, 0, (len+nefabb_degenerated_min())/2]) //0.001 : "simple=no" for square threads
+				cube([diameter*1.1, diameter*1.1, len+nefabb_degenerated_min()], center=true);
+		}
 	}
 	else
 	{
@@ -1624,9 +1643,11 @@ module m_thread(
 		intersection() 
 		{
 			make_channel_thread();
-			translate([0, 0, -(len+0.001)/2]) //0.001 : "simple=no" for square threads
-				cube([diameter*1.1, diameter*1.1, len+0.001], center=true);
-		}//end intersection
+			// nefabb_degenerated_min() is needed because in netfabb a "hole" and
+			// degenerated faces would be detected
+			translate([0, 0, -(len/2)+nefabb_degenerated_min()])
+				cube([diameter*1.1, diameter*1.1, len+2*nefabb_degenerated_min()], center=true);
+		}
 		/* DEBUG
 		#translate([0, diameter*1.1/2+0.05, -len/2]) 
 				cube([diameter*1.1, diameter*1.1, len], center=true);
@@ -1637,79 +1658,78 @@ module m_thread(
 		*/
 	}
 
+	// ------------------------------------------------------------
 	// ------------------------------------------------------------------
 	// Thread modules
 	// ------------------------------------------------------------------
 	module make_thread()
 	{
 		// Start one below z = 0.  Gives an extra turn at each end.
-		for (i=[-1*n_starts : n_turns]) {
-			translate([0, 0, i*pitch]) 
-				thread_turn(n_segments, i+n_starts+1);
+		for (i_thread_turn=[-1*n_starts : n_turns]) 
+		{
+			for (i_turn_seg=[0 : n_segments-1])//n_segments-1]) 
+			{
+				thread_polyhedron(seg_angle, 
+										i_turn_seg, 
+										i_thread_turn*n_segments + i_turn_seg,
+										i_thread_turn,
+										poly_rotation_total(i_turn_seg),
+										false,
+										false);
+			}
 		}
 	}//end module make_thread()
-
+	// ------------------------------------------------------------
+	// ------------------------------------------------------------
+	// ------------------------------------------------------------------
+	// Channel Thread modules
+	// ------------------------------------------------------------------
 	module make_channel_thread()
 	{
-		for (i=[0:n_starts-1]) 
+		open_top = true;	// so far, internal channel threads have always an open top
+							// to let insert the channel thread to a certain depth without
+							// a thread over the whole depth
+
+		i_thread_turn = 0; // starts at zero for channel_thread_z_offset()
+
+		translate([0, 0, channel_thread_z_offset()]) 
 		{
-			rotate([0,0,i*360/n_starts])
+			for (i_start=[0:n_starts-1]) 
 			{
-				translate([0, 0, channel_thread_z_offset()]) 
+				for (i_turn_seg=[0 : n_segments/n_starts-1]) 
 				{
-					channel_thread_turn(n_segments, open_top=false, is_bottom_turn=true);
-					// an internal (cutout) channel thread needs a thread above
-					// to create enough space to insert the male thread.
-					if(internal)
+					thread_polyhedron(seg_angle=seg_angle, 
+												i_turn_seg=i_turn_seg, 
+												i_thread_seg = i_turn_seg,
+												i_thread_turn=i_thread_turn, 
+												poly_rotation_total=poly_rotation_total(i_turn_seg)
+																	+i_start*360/n_starts,
+												open_top=false, //the first turn has a closed top
+												is_bottom_turn=true);
+				}
+				// an internal (cutout) channel thread needs a thread above
+				// to create enough space to insert the male thread.
+				if(internal)
+				{
+					for (i_turn_seg=[0 : n_segments/n_starts-1]) 
 					{
-						translate([0, 0, pitch])
-							channel_thread_turn(n_segments, open_top=true, is_bottom_turn=false);
+						thread_polyhedron(seg_angle=seg_angle, 
+													i_turn_seg=i_turn_seg, 
+													i_thread_seg=1*n_segments + i_turn_seg  ,
+													i_thread_turn=i_thread_turn+1,
+													poly_rotation_total=poly_rotation_total(i_turn_seg)
+																		+i_start*360/n_starts,
+													open_top=open_top,
+													is_bottom_turn=false);
 					}
 				}
-			}
+			}//end starts for loop
 		}
 	}//end module make_channel_thread()
 
-	// ----------------------------------------------------------------------------
-	module thread_turn(n_segments, current_turn)
-	{
-		for (i=[0 : n_segments-1]) 
-		{
-			rotate([0, 0, poly_rotation_total(i)]) 
-			{
-				translate([0, 0, i*n_starts*pitch*(seg_angle/360)
-									+ internal_play_offset()
-							]) 
-				{
-					if(taper_per_segment == 0)
-						thread_polyhedron(seg_angle,i);
-					else
-						thread_polyhedron_tapered(seg_angle, current_turn*n_segments + i);
-				}
-			}
-		}
-	} // end module metric_thread_turn()
 
-	// ----------------------------------------------------------------------------
-	module channel_thread_turn(n_segments, open_top=false, is_bottom_turn = true )
-	{
-		current_seg_z_offset = 0;
-		for (i=[0 : n_segments-1]) 
-		{
-			rotate([0, 0, poly_rotation_total(i)]) 
-			{
-				assign(current_seg_z_offset = i*pitch*(seg_angle/360)) 
-				{
-					translate([0, 0, current_seg_z_offset ]) 
-						channel_thread_polyhedron(seg_angle, open_top, i, is_bottom_turn);
-         		}
-      		}
-		}
-
-	} // end module metric_thread_turn()
-
-
-		// ------------------------------------------------------------
+	// ------------------------------------------------------------
+	// ------------------------------------------------------------
 		function slice_faces() =
 	
 		/*    
@@ -1819,287 +1839,505 @@ module m_thread(
 
 		];
 */
+
+
+
 	// ------------------------------------------------------------
-	module thread_polyhedron_tapered(seg_angle, current_segment)
-	{
-		current_major_rad = major_rad-current_segment*taper_per_segment;
-		current_minor_rad = minor_rad-current_segment*taper_per_segment;
+	// ------------------------------------------------------------
+	// functions for polyhedron point calculations
+	// To prevent errors if top slice barely touches bottom of next segement
+	// afterone full turn.
+	function z_thread_top_simple_yes() = 0.000;
 
-		x_incr_outer = 2*(accurateSin(seg_angle/2)*current_major_rad)+0.001; //overlapping needed 
-		x_incr_inner = 2*(accurateSin(seg_angle/2)*current_minor_rad)+0.001; //for simple=yes
-		x_incr_hollow = 2*(accurateSin(seg_angle/2)*hollow_rad)+0.001; //for simple=yes
+	function current_major_rad(i_thread_seg, taper_per_segment) = 
+				major_rad-i_thread_seg*taper_per_segment;
+	function current_minor_rad(i_thread_seg, taper_per_segment) = 
+				minor_rad-i_thread_seg*taper_per_segment;
 
-		z_incr = n_starts * pitch * seg_angle/360;
-		z_incr_this_side = z_incr * (right_handed ? 0 : 1);
-		z_incr_back_side = z_incr * (right_handed ? 1 : 0);
-		z_thread_lower = lower_flat >= 0.002 ? lower_flat/2 : 0.001;
-		z_tip_lower = z_thread_lower + left_flat;
-		z_tip_inner_middle = z_tip_lower + upper_flat/2;
-		z_tip_upper = (z_tip_lower + upper_flat <= pitch-0.002) ?
-							z_tip_lower + upper_flat
-							: pitch-0.002; 
-		z_thread_upper = (z_tip_upper + right_flat <= pitch-0.001) ?
-							z_tip_upper + right_flat
-							: pitch-0.001; 				
-		//to prevent errors if top slice barely touches bottom of next segement
-		//afterone full turn.
-		z_thread_top_simple_yes = 0.001;
-		// radius correction to place polyhedron correctly
-		// hint: polyhedron front ist straight, thread circle not
-		major_rad_p = current_major_rad - bow_to_face_distance(current_major_rad, seg_angle);
-		minor_rad_p = current_minor_rad - bow_to_face_distance(current_minor_rad, seg_angle);
-		hollow_rad_p = hollow_rad - bow_to_face_distance(hollow_rad, seg_angle);
+	function x_incr_outer(seg_angle, i_thread_seg, taper_per_segment) = 
+				2*(accurateSin(seg_angle/2)
+					*current_major_rad(i_thread_seg, taper_per_segment));
+	function x_incr_inner(seg_angle, i_thread_seg, taper_per_segment) = 
+				2*(accurateSin(seg_angle/2)
+					*current_minor_rad(i_thread_seg, taper_per_segment));
+	function x_incr_bottom(seg_angle, i_thread_seg, taper_per_segment) = 
+					x_incr_inner(seg_angle, i_thread_seg, taper_per_segment);
+	function x_incr_top(open_top, seg_angle, i_thread_seg, taper_per_segment) = 
+					open_top ? 
+						x_incr_outer(seg_angle, i_thread_seg, taper_per_segment) 
+						: x_incr_inner(seg_angle, i_thread_seg, taper_per_segment);
+	function x_incr_hollow(seg_angle) = 
+				2*(accurateSin(seg_angle/2)
+					*hollow_rad);
 
-		/*echo(" *** polyhedron ***");
-		echo("lower_flat",lower_flat);
-		echo("upper_flat",lower_flat);
-		echo("lower_flat",lower_flat);
+	// radius correction to place polyhedron correctly
+	// hint: polyhedron front ist straight, thread circle not
+	function major_rad_p(seg_angle, i_thread_seg, taper_per_segment) =
+			current_major_rad(i_thread_seg, taper_per_segment)
+			 - bow_to_face_distance(current_major_rad(i_thread_seg, taper_per_segment), seg_angle);
+	function minor_rad_p(seg_angle, i_thread_seg, taper_per_segment) =
+			current_minor_rad(i_thread_seg, taper_per_segment)
+			 - bow_to_face_distance(current_minor_rad(i_thread_seg, taper_per_segment), seg_angle);
+	//bottom/top rads: allow flat thread to be inserted 
+	function bottom_minor_rad_p(seg_angle, i_thread_seg, taper_per_segment) = 
+					minor_rad_p(seg_angle, i_thread_seg, taper_per_segment);
+	function top_minor_rad_p(open_top, seg_angle, i_thread_seg, taper_per_segment) =
+					 open_top ? 
+							major_rad_p(seg_angle, i_thread_seg, taper_per_segment) 
+							: minor_rad_p(seg_angle, i_thread_seg, taper_per_segment);
+	function hollow_rad_p(seg_angle) =
+			hollow_rad - bow_to_face_distance(hollow_rad, seg_angle);
 
-		echo("z_thread_lower",z_thread_lower);
-		echo("z_tip_lower",z_tip_lower);
-		echo("z_tip_inner_middle",z_tip_inner_middle);
-		echo("z_tip_upper",z_tip_upper);
-		echo("z_thread_upper",z_thread_upper);
+	function z_incr(seg_angle) = n_starts * pitch * seg_angle/360;
+	function z_incr_this_side(seg_angle) = z_incr(seg_angle) * (right_handed ? 0 : 1);
+	function z_incr_back_side(seg_angle) = z_incr(seg_angle) * (right_handed ? 1 : 0);
 
-		echo("x_incr_hollow",x_incr_hollow);
-		echo("hollow_rad",hollow_rad);
-		echo("hollow_rad_p",hollow_rad_p);
-		
-		echo(slice_points());
-		echo(slice_faces());*/
+	function z_thread_lower() = 
+					multiple_turns_over_height ?
+						(lower_flat > nefabb_degenerated_min() ? 
+								lower_flat : nefabb_degenerated_min())
+						: nefabb_degenerated_min() // a channel thread starts with left flank at bottom
+						;
+	function z_tip_lower() = z_thread_lower() + left_flat;
+	function z_tip_inner_middle() = z_tip_lower() + upper_flat/2;
+	function z_tip_upper() = (z_tip_lower() + upper_flat <= pitch-nefabb_degenerated_min()) ?
+							z_tip_lower() + upper_flat
+							: pitch-nefabb_degenerated_min(); 
+	function z_thread_upper(open_top) = open_top ?
+								z_len_or_pitch()
+								:((z_tip_upper() + right_flat <= pitch) ?
+									z_tip_upper() + right_flat
+									: pitch);
+	function z_len_or_pitch(open_top) =
+					multiple_turns_over_height ? pitch  //normal thread work only with pitch	
+						: (open_top && internal ? len : pitch) ;  //channel threads need full height
+	function z_len_offest(i_thread_turn) = //channel threads need the above thread much higher
+					multiple_turns_over_height ? 0
+						:( ((!internal && i_thread_turn == 1)
+							|| (internal && i_thread_turn == 2) )? len : 0);
+				;
+ 	function z_offset(seg_angle, i_turn_seg, i_thread_turn, 3D_vect) = [
+			3D_vect.x,
+			3D_vect.y,
+			3D_vect.z + i_turn_seg*n_starts*pitch*(seg_angle/360) //offset per segement
+						+ internal_play_offset()
+						+ i_thread_turn*pitch 	
+						+ z_len_offest(i_thread_turn)  // for channel threads the next/above must 
+														 // higher than "len" and will be cut by intersection 
+			];
+	function bottom_z_space(is_bottom_turn) = is_bottom_turn ? channel_thread_bottom_spacer() : 0;
+	function z_thread_bottom(is_bottom_turn) = -bottom_z_space(is_bottom_turn);
 
-		polyhedron(	points = slice_points(),faces = slice_faces());
-		
-		// ------------------------------------------------------------
-		function slice_points() = 
+	function rotate_xy(poly_rotation_total, 3D_vect) = [
+			3D_vect.x*accurateCos(poly_rotation_total)-3D_vect.y*accurateSin(poly_rotation_total),
+			3D_vect.x*accurateSin(poly_rotation_total)+3D_vect.y*accurateCos(poly_rotation_total),
+			3D_vect.z
+			];
+
+
+
+	function slice_offset(slice_csged,
+									seg_angle, 
+									i_turn_seg, 
+									i_thread_seg,
+									i_thread_turn,
+									poly_rotation_total) = 
 			[
 			//tooth
-			[-x_incr_inner/2, -minor_rad_p, z_thread_lower + z_incr_this_side],    // [0]
-			[x_incr_inner/2, -minor_rad_p, z_thread_lower + z_incr_back_side],     // [1]
-			[x_incr_inner/2, -minor_rad_p, z_thread_upper  + z_incr_back_side],  // [2]
-			[-x_incr_inner/2, -minor_rad_p, z_thread_upper + z_incr_this_side],        // [3]
-			[-x_incr_outer/2, -major_rad_p, z_tip_lower + z_incr_this_side], // [4]
-			[x_incr_outer/2, -major_rad_p, z_tip_lower + z_incr_back_side],  // [5]
-			[x_incr_outer/2, -major_rad_p, z_tip_upper + z_incr_back_side], // [6]
-			[-x_incr_outer/2, -major_rad_p, z_tip_upper + z_incr_this_side],// [7]
+			// [0]
+			z_offset(seg_angle = seg_angle, i_turn_seg = i_turn_seg,i_thread_turn= i_thread_turn,
+			3D_vect = rotate_xy(poly_rotation_total,
+			slice_csged[0] )),
+			// [1]
+			z_offset(seg_angle, i_turn_seg, i_thread_turn,
+			rotate_xy(poly_rotation_total,
+			slice_csged[1] )),
+			// [2]
+			z_offset(seg_angle, i_turn_seg, i_thread_turn,
+			rotate_xy(poly_rotation_total,
+			slice_csged[2] )),
+			// [3]
+			z_offset(seg_angle, i_turn_seg, i_thread_turn,
+			rotate_xy(poly_rotation_total,
+			slice_csged[3] )),
+			// [4]
+			z_offset(seg_angle, i_turn_seg, i_thread_turn,
+			rotate_xy(poly_rotation_total,
+			slice_csged[4] )),
+			// [5]
+			z_offset(seg_angle, i_turn_seg, i_thread_turn,
+			rotate_xy(poly_rotation_total,
+			slice_csged[5] )),
+			// [6]
+			z_offset(seg_angle, i_turn_seg, i_thread_turn,
+			rotate_xy(poly_rotation_total,
+			slice_csged[6] )),
+			// [7]
+			z_offset(seg_angle, i_turn_seg, i_thread_turn,
+			rotate_xy(poly_rotation_total,
+			slice_csged[7] )),
 
 			//slice
-			[-x_incr_inner/2,-minor_rad_p,0 + z_incr_this_side], // [8]
-			[x_incr_inner/2,-minor_rad_p,0 + z_incr_back_side], // [9]
-			[x_incr_inner/2,-minor_rad_p, pitch + z_incr_back_side + z_thread_top_simple_yes], // [10]
-			[-x_incr_inner/2,-minor_rad_p, pitch + z_incr_this_side + z_thread_top_simple_yes], // [11]
-			[0,0,0], // [12]
-			[0,0,pitch + z_thread_top_simple_yes], // [13]
-			[-x_incr_inner/2,-minor_rad_p, z_tip_inner_middle + z_incr_this_side], // [14]
-			[+x_incr_inner/2,-minor_rad_p, z_tip_inner_middle + z_incr_back_side], // [15]
+			// [8]
+			z_offset(seg_angle, i_turn_seg, i_thread_turn,
+			rotate_xy(poly_rotation_total,
+			slice_csged[8] )),
+			// [9]
+			z_offset(seg_angle, i_turn_seg, i_thread_turn,
+			rotate_xy(poly_rotation_total,
+			slice_csged[9] )),
+			// [10]
+			z_offset(seg_angle, i_turn_seg, i_thread_turn,
+			rotate_xy(poly_rotation_total,
+			slice_csged[10] )),
+			// [11]
+			z_offset(seg_angle, i_turn_seg, i_thread_turn,
+			rotate_xy(poly_rotation_total,
+			slice_csged[11] )),
+			// [12]
+			z_offset(seg_angle, i_turn_seg, i_thread_turn,
+			rotate_xy(poly_rotation_total,
+			slice_csged[12] )),
+			// [13]
+			z_offset(seg_angle, i_turn_seg, i_thread_turn,
+			rotate_xy(poly_rotation_total,
+			slice_csged[13] )),
+			// [14]
+			z_offset(seg_angle, i_turn_seg, i_thread_turn,
+			rotate_xy(poly_rotation_total,
+			slice_csged[14] )),
+			// [15]
+			z_offset(seg_angle, i_turn_seg, i_thread_turn,
+			rotate_xy(poly_rotation_total,
+			slice_csged[15] )),
+
 			// inner shaft points
-			// bottom
-			[-x_incr_hollow/2,-hollow_rad_p,0 + z_incr_this_side], // [16]
-			[x_incr_hollow/2,-hollow_rad_p,0 + z_incr_back_side], // [17]
-			// top
-			[x_incr_hollow/2,-hollow_rad_p, pitch + z_incr_back_side + z_thread_top_simple_yes], // [18]
-			[-x_incr_hollow/2,-hollow_rad_p, pitch + z_incr_this_side + z_thread_top_simple_yes], // [19]
-			[0.001,0,z_thread_lower+z_incr_back_side], // [20]
-			[0,0,pitch + z_thread_top_simple_yes+z_incr_back_side] // [21]
+			// [16]
+			z_offset(seg_angle, i_turn_seg, i_thread_turn,
+			rotate_xy(poly_rotation_total,
+			slice_csged[16] )),
+			// [17]
+			z_offset(seg_angle, i_turn_seg, i_thread_turn,
+			rotate_xy(poly_rotation_total,
+			slice_csged[17] )),
+			// [18]
+			z_offset(seg_angle, i_turn_seg, i_thread_turn,
+			rotate_xy(poly_rotation_total,
+			slice_csged[18] )),
+			// [19]
+			z_offset(seg_angle, i_turn_seg, i_thread_turn,
+			rotate_xy(poly_rotation_total,
+			slice_csged[19] )),
+			// [20]
+			z_offset(seg_angle, i_turn_seg, i_thread_turn,
+			rotate_xy(poly_rotation_total,
+			slice_csged[20] )),
+			// [21]
+			z_offset(seg_angle, i_turn_seg, i_thread_turn,
+			rotate_xy(poly_rotation_total,
+			slice_csged[21] ))
+			];
+
+	function overlap(amount) = internal ? amount : 0;
+	// OpenScad works with CSG. So coincident faces (exact match) 
+	// do not work. Objects must always overlap.
+	function slice_csg_ed(slice, overlap) =
+		[
+			[slice[0].x-overlap(overlap),slice[0].y,slice[0].z],
+			[slice[1].x+overlap(overlap),slice[1].y,slice[1].z],
+			[slice[2].x+overlap(overlap),slice[2].y,slice[2].z],
+			[slice[3].x-overlap(overlap),slice[3].y,slice[3].z],
+			[slice[4].x-overlap(overlap),slice[4].y,slice[4].z],
+			[slice[5].x+overlap(overlap),slice[5].y,slice[5].z],
+			[slice[6].x+overlap(overlap),slice[6].y,slice[6].z],
+			[slice[7].x-overlap(overlap),slice[7].y,slice[7].z],
+			[slice[8].x-overlap(overlap),slice[8].y,slice[8].z-overlap(overlap)],
+			[slice[9].x+overlap(overlap),slice[9].y,slice[9].z-overlap(overlap)],
+			[slice[10].x+overlap(overlap),slice[10].y,slice[10].z+overlap(overlap)],
+			[slice[11].x-overlap(overlap),slice[11].y,slice[11].z+overlap(overlap)],
+			[slice[12].x-overlap(overlap),slice[12].y+overlap(csg_min),slice[12].z-overlap(overlap)],
+			[slice[13].x-overlap(overlap),slice[13].y+overlap(csg_min),slice[13].z+overlap(overlap)],
+			[slice[14].x-overlap(overlap),slice[14].y,slice[14].z],
+			[slice[15].x+overlap(overlap),slice[15].y,slice[15].z],
+			[slice[16].x-overlap(overlap),slice[16].y,slice[16].z-overlap(overlap)],
+			[slice[17].x+overlap(overlap),slice[17].y,slice[17].z-overlap(overlap)],
+			[slice[18].x+overlap(overlap),slice[18].y,slice[18].z+overlap(overlap)],
+			[slice[19].x-overlap(overlap),slice[19].y,slice[19].z+overlap(overlap)],
+			[slice[20].x+overlap(overlap),slice[20].y+overlap(overlap),slice[20].z-overlap(overlap)],
+			[slice[21].x+overlap(overlap),slice[21].y+overlap(overlap),slice[21].z+overlap(overlap)]
 		];
 
-
-	} // end module thread_polyhedron_tapered()
-
 	// ------------------------------------------------------------
-	module thread_polyhedron(seg_angle,i)
+	module thread_polyhedron(seg_angle, 
+								i_turn_seg, 
+								i_thread_seg,
+								i_thread_turn, 
+								poly_rotation_total,
+								open_top,
+								is_bottom_turn)
 	{
-		x_incr_outer = 2*(accurateSin(seg_angle/2)*major_rad)+0.001; //overlapping needed 
-		x_incr_inner = 2*(accurateSin(seg_angle/2)*minor_rad)+0.001; //for simple=yes
-		x_incr_hollow = 2*(accurateSin(seg_angle/2)*hollow_rad)+0.001; //for simple=yes
-
-		z_incr = n_starts * pitch * seg_angle/360;
-		z_incr_this_side = z_incr * (right_handed ? 0 : 1);
-		z_incr_back_side = z_incr * (right_handed ? 1 : 0);
-		z_thread_lower = lower_flat >= 0.002 ? lower_flat/2 : 0.001;
-		z_tip_lower = z_thread_lower + left_flat;
-		z_tip_inner_middle = z_tip_lower + upper_flat/2;
-		z_tip_upper = (z_tip_lower + upper_flat <= pitch-0.002) ?
-							z_tip_lower + upper_flat
-							: pitch-0.002; 
-		z_thread_upper = (z_tip_upper + right_flat <= pitch-0.001) ?
-							z_tip_upper + right_flat
-							: pitch-0.001; 				
-		//to prevent errors if top slice barely touches bottom of next segement
-		//afterone full turn.
-		z_thread_top_simple_yes = 0.001;
-		// radius correction to place polyhedron correctly
-		// hint: polyhedron front ist straight, thread circle not
-		major_rad_p = major_rad - bow_to_face_distance(major_rad, seg_angle);
-		minor_rad_p = minor_rad - bow_to_face_distance(minor_rad, seg_angle);
-		hollow_rad_p = hollow_rad - bow_to_face_distance(hollow_rad, seg_angle);
-
-		/*echo(" *** polyhedron ***");
-		echo("lower_flat",lower_flat);
-		echo("upper_flat",lower_flat);
-		echo("lower_flat",lower_flat);
-
-		echo("z_thread_lower",z_thread_lower);
-		echo("z_tip_lower",z_tip_lower);
-		echo("z_tip_inner_middle",z_tip_inner_middle);
-		echo("z_tip_upper",z_tip_upper);
-		echo("z_thread_upper",z_thread_upper);
-
-		echo("x_incr_hollow",x_incr_hollow);
-		echo("hollow_rad",hollow_rad);
-		echo("hollow_rad_p",hollow_rad_p);
-		if(i==0)
+		if(false)
 		{
-		echo(slice_points());
-		echo(slice_faces());
+			if((i_turn_seg==0 || false)
+				&&
+				(i_thread_turn==1 || false))
+			{
+				echo(" *** polyhedron ***");
+				echo("lower_flat",lower_flat);
+				echo("upper_flat",upper_flat);
+
+				echo("z_thread_lower",z_thread_lower());
+				echo("z_tip_lower",z_tip_lower());	
+				echo("z_tip_inner_middle",z_tip_inner_middle());
+				echo("z_tip_upper",z_tip_upper());
+				echo("z_thread_upper",z_thread_upper(open_top));
+				echo("z_len_or_pitch()",z_len_or_pitch());
+				echo("z_incr_this_side",z_incr_this_side(seg_angle));
+				echo("z_incr_back_side",z_incr_back_side(seg_angle));
+
+				echo("x_incr_hollow",x_incr_hollow(seg_angle));
+				echo("hollow_rad",hollow_rad);
+				echo("hollow_rad_p",hollow_rad_p(seg_angle));
+
+				echo("seg_angle",seg_angle);
+				echo("poly_rotation_total",poly_rotation_total);
+			}
+			if((i_turn_seg==0 || false)
+				&&
+				(i_thread_turn==1 || false))
+			{
+				echo("slice_raw", slice);
+				echo("slice_wanted", slice_wanted);
+				echo("slice_next", slice_next);
+				echo("slice_above", slice_above);
+				echo("slice_next_above", slice_next_above);
+				echo("slice_combined", slice_combined(slice_wanted,	
+														slice_above, 
+														slice_next, 
+														slice_next_above));
+				echo(slice_faces());
+
+			}
 		}
-		*/
+
+		slice = slice_csg_ed(slice_points_raw(seg_angle, 
+									i_turn_seg, 
+									i_thread_seg,
+									i_thread_turn,
+									poly_rotation_total,
+									open_top,
+									is_bottom_turn)
+								,csg_min);
+
+		slice_wanted = slice_offset(slice,
+										seg_angle, 
+										i_turn_seg, 
+										i_thread_seg,
+										i_thread_turn,
+										poly_rotation_total);
 
 
-		polyhedron(	points = slice_points(),faces = slice_faces());
 
-		// ------------------------------------------------------------
-		function slice_points() = 
-			[
-			//tooth
-			[-x_incr_inner/2, -minor_rad_p, z_thread_lower + z_incr_this_side],    // [0]
-			[x_incr_inner/2, -minor_rad_p, z_thread_lower + z_incr_back_side],     // [1]
-			[x_incr_inner/2, -minor_rad_p, z_thread_upper  + z_incr_back_side],  // [2]
-			[-x_incr_inner/2, -minor_rad_p, z_thread_upper + z_incr_this_side],        // [3]
-			[-x_incr_outer/2, -major_rad_p, z_tip_lower + z_incr_this_side], // [4]
-			[x_incr_outer/2, -major_rad_p, z_tip_lower + z_incr_back_side],  // [5]
-			[x_incr_outer/2, -major_rad_p, z_tip_upper + z_incr_back_side], // [6]
-			[-x_incr_outer/2, -major_rad_p, z_tip_upper + z_incr_this_side],// [7]
+		slice_above = slice_offset(slice_csged=slice,
+										seg_angle=seg_angle, 
+										i_turn_seg=i_turn_seg, 
+										i_thread_seg=i_thread_seg+n_segments,
+										i_thread_turn=(i_thread_turn+1),
+										poly_rotation_total=poly_rotation_total);
+		slice_next = slice_offset(slice,
+										seg_angle, 
+										i_turn_seg+1, 
+										i_thread_seg+1,
+										i_thread_turn,
+										poly_rotation_total+seg_angle*(right_handed?1:-1));
+		slice_next_above = slice_offset(slice,
+										seg_angle, 
+										i_turn_seg+1, 
+										i_thread_seg+1+n_segments,
+										i_thread_turn+1,
+										poly_rotation_total+seg_angle*(right_handed?1:-1));
+		// For accurate polygons without holes and degenerated faces
+		// as netfabb reported it, it is necessary to use the calculated
+		// points of precalculated slices.
+		// For example, the top most points of a slice must match with
+		// the slice above it (one turn ahead). So we use the bottom points
+		// of the slice above ours and use them as our top points.
+		if(internal)
+		{
+			//Because OpenScad uses CSG a subtract (internal) must be made with
+			//with overlapping polygons or slim planes will be left over
+			//where coincident faces exist.
+			polyhedron(	points = slice_wanted,
+						faces = slice_faces());
+		}
+		else
+		{
+			//We can use a coincident faces (exact polygons) for additive actions
+			polyhedron(	points = slice_combined(slice_wanted,	
+												slice_above, 
+												slice_next, 
+												slice_next_above),
+						faces = slice_faces());
+		}
 
-			//slice
-			[-x_incr_inner/2,-minor_rad_p,0 + z_incr_this_side], // [8]
-			[x_incr_inner/2,-minor_rad_p,0 + z_incr_back_side], // [9]
-			[x_incr_inner/2,-minor_rad_p, pitch + z_incr_back_side + z_thread_top_simple_yes], // [10]
-			[-x_incr_inner/2,-minor_rad_p, pitch + z_incr_this_side + z_thread_top_simple_yes], // [11]
-			[0,0,0], // [12]
-			[0,0,pitch + z_thread_top_simple_yes], // [13]
-			[-x_incr_inner/2,-minor_rad_p, z_tip_inner_middle + z_incr_this_side], // [14]
-			[+x_incr_inner/2,-minor_rad_p, z_tip_inner_middle + z_incr_back_side], // [15]
-			// inner shaft points
-			// bottom
-			[-x_incr_hollow/2,-hollow_rad_p,0 + z_incr_this_side], // [16]
-			[x_incr_hollow/2,-hollow_rad_p,0 + z_incr_back_side], // [17]
-			// top
-			[x_incr_hollow/2,-hollow_rad_p, pitch + z_incr_back_side + z_thread_top_simple_yes], // [18]
-			[-x_incr_hollow/2,-hollow_rad_p, pitch + z_incr_this_side + z_thread_top_simple_yes], // [19]
-			[0.001,0,z_thread_lower+z_incr_back_side], // [20]
-			[0.001,0,pitch + z_thread_top_simple_yes+z_incr_back_side] // [21]
-		];
-
+		function slice_combined(slice_wanted,	slice_above, slice_next, slice_next_above) =
+					right_handed ?
+			 			[
+						slice_wanted[0], // [0]
+						slice_next[0], // [1]
+						slice_next[3], // [2]
+						slice_wanted[3], // [3]
+						slice_wanted[4], // [4]
+						slice_next[4], // [5]
+						slice_next[7], // [6]
+						slice_wanted[7], // [7]
+						slice_wanted[8], // [8]
+						slice_next[8], // [9]
+						slice_next_above[8], // [10]
+						slice_above[8], // [11]
+						slice_wanted[12], // [12]
+						slice_above[12], // [13]
+						slice_wanted[14], // [14]
+						slice_next[14], // [15]
+						slice_wanted[16], // [16]
+						slice_next[16], // [17]
+						slice_next_above[16], // [18]
+						slice_above[16], // [19]
+						slice_next[12], // [20]  ????
+						slice_next_above[12], // [21]
+						]
+					:
+					[
+						slice_next[1], // [0]
+						slice_wanted[1], // [1]
+						slice_wanted[2], // [2]
+						slice_next[2], // [3]
+						slice_next[5], // [4]
+						slice_wanted[5], // [5]
+						slice_wanted[6], // [6]
+						slice_next[6], // [7]
+						slice_next[9], // [8]
+						slice_wanted[9], // [9]
+						slice_above[9], // [10]
+						slice_next_above[9], // [11]
+						slice_next[20], // [12]
+						slice_next_above[20], // [13]
+						slice_next[15], // [14]
+						slice_wanted[15], // [15]
+						slice_next[17], // [16]
+						slice_wanted[17], // [17]
+						slice_above[17], // [18]
+						slice_next_above[17], // [19]
+						slice_wanted[20], // [20]
+						slice_above[20], // [21]
+						]
+					;
 	} // end module thread_polyhedron()
 
 	// ------------------------------------------------------------
-	module channel_thread_polyhedron(seg_angle,open_top = false, i, is_bottom_turn = false)
-	{
-		// Notes:
-		// - length of thread (variable "len") is only a limiting factor if pitch is > 1
-		// - The z-reference of the thread is x==0. this is the planar area where
-		//   other objects are being connected. All other z-values are negative.
-		//
-		x_incr_outer = 2*(accurateSin(seg_angle/2)*major_rad)+0.001; //overlapping needed 
-		x_incr_inner = 2*(accurateSin(seg_angle/2)*minor_rad)+0.001; //for simple=yes
-		x_incr_hollow = 2*(accurateSin(seg_angle/2)*hollow_rad)+0.001; //for simple=yes
-		function bottom_z_space() = is_bottom_turn ? channel_thread_bottom_spacer() : 0;
-		function top_z() = internal ? pitch + len : pitch;
-		z_incr =  pitch * seg_angle/360;
-
-		z_incr_this_side = z_incr * (right_handed ? 0 : 1);
-		z_incr_back_side = z_incr * (right_handed ? 1 : 0);
-
-		z_thread_bottom = -bottom_z_space();
-		// a channel thread has all lower_flat really low... :-)
-		z_thread_lower = 0.001; 
-		z_tip_lower = z_thread_lower + left_flat;
-		z_tip_inner_middle = z_tip_lower + upper_flat/2;
-		z_tip_upper = (z_tip_lower + upper_flat <= pitch-0.002) ?
-							z_tip_lower + upper_flat
-							: pitch-0.002; 
-		z_thread_upper = (z_tip_upper + right_flat <= pitch-0.001) ?
-							z_tip_upper + right_flat
-							: pitch-0.001; 				
-		//to prevent errors if top slice barely touches bottom of next segement
-		//afterone full turn.
-		z_thread_top_simple_yes = 0.001;
-
-		// radius correction to place polyhedron correctly
-		// hint: polyhedron front ist straight, thread circle not
-		major_rad_p = major_rad - bow_to_face_distance(major_rad, seg_angle);
-		minor_rad_p = minor_rad - bow_to_face_distance(minor_rad, seg_angle);	
-		hollow_rad_p = hollow_rad - bow_to_face_distance(hollow_rad, seg_angle);
-
-		//allow flat thread to be inserted
-		x_incr_bottom = x_incr_inner;
-		x_incr_top = open_top ? x_incr_outer : x_incr_inner;
-		bottom_minor_rad_p = minor_rad_p;
-		top_minor_rad_p = open_top ? major_rad_p : minor_rad_p; 
-		/*if(i==0)
-		{
-		echo(" *** polyhedron ***");
-		echo("internal",internal);
-		echo("x_incr_outer",x_incr_outer);
-		echo("x_incr_inner",x_incr_inner);
-		
-		echo("open_top",open_top);
-		echo("seg_angle",seg_angle);
-		echo("lower_flat",lower_flat);
-		echo("upper_flat",upper_flat);
-		echo("internal_play_offset()",internal_play_offset());
-		echo("z_thread_upper",z_thread_upper);
-		echo("z_incr_this_side",z_incr_this_side);
-		echo("z_incr_back_side",z_incr_back_side);
-		echo("z_thread_lower",z_thread_lower);
-		echo("z_tip_lower",z_tip_lower);
-		echo("z_tip_inner_middle",z_tip_inner_middle);
-		echo("z_tip_upper",z_tip_upper);
-		echo("z_thread_upper",z_thread_upper);
-		echo("x_incr_hollow",x_incr_hollow);
-		echo("hollow_rad",hollow_rad);
-		echo("hollow_rad_p",hollow_rad_p);
-		echo(channel_slice_points());
-		echo(slice_faces());
-		}*/
-
-		polyhedron(	points = channel_slice_points(),faces = slice_faces());
-
-		// ------------------------------------------------------------
-		function channel_slice_points() = 
+	function slice_points_raw(seg_angle, 
+							i_turn_seg, 
+							i_thread_seg,
+							i_thread_turn,
+							poly_rotation_total,
+							open_top,
+							is_bottom_turn) = 
 			[
 			//tooth
-			[-x_incr_bottom/2, -bottom_minor_rad_p, z_thread_lower + z_incr_this_side],    // [0]
-			[x_incr_bottom/2, -bottom_minor_rad_p, z_thread_lower + z_incr_back_side],     // [1]
-			[x_incr_top/2, -top_minor_rad_p, z_thread_upper  + z_incr_back_side],  // [2]
-			[-x_incr_top/2, -top_minor_rad_p, z_thread_upper + z_incr_this_side],        // [3]
-			[-x_incr_outer/2, -major_rad_p, z_tip_lower + z_incr_this_side], // [4]
-			[x_incr_outer/2, -major_rad_p, z_tip_lower + z_incr_back_side],  // [5]
-			[x_incr_outer/2, -major_rad_p, z_tip_upper + z_incr_back_side], // [6]
-			[-x_incr_outer/2, -major_rad_p, z_tip_upper + z_incr_this_side],// [7]
-
+			// [0]
+			[-x_incr_bottom(seg_angle, i_thread_seg, taper_per_segment)/2, 
+				-bottom_minor_rad_p(seg_angle, i_thread_seg, taper_per_segment), 
+				z_thread_lower() + z_incr_this_side(seg_angle)],
+			// [1]
+			[x_incr_bottom(seg_angle, i_thread_seg, taper_per_segment)/2, 
+				-bottom_minor_rad_p(seg_angle, i_thread_seg, taper_per_segment), 
+				z_thread_lower() + z_incr_back_side(seg_angle)],
+			// [2]
+			[x_incr_top(open_top, seg_angle, i_thread_seg, taper_per_segment)/2, 
+				-top_minor_rad_p(open_top, seg_angle, i_thread_seg, taper_per_segment), 
+				z_thread_upper(open_top)  + z_incr_back_side(seg_angle)],
+			// [3]
+			[-x_incr_top(open_top, seg_angle, i_thread_seg, taper_per_segment)/2,
+				-top_minor_rad_p(open_top, seg_angle, i_thread_seg, taper_per_segment),
+				z_thread_upper(open_top) + z_incr_this_side(seg_angle)],
+			// [4]
+			[-x_incr_outer(seg_angle, i_thread_seg, taper_per_segment)/2,
+				-major_rad_p(seg_angle, i_thread_seg, taper_per_segment),
+				z_tip_lower() + z_incr_this_side(seg_angle)],
+			// [5]
+			[x_incr_outer(seg_angle, i_thread_seg, taper_per_segment)/2,
+				-major_rad_p(seg_angle, i_thread_seg, taper_per_segment),
+				z_tip_lower() + z_incr_back_side(seg_angle)],
+			// [6]
+			[x_incr_outer(seg_angle, i_thread_seg, taper_per_segment)/2,
+				-major_rad_p(seg_angle, i_thread_seg, taper_per_segment),
+				z_tip_upper() + z_incr_back_side(seg_angle)],
+			// [7]
+			[-x_incr_outer(seg_angle, i_thread_seg, taper_per_segment)/2,
+				-major_rad_p(seg_angle, i_thread_seg, taper_per_segment),
+				z_tip_upper() + z_incr_this_side(seg_angle)],
 			//slice
-			[-x_incr_bottom/2,-bottom_minor_rad_p,z_thread_bottom+ z_incr_this_side], // [8]
-			[x_incr_bottom/2,-bottom_minor_rad_p,z_thread_bottom+ z_incr_back_side], // [9]
-			[x_incr_top/2,-top_minor_rad_p, len + z_incr_back_side], // [10]
-			[-x_incr_top/2,-top_minor_rad_p, len + z_incr_this_side], // [11]
-			[(internal?-0.02:-0.2),0,z_thread_lower + z_incr_this_side], // [12]
-			[0.001,0,len + z_incr_this_side], // [13]
-			[-x_incr_bottom/2,-minor_rad_p, z_tip_inner_middle + z_incr_this_side], // [14]
-			[+x_incr_inner/2,-minor_rad_p, z_tip_inner_middle + z_incr_back_side], // [15]
-
+			// [8]
+			[-x_incr_bottom(seg_angle, i_thread_seg, taper_per_segment)/2,
+				-bottom_minor_rad_p(seg_angle, i_thread_seg, taper_per_segment),
+				z_thread_bottom(is_bottom_turn) + z_incr_this_side(seg_angle)],
+			// [9]
+			[x_incr_bottom(seg_angle, i_thread_seg, taper_per_segment)/2,
+				-bottom_minor_rad_p(seg_angle, i_thread_seg, taper_per_segment),
+				z_thread_bottom(is_bottom_turn) + z_incr_back_side(seg_angle)],
+			// [10]
+			[x_incr_top(open_top, seg_angle, i_thread_seg, taper_per_segment)/2,
+				-top_minor_rad_p(open_top, seg_angle, i_thread_seg, taper_per_segment),
+				z_len_or_pitch(open_top) + z_incr_back_side(seg_angle)],
+			// [11]
+			[-x_incr_top(open_top, seg_angle, i_thread_seg, taper_per_segment)/2,
+				-top_minor_rad_p(open_top, seg_angle, i_thread_seg, taper_per_segment),
+				z_len_or_pitch(open_top) + z_incr_this_side(seg_angle)],
+			// [12]
+			[0,
+				0,
+				z_thread_bottom(is_bottom_turn) + z_incr_this_side(seg_angle)],
+			// [13]
+			[0,
+				0,
+				z_len_or_pitch(open_top) + z_incr_this_side(seg_angle)],
+			// [14]
+			[-x_incr_inner(seg_angle, i_thread_seg, taper_per_segment)/2,
+				-minor_rad_p(seg_angle, i_thread_seg, taper_per_segment),
+				z_tip_inner_middle() + z_incr_this_side(seg_angle)],
+			// [15]
+			[x_incr_inner(seg_angle, i_thread_seg, taper_per_segment)/2,
+				-minor_rad_p(seg_angle, i_thread_seg, taper_per_segment),
+				z_tip_inner_middle() + z_incr_back_side(seg_angle)],
 			// inner shaft points
 			// bottom
-			[-x_incr_hollow/2,-hollow_rad_p,z_thread_bottom+ z_incr_this_side], // [16]
-			[x_incr_hollow/2,-hollow_rad_p,z_thread_bottom+ z_incr_back_side], // [17]
+			// [16]
+			[-x_incr_hollow(seg_angle)/2, 
+				-hollow_rad_p(seg_angle), 
+				z_thread_bottom(is_bottom_turn) + z_incr_this_side(seg_angle)],
+			// [17]
+			[x_incr_hollow(seg_angle)/2,
+				-hollow_rad_p(seg_angle),
+				z_thread_bottom(is_bottom_turn) + z_incr_back_side(seg_angle)],
 			// top
-			[x_incr_hollow/2,-hollow_rad_p, len + z_incr_back_side], // [18]
-			[-x_incr_hollow/2,-hollow_rad_p, len + z_incr_this_side], // [19]
-			[0.001,0,z_thread_bottom+z_incr_back_side], // [20]
-			[0,0,len + z_thread_top_simple_yes+z_incr_back_side] // [21]
-			];
-	} // end module channel_thread_polyhedron()
+			// [18]
+			[x_incr_hollow(seg_angle)/2,
+				-hollow_rad_p(seg_angle),
+				z_len_or_pitch(open_top) + z_incr_back_side(seg_angle)],
+			// [19]
+			[-x_incr_hollow(seg_angle)/2,
+				-hollow_rad_p(seg_angle),
+				z_len_or_pitch(open_top) + z_incr_this_side(seg_angle)],
+			// [20]
+			[0,
+				0,
+				z_thread_bottom(is_bottom_turn) + z_incr_back_side(seg_angle)],
+			// [21]
+			[0,
+				0,
+				z_len_or_pitch(open_top) + z_incr_back_side(seg_angle)]
+		];
+
 } // end module thread()
 
 
