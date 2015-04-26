@@ -2515,12 +2515,28 @@ module tab(outer_radius, inner_radius,
 				translate([0,0,-f_tabHeight])
 				cylinder(r=inner_radius, h=f_tabHeight+2*f_tabHeight);
 
-				//subtract outer area to beautify indent rod portrution
+				// subtract outer area to beautify protuded indent rod (lock)
+				translate([0,0,-0.01])
+					difference()
+					{
+						cylinder(r=outer_radius+1, h=f_tabHeight+lock+0.02);
+						cylinder(r=outer_radius, h=f_tabHeight+lock+0.02);
+					}
+			
+				// subtract for turnability
+				// The outer_radius defines the maximum radius (corners of cylinder) of 
+				// the slot channel.
+				// With low/uneven $fn ($fn=23) or small gaps the slot channel gets
+				// eventually too narrow. So much that the the tab is no longer turnable.
+				rotate([0,0,360/$fn/2])
+				translate([0,0,-0.01])
 				difference()
 				{
-					cylinder(r=outer_radius+1, h=f_tabHeight+1);
-					cylinder(r=outer_radius, h=f_tabHeight+1);
+					cylinder(r=outer_radius+1, h=f_tabHeight+lock+0.02);
+					cylinder(r=outer_radius, h=f_tabHeight+lock+0.02);
 				}
-			}		
+				
+			}	// end tab difference
 	}
 }
+
