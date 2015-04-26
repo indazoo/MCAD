@@ -2103,7 +2103,10 @@ module m_thread(
 } // end module thread()
 
 
-/*-------------------------------------------------------------------------\
+//-------------------------------------------------------------------------
+//-------------------------------------------------------------------------
+//-------------------------------------------------------------------------
+/*
 Tab n Slot module
 
 A simple module to generate tabs and slots to make 2 objects interlock
@@ -2115,7 +2118,8 @@ just about everything I could think of is panametric, just watch that you don't 
 To Do: currently generating 2 or more tabs cannont be compliled to look right but renders fine. Need to fix this to make life easier
 Stops are not implemented so have to make own if groove protrude out the other side of the object
 Need to add some error code to stop the use of values that will result in slots longer than possible and tabs that are too big for there to be enough room for grooves.
-\----------------------------------------------------------------------------*/
+*/
+//----------------------------------------------------------------------------
 
 
 //test_slot_tab_diff();
@@ -2160,6 +2164,47 @@ module test_slot_tab_diff()
 		tabs_outward=true);
 	}
 }
+
+
+
+// ---------------------------------------------------------------
+// Functions
+// ---------------------------------------------------------------
+
+// At low $fn the cylinders are not round. For the same reason the created tab is
+// not round too and because of unknown tab count. Therefore, to ensure that the tab
+// connects to its base (Outer diameter) we add some "good measure" value.
+function join_distance(tabs_outward, is_tab) =
+			is_tab ?
+				(tabs_outward ? -0.2 : 0.2)
+				:
+				(tabs_outward ? -0.2 : 0.2);
+
+function get_clockwise(clockwise)=
+	(clockwise?1:-1);
+
+function get_tabWidth(tab_is_ref, tabWidth_angle, tabWidth, radius, tolerance) =
+			tabWidth_angle!=0 ?
+				2*accurateSin(tabWidth_angle/2)*radius 
+				: get_tabWidth_tol(tab_is_ref,tabWidth,tolerance);
+		;
+function get_tabWidth_angle(tab_is_ref, tabWidth_angle, tabWidth, radius, tolerance) =
+			(tabWidth!=0 ?
+			 width_to_angle(get_tabWidth_tol(tab_is_ref,tabWidth,tolerance),radius) 
+			: tabWidth_angle);
+		;
+function get_tabWidth_tol(tab_is_ref, tabWidth, tolerance ) =
+		tab_is_ref ? tabWidth : tabWidth - 2*tolerance;
+function get_tabHeight_tol(tab_is_ref, tabWidth, tolerance ) =
+		tab_is_ref ? tabHeight : tabHeight - 2*tolerance;
+
+function width_to_angle(width, radius) =
+			2*asin((width/2)/radius) ;
+
+
+// ---------------------------------------------------------------
+// Slots
+// ---------------------------------------------------------------
 
 //test_slots_metric();
 module test_slots_metric(ref_dia = 30)
@@ -2210,26 +2255,11 @@ module test_slots(ref_dia = 30)
 		pitch=2);
 }
 
-function get_clockwise(clockwise)=
-	(clockwise?1:-1);
 
-function get_tabWidth(tab_is_ref, tabWidth_angle, tabWidth, radius, tolerance) =
-			tabWidth_angle!=0 ?
-				2*accurateSin(tabWidth_angle/2)*radius 
-				: get_tabWidth_tol(tab_is_ref,tabWidth,tolerance);
-		;
-function get_tabWidth_angle(tab_is_ref, tabWidth_angle, tabWidth, radius, tolerance) =
-			(tabWidth!=0 ?
-			 width_to_angle(get_tabWidth_tol(tab_is_ref,tabWidth,tolerance),radius) 
-			: tabWidth_angle);
-		;
-function get_tabWidth_tol(tab_is_ref, tabWidth, tolerance ) =
-		tab_is_ref ? tabWidth : tabWidth - 2*tolerance;
-function get_tabHeight_tol(tab_is_ref, tabWidth, tolerance ) =
-		tab_is_ref ? tabHeight : tabHeight - 2*tolerance;
 
-function width_to_angle(width, radius) =
-			2*asin((width/2)/radius) ;
+
+
+
 
 module slots_metric(
 			groove_dia=55, //diameter over grooves
