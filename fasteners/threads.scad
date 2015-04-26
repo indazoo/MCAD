@@ -2417,9 +2417,9 @@ module slot(outer_radius, inner_radius,
 	}
 	
 }
-// *****************************************************************
+// ---------------------------------------------------------------
 // Tabs Tabs Tabs
-// *****************************************************************
+// ---------------------------------------------------------------
 
 //test_tabs();
 module test_tabs(ref_dia = 30)
@@ -2468,10 +2468,10 @@ module tabs_metric(
 			tabHeight=3,	//tab height
 			tabWidth=0,		//use width of tab or tab_angle
 			tabWidth_angle=0,	//use tab_angle or tabWidth
-			tabNumber=2, 	//don't recomeend using 1 for physical 
-							//use but is handy for testing things
-			tolerance=0.2, //self explanetry really, this will be 
-							//dependant on printer
+			tabNumber=2, 	//Number of tabs >= 1.
+			tolerance=0.2, //Space hull around path of tab to provide 
+							//some play. The total play in one direction
+							//is 2*tolerance.
 			gap=0.5, 		// gap (play) between tab zylinder and slot cylinder
 			lock=0, 		//this adds a little indent and nub at the final 
 							//resting point to make it harder to turn back, 
@@ -2513,10 +2513,10 @@ module tabs(
 			tabHeight=3,	//tab height
 			tabWidth=0,		//use width of tab or tab_angle
 			tabWidth_angle=0,	//use tab_angle or tabWidth
-			tabNumber=2, 	//don't recomeend using 1 for physical 
-							//use but is handy for testing things
-			tolerance=0.2, //self explanetry really, this will be 
-							//dependant on printer
+			tabNumber=2, 	//Number of tabs >= 1.
+			tolerance=0.2, //Space hull around path of tab to provide 
+							//some play. The total play in one direction
+							//is 2*tolerance.
 			gap=0.5, 		// gap (play) between tab zylinder and slot cylinder
 			lock=0, 		//this adds a little indent and nub at the final 
 							//resting point to make it harder to turn back, 
