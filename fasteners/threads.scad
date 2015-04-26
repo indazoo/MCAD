@@ -2528,40 +2528,44 @@ module tabs(
 			tabs_outward = false
 ){
 
-tab_major_radius = 
-	tabs_outward ?
-		(tab_is_ref ? 
+	tab_major_radius = 
+		tabs_outward ?
+			(tab_is_ref ? 
 				ref_dia/2+gap+grooveDepth
 				: ref_dia/2+grooveDepth)
-		:(tab_is_ref ? 
+			:(tab_is_ref ? 
 				ref_dia/2-gap-grooveDepth 
 				: ref_dia/2-grooveDepth)
 	;
-tab_minor_radius =
-	tabs_outward ?
-		(tab_is_ref ? 
+	tab_minor_radius =
+		tabs_outward ?
+			(tab_is_ref ? 
 				ref_dia/2
 				: ref_dia/2-gap)
-		:(tab_is_ref ? 
+			:(tab_is_ref ? 
 				ref_dia/2 
 				: ref_dia/2+gap)
 	;
 
-inner_radius = tabs_outward ? tab_minor_radius : tab_major_radius;
-outer_radius = tabs_outward ? tab_major_radius : tab_minor_radius;
+	inner_radius = tabs_outward ? tab_minor_radius : tab_major_radius;
+	outer_radius = tabs_outward ? tab_major_radius : tab_minor_radius;
+	echo("TABS");
+	echo("inner_radius",inner_radius);
+	echo("outer_radius",outer_radius);
+	if(tabWidth!=0 && tabWidth_angle!=0){
+		echo("Warning !!!");
+		echo("Use either tabWidth or tabWidth_angle but not both.");}
 
-if(tabWidth!=0 && tabWidth_angle!=0){
-	echo("Warning !!!");
-	echo("Use either tabWidth or tabWidth_angle but not both.");}
+	f_tabWidth = get_tabWidth(tab_is_ref, tabWidth_angle, tabWidth, outer_radius, tolerance);
+	f_tabWidth_angle = get_tabWidth_angle(tab_is_ref, tabWidth_angle, tabWidth, outer_radius, tolerance);
+	f_tabHeight = tab_is_ref ? tabHeight : tabHeight - tolerance;
 
-f_tabWidth = get_tabWidth(tab_is_ref, tabWidth_angle, tabWidth, outer_radius, tolerance);
-f_tabWidth_angle = get_tabWidth_angle(tab_is_ref, tabWidth_angle, tabWidth, outer_radius, tolerance);
-f_tabHeight = tab_is_ref ? tabHeight : tabHeight - tolerance;
+	if(lock<=tolerance && lock > 0){
+		echo("Warning !!!");
+		echo("Tolerance is bigger or equal to lock. Locking will not be cut.");}
 
-if(lock<=tolerance && lock > 0){
-	echo("Warning !!!");
-	echo("Tolerance is bigger or equal to lock. Locking will not be cut.");}
 
+	rad_toomuch = outer_radius + 0.2; 
 	union()
 	{
 		for(i = [0:tabNumber-1])
@@ -2569,21 +2573,28 @@ if(lock<=tolerance && lock > 0){
 			//Single tab
 			
 			rotate((360/tabNumber)*i)
-				translate([0,0,tab_is_ref?0:tolerance/2]) 
-					tab(outer_radius, inner_radius,
-						f_tabHeight, f_tabWidth_angle, lock);
+				translate([0,0,tab_is_ref?0:tolerance]) 
+					tab(outer_radius = rad_toomuch,
+						inner_radius = inner_radius,
+						f_tabHeight = f_tabHeight,
+						f_tabWidth_angle = f_tabWidth_angle, 
+						lock = lock,
+						tabs_outward = tabs_outward);
+
 		} // end tab for loop
 
 		if (tabs_outward && fill_center)
-			translate([0,0,tab_is_ref?0:tolerance/2])
+			translate([0,0,tab_is_ref?0:tolerance])
 			cylinder(r=inner_radius, h=depth);
-	}
 
+	} // end union
 }
 
 module tab(outer_radius, inner_radius,
 			f_tabHeight,
-			f_tabWidth_angle, lock)
+			f_tabWidth_angle, 
+			lock,
+			tabs_outward )
 
 {
 	render()
@@ -2606,18 +2617,18 @@ module tab(outer_radius, inner_radius,
 				// cuts right tab flank
 				rotate(f_tabWidth_angle/2)
 					translate([0,outer_radius,f_tabHeight/2])
-						cube([2*outer_radius, 2*outer_radius, f_tabHeight+0.001],center=true);
+						cube([2*(outer_radius+1), 2*outer_radius, f_tabHeight+0.001],center=true);
 					
 				// cuts left tab flank 
 				rotate(-f_tabWidth_angle/2)
 					translate([0,-outer_radius,f_tabHeight/2])
-						cube([2*outer_radius, 2*outer_radius, f_tabHeight+0.001],center=true);
+						cube([2*(outer_radius+1), 2*outer_radius, f_tabHeight+0.001],center=true);
 
 				// subtract inner leftover per slot
 				// make inner radius of tab smaller so it gets longer and
 				// can cross the gap between tab and slot cylinder
 				translate([0,0,-f_tabHeight])
-				cylinder(r=inner_radius, h=f_tabHeight+2*f_tabHeight);
+				cylinder(r=inner_radius+join_distance(tabs_outward), h=f_tabHeight+2*f_tabHeight);
 
 				// subtract outer area to beautify protuded indent rod (lock)
 				translate([0,0,-0.01])
