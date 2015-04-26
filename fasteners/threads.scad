@@ -2344,31 +2344,72 @@ module slots(
 
 	cut_x=ref_dia+2*grooveDepth+10;
 	cut_y=ref_dia/2+grooveDepth+10;
-	f_depth = slot_is_ref?depth:depth+tolerance/2;
+	f_depth = slot_is_ref?depth:depth+tolerance;
 	cut_depth = f_depth+0.01;
 
+	rad_toomuch = outer_radius + 0.2; 
+	difference()
+	{
 	union(){
 		for(i = [0:tabNumber-1])
 		{
 			rotate((360/tabNumber)*i)
-				translate([0,0,slot_is_ref?0:-tolerance/2])
-					slot(outer_radius, inner_radius,
-						tabHeight, f_depth, cut_depth,
-						clockwise, rotation, f_tabWidth_angle,
-						tolerance, lock,
-						cut_x, cut_y, cut_depth);
+				translate([0,0,slot_is_ref?0:-tolerance])
+					slot(outer_radius = rad_toomuch,
+						inner_radius = inner_radius,
+						tabHeight = tabHeight,
+						f_depth = f_depth,
+						cut_depth = cut_depth,
+						clockwise = clockwise,
+						rotation = rotation,
+						f_tabWidth_angle = f_tabWidth_angle,
+						tolerance = tolerance,
+						lock = lock,
+						cut_x = cut_x,
+						cut_y = cut_y,
+						cut_depth = cut_depth,
+						tabs_outward = tabs_outward);
 		}//end for
-		if (tabs_outward && cutHole)
-			translate([0,0,slot_is_ref?0:-tolerance/2])
-			cylinder(r=inner_radius, h=f_depth);
+
+		if (needs_center())
+			translate([0,0,slot_is_ref?0:-tolerance])
+			cylinder(r=inner_radius + join_distance(tabs_outward), h=f_depth);
 	} //end union
+
+
+		//Subtract inner leftover of slots
+		//It is outside of slot() module because with this
+		//flanks of cylinder are nicely aligned ($fn)
+		if (!needs_center())
+			translate([0,0,(slot_is_ref?0:-tolerance)-0.005])
+				cylinder(r=inner_radius + join_distance(tabs_outward), h=cut_depth);
+
+
+		//subtract outer area to beautify protuded indent rod
+		// and subtract rad_toomuch (needed to get aligned
+		// facettes of cylinder ($fn and rotate of tabs)
+		translate([0,0,-tolerance-0.01])
+		difference()
+		{
+			cylinder(r=rad_toomuch+1, h=f_depth+tolerance+0.02);
+			cylinder(r=outer_radius, h=f_depth+tolerance+0.02);
+		}
+
+	} //end difference
+
+echo("needs_center()",needs_center());
+	function needs_center() = tabs_outward && cutHole;
+
 }
+	
+
 
 module slot(outer_radius, inner_radius,
 						tabHeight, f_depth, cut_depth,
 						clockwise, rotation, f_tabWidth_angle,
 						tolerance, lock,
-						cut_x, cut_y, cut_depth)
+						cut_x, cut_y, cut_depth,
+						tabs_outward)
 {		
 	render()
 	{
@@ -2403,12 +2444,10 @@ module slot(outer_radius, inner_radius,
 						{
 							translate([0,0,tabHeight+lock/2])
 								rotate([0,90,0])
-									cylinder(r=lock+tolerance/2, h=outer_radius+0.001, $fn=12);
+									cylinder(r=lock+tolerance, h=outer_radius+0.001, $fn=12);
 						}
 					} //end union
-					//subtract inner leftover per slot
-					translate([0,0,-0.005])
-					cylinder(r=inner_radius, h=cut_depth);
+
 					//subtract opposite leftover per slot
 					translate([-2*outer_radius,-outer_radius,-0.005])
 						cube([2*outer_radius,2*outer_radius,cut_depth]);
