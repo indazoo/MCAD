@@ -294,7 +294,7 @@ module test_slot_tabs()
 
 
 
-module test_metric_thread ($fa=5, $fs=0.1)
+module test_metric_right ($fa=5, $fs=0.1)
 {
 	metric_thread( diameter = 20,
 		pitch = 4, 
@@ -2164,7 +2164,7 @@ module m_thread(
 		// of the slice above ours and use them as our top points.
 		if(internal)
 		{
-			//Because OpenScad uses CSG a subtract (internal) must be made with
+			//Because OpenScad uses CSG a subtract (internal) must be made 
 			//with overlapping polygons or slim planes will be left over
 			//where coincident faces exist.
 			polyhedron(	points = slice_wanted,
