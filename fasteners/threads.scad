@@ -422,7 +422,7 @@ module test_leftright_buttress($fa=20, $fs=0.1)
 module test_channel_thread(dia = 10)
 {
 	angles = [0,50];
-	len = 15;
+	length = 15;
 	backlash = 0.13;
 	outer_flat_length = 0.5;
 	clearance = 0.17;
@@ -434,7 +434,7 @@ module test_channel_thread(dia = 10)
 		thread_diameter = dia,
 		pitch = 2,
 		turn_angle = 360,
-		length = len,
+		length = length,
 		internal = false,
 		n_starts = starts,
 		thread_angles = angles,
@@ -451,7 +451,7 @@ module test_channel_thread(dia = 10)
 		thread_diameter = dia,
 		pitch = 2,
 		turn_angle = 360,
-		length = len,
+		length = length,
 		internal = true,
 		n_starts = starts,
 		thread_angles = angles,
@@ -467,7 +467,7 @@ module test_channel_thread2()
 {
 	//top cuts through upper thread (no shaft)
 	angles = [0,30]; 
-	len = 1;
+	length = 1;
 	outer_flat_length = 0.2;
 	clearance = 0.2;
 	backlash = 0.15;
@@ -479,7 +479,7 @@ module test_channel_thread2()
 		thread_diameter = getdia(n),
 		pitch = 1,
 		turn_angle = 360,
-		length = len,
+		length = length,
 		internal = false,
 		n_starts = 1,
 		thread_angles = angles,
@@ -496,7 +496,7 @@ module test_channel_thread2()
 		thread_diameter = getdia(n),
 		pitch = 1,
 		turn_angle = 360,
-		length = len,
+		length = length,
 		internal = true,
 		n_starts = 1,
 		thread_angles = angles,
@@ -515,7 +515,7 @@ module test_channel_thread3()
 	wall_width = 2;
 	dia = 30 - 2*wall_width;
 	pitch = 2;
-	len = 4;
+	length = 4;
 	angles = [50,50]; //second angle needs to be zero for test case.
 	outer_flat_length = 0.5;
 	clearance = 0;
@@ -529,7 +529,7 @@ module test_channel_thread3()
 		thread_diameter = dia,
 		pitch = 2,
 		turn_angle = 360,
-		length = len,
+		length = length,
 		internal = false,
 		n_starts = 1,
 		thread_angles = angles,
@@ -1432,7 +1432,7 @@ module m_thread(
 	//
 
 	//internal channel threads have backlash on bottom too
-	len = !internal || multiple_turns_over_height ? length
+	len_backlash_compensated = !internal || multiple_turns_over_height ? length
 			: length + backlash/2 
 			 ;
 
@@ -1526,7 +1526,7 @@ module m_thread(
 
 /*	echo("**** polyhedron thread ******");
 	echo("internal", internal);
-	echo("length", len);
+	echo("length", len_backlash_compensated);
 	echo("pitch", pitch);
 	echo("right_handed", right_handed);
 	echo("tooth_height param", param_tooth_height());
@@ -1618,7 +1618,7 @@ module m_thread(
 			;
 	// z offset includes length added to upper_flat on left angle side
 	function channel_thread_z_offset() = 
-				-len // "len" contains backlash already
+				-len_backlash_compensated // "len_backlash_compensated" contains backlash already
 				+ channel_thread_bottom_spacer()
 				;
 
@@ -1628,13 +1628,22 @@ module m_thread(
 	if(multiple_turns_over_height)
 	{
 		// normal threads with multiple turns
-		intersection() 
+		if(true)
+		{
+					
+			intersection() 
+			{
+				make_thread();
+				// Cut to length.
+				translate([0, 0, (len_backlash_compensated-0.1)/2]) //0.001 : "simple=no" for square threads
+					cube([diameter*1.1, diameter*1.1, len_backlash_compensated-0.1], center=true);
+			}
+		}
+		else
 		{
 			make_thread();
-			// Cut to length.
-			translate([0, 0, (len+nefabb_degenerated_min())/2]) //0.001 : "simple=no" for square threads
-				cube([diameter*1.1, diameter*1.1, len+nefabb_degenerated_min()], center=true);
 		}
+			
 	}
 	else
 	{
@@ -1645,15 +1654,15 @@ module m_thread(
 			make_channel_thread();
 			// nefabb_degenerated_min() is needed because in netfabb a "hole" and
 			// degenerated faces would be detected
-			translate([0, 0, -(len/2)+nefabb_degenerated_min()])
-				cube([diameter*1.1, diameter*1.1, len+2*nefabb_degenerated_min()], center=true);
+			translate([0, 0, -(len_backlash_compensated/2)+nefabb_degenerated_min()])
+				cube([diameter*1.1, diameter*1.1, len_backlash_compensated+2*nefabb_degenerated_min()], center=true);
 		}
 		/* DEBUG
-		#translate([0, diameter*1.1/2+0.05, -len/2]) 
-				cube([diameter*1.1, diameter*1.1, len], center=true);
-		#translate([diameter*1.1/2+0.05,0 , -len/2]) 
-				cube([diameter*1.1, diameter*1.1, len], center=true);
-		#translate([-backlash/4, -diameter*1.1/2+2 , -len+backlash/4])
+		#translate([0, diameter*1.1/2+0.05, -len_backlash_compensated/2]) 
+				cube([diameter*1.1, diameter*1.1, len_backlash_compensated], center=true);
+		#translate([diameter*1.1/2+0.05,0 , -len_backlash_compensated/2]) 
+				cube([diameter*1.1, diameter*1.1, len_backlash_compensated], center=true);
+		#translate([-backlash/4, -diameter*1.1/2+2 , -len_backlash_compensated+backlash/4])
 				cube([backlash/2, backlash/2, backlash/2], center=true);
 		*/
 	}
@@ -1910,11 +1919,11 @@ module m_thread(
 									: pitch);
 	function z_len_or_pitch(open_top) =
 					multiple_turns_over_height ? pitch  //normal thread work only with pitch	
-						: (open_top && internal ? len : pitch) ;  //channel threads need full height
+						: (open_top && internal ? len_backlash_compensated : pitch) ;  //channel threads need full height
 	function z_len_offest(i_thread_turn) = //channel threads need the above thread much higher
 					multiple_turns_over_height ? 0
 						:( ((!internal && i_thread_turn == 1)
-							|| (internal && i_thread_turn == 2) )? len : 0);
+							|| (internal && i_thread_turn == 2) )? len_backlash_compensated : 0);
 				;
  	function z_offset(seg_angle, i_turn_seg, i_thread_turn, 3D_vect) = [
 			3D_vect.x,
@@ -1923,7 +1932,7 @@ module m_thread(
 						+ internal_play_offset()
 						+ i_thread_turn*pitch 	
 						+ z_len_offest(i_thread_turn)  // for channel threads the next/above must 
-														 // higher than "len" and will be cut by intersection 
+														 // higher than "len_backlash_compensated" and will be cut by intersection 
 			];
 	function bottom_z_space(is_bottom_turn) = is_bottom_turn ? channel_thread_bottom_spacer() : 0;
 	function z_thread_bottom(is_bottom_turn) = -bottom_z_space(is_bottom_turn);
