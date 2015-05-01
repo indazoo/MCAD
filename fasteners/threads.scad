@@ -8,28 +8,28 @@
  *
  *
  * TODO:
+ *  - list-comprehensions:
+ *    Implemented for standard threads. Channel threads still use concatenated polyhydra.
  *  - printify does notwork after v1.8
  *  - OpenScad issues warning the warning:
  *    "Normalized tree is growing past 200000 elements. Aborting normalization."
  *    for medium to high $fn values ==> compile view is not correct. ==> use low 
  *    $fn during development of your part and increase "turn off rendering at" 
  *    in Menu=>Edit=>Preferences substantially (at least on Windows OS). 
- *  - Use OpenScad 2014.QX features as soon
- *    it is officially released (feature: list-comprehensions).
+
  *  - a lot of standard definitions can be implemented (tolerance etc).
  *  - big taper angles create invalid polygons (no limit checks implemented).
  *  - test print BSP and NPT threads and check compatibility with std hardware.
  *  - a 45 degree BSP/NPT variant which fits on metal std hardware and has no leaks.
- *  - The current design creates polyhedra with the possibility of an inner flat
- *    (at minor_rad) on bottom and on top. This is useful if each tooth segment is 
- *    being individually calculated for its position in the thread which needs a
- *    variable inner flat on top and on bottom. With dynamically created polyhedra
- *    only the necessary polyhedra must be created. The current design creates too
- *    many of them and cuts the unneeded on top and bottom. So, with less polyhedra 
- *    speed can be improved. But the last and first polyhedra may 
- *    be tricky to create because they end with height = 0 on one side.
- *    Perhaps, this speed trick should be implemented AFTER moving to list-comprehensions.
+ *        
  * 
+ * Version 3.0  2015-05-01  indazoo
+ *                          - standard threads use now list comprehension instead of 
+ *                            concatenated polygons. This is much faster.  Run time of 
+ *                            main test went from 15 minutes to 1.5 minutes.
+ *                          - some minor bugs/typos removed
+ *                          - sin() and cos() are now accurate with OpenScad 2015.03.
+ *                            So, workaround code removed.
  * Version 2.7  2015-02-16  indazoo
  *                          - removed the "holes" reported by netfabb.
  *                          - channel thread supports now deep sunken threads
