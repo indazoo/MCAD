@@ -1230,7 +1230,7 @@ module m_thread(
 	// ------------------------------------------------------------------
 	// Segments and its angle, number of turns
 	// ------------------------------------------------------------------
-	n_turns = floor(length/pitch); // Number of turns needed.
+	n_turns = floor(length/pitch) + 1; // Number of turns needed.
 	n_segments_tmp =  $fn > 0 ? 
 						$fn :
 						max (30, min (2 * PI * minor_radius / $fs, 360 / $fa));
@@ -1588,7 +1588,7 @@ module m_thread(
 	if(multiple_turns_over_height)
 	{
 		// normal threads with multiple turns
-		if(true)
+		if(true) //DEBUG : set to false to see full thread before cutting
 		{
 					
 			intersection() 
@@ -1633,8 +1633,289 @@ module m_thread(
 	// ------------------------------------------------------------------
 	module make_thread()
 	{
+
+		function get_3Dvec_profile_xOffset() = minor_radius;
+		function get_3Dvec_profile_yOffset() =	0;
+		function get_3Dvec_profile_zOffset(turn, start) =	((turn*n_starts) + start) * pitch;
+
+		function get_3Dvec_tooth_points(turn, start) =
+							[
+								//Point lower_flat to right_flat
+								[get_3Dvec_profile_xOffset(), 
+									get_3Dvec_profile_yOffset(), 
+									get_3Dvec_profile_zOffset(turn, start)],
+								//Point right_flat to upper_flat
+								[get_3Dvec_profile_xOffset() +tooth_height , 
+									get_3Dvec_profile_yOffset(), 
+									get_3Dvec_profile_zOffset(turn, start) + right_flat],
+								//Point upper_flat to left_flat
+								[get_3Dvec_profile_xOffset() + tooth_height, 
+									get_3Dvec_profile_yOffset(), 
+									get_3Dvec_profile_zOffset(turn, start) + (right_flat + upper_flat)],
+								//Point left_flat to lower_flat
+								[get_3Dvec_profile_xOffset(), 
+									get_3Dvec_profile_yOffset(), 
+									get_3Dvec_profile_zOffset(turn, start) + tooth_flat] //left flat begin
+						];
+		pre_calc_3Dvec_tooth_points = get_3Dvec_tooth_points(0,0);
+
+		function get_segment_zOffset(rotation_angle) =
+					right_handed ?
+						pitch/360*rotation_angle * n_starts
+						: pitch-pitch/360*rotation_angle * n_starts;
+
+
+		function z_offset(z_offest, vect_3D) = [
+				vect_3D.x,
+				vect_3D.y,
+				vect_3D.z + z_offest
+				];
+		function rotate_xy(angle, vect_3D) = [
+				vect_3D.x*cos(angle)-vect_3D.y*sin(angle),
+				vect_3D.x*sin(angle)+vect_3D.y*cos(angle),
+				vect_3D.z
+				];
+
+				
+		segments_to_calc = n_segments; //set to 1 to see only one segment (debugging)
+		
+		//-----------------------------------------------------------
+		// Points
+		//-----------------------------------------------------------
+
+		//Create an array of planar points describing the profile of the tooths.
+		function get_3Dvec_tooths_points() = [
+					for (turn = [ 0 : n_turns ]) 
+						for (start = [0 : n_starts-1])  
+							for (point = get_3Dvec_tooth_points(turn, start) ) 
+								point
+					];
+						
+		pre_calc_tooths_profile = get_3Dvec_tooths_points();
+
+		//Create a closed planar polygon with tooths profile and center points				
+		function get_3Dvec_tooths_polygon() = concat(
+					//bottom center point
+					[[0,0,0]],
+					//tooth points
+					pre_calc_tooths_profile,
+					//top center point
+					[[0,0,pre_calc_tooths_profile[len(pre_calc_tooths_profile)-1].z]]
+					);
+		pre_calc_tooths_polygon = get_3Dvec_tooths_polygon();				
+
+		//Rotate and lift ( z axis) the pre calculated planar tooths polygon
+		function get_3Dvec_tooths_polygons_aligned(rotation_angle) = [
+								for (point = pre_calc_tooths_polygon)  
+									z_offset(get_segment_zOffset(rotation_angle) - (n_starts-1)*pitch,
+											rotate_xy((rotation_angle >= 359.99 ? 0 : rotation_angle), point)
+											)
+							];
+		// Array of planar polygons rotated and lifted in z
+		function get_3Dvec_tooths_polygons() = [
+								for (segment = [0:segments_to_calc])  //one polygon more needed than segments (overlap)
+									get_3Dvec_tooths_polygons_aligned(360/n_segments * segment)
+							];
+		pre_calc_tooths_polygons = get_3Dvec_tooths_polygons();
+
+		//Create points for polyhedron ==> flatten pre_calc_tooths_polygons 
+		points_3Dvec = [
+							for (polygon	= pre_calc_tooths_polygons) 
+								for (point = polygon)
+									point
+							];	
+
+		//-----------------------------------------------------------
+		// FACES
+		//-----------------------------------------------------------
+
+		/* These created a hole in netfabb but is more correct
+		function get_closing_planar_bottom_face(first_faces_pts, second_last_faces_pts) =
+								concat(
+								[ for (pointIndex = [len(pre_calc_3Dvec_tooth_points)+1 :-1: 0 ])
+									first_faces_pts[pointIndex]
+								],
+								//Center lifted bottom point of last segment
+								[second_last_faces_pts[0]]
+								);
+								
+		function get_closing_planar_top_face(first_faces_pts, current_faces_pts, last_faces_pts) =
+								concat(
+								//top most point
+								[current_faces_pts[len(current_faces_pts)-1]],
+								//Center lowered top point of first segment
+								[first_faces_pts[len(first_faces_pts)-1]],
+								//rest of face (tooth profile)
+								[ for (pointIndex = [len(last_faces_pts) - len(pre_calc_3Dvec_tooth_points)-2 : 1 : len(last_faces_pts)-2  ])
+									last_faces_pts[pointIndex]
+								]
+								);
+			*/				
+			
+		// Close the thread polyhydron on bottom
+		function get_closing_planar_bottom_face(first_faces_pts, last_faces_pts) =
+								concat(
+								 ( right_handed ? 
+										[for (pointIndex = [n_starts*len(pre_calc_3Dvec_tooth_points)+1 :-1: 0 ])
+											first_faces_pts[pointIndex]
+										]
+										:
+										[
+										for (pointIndex = [0: n_starts*len(pre_calc_3Dvec_tooth_points)+1])
+											last_faces_pts[pointIndex]
+										]
+									)
+								//Center lifted bottom point of last segment
+								//[second_last_faces_pts[0]]
+								);
+										
+										
+		function get_closing_planar_top_face(first_faces_pts, current_faces_pts, last_faces_pts) =
+								right_handed ?
+									[	for (pointIndex = [len(last_faces_pts) - n_starts*len(pre_calc_3Dvec_tooth_points)-2 : 1 : len(last_faces_pts)-1  ])
+									last_faces_pts[pointIndex]
+									]
+									:
+									[	for (pointIndex = [len(first_faces_pts)-1 : -1 : len(first_faces_pts)-n_starts*len(pre_calc_3Dvec_tooth_points)-2  ])
+										first_faces_pts[pointIndex]
+									]
+								;						
+		// Get faces of one segment.
+		function get_seg_faces(segment, 
+										first_faces_pts, 
+										current_faces_pts, 
+										next_faces_pts, 
+										last_faces_pts) = 
+			concat(
+			// Bottom triangle to center	
+			// Netfabb reported a hole when using the closing planes of each segement.
+			// So it was necessary to use the highest point as center. This will be cut away later.
+				[[current_faces_pts[1],
+					next_faces_pts[1],
+					( right_handed ? first_faces_pts[0] : last_faces_pts[0])
+				]],
+			//Bottom planar face up to last segment
+			( (segment == 0) ?
+				( right_handed ? 
+					[ get_closing_planar_bottom_face(first_faces_pts, last_faces_pts) ]	
+					:
+					[ get_closing_planar_bottom_face(last_faces_pts, last_faces_pts) ]
+					)
+				: []
+				),
+			/* This created a hole in netfabb but is more correct
+			// Bottom triangle to center	
+			[[current_faces_pts[0],
+			  current_faces_pts[1],
+			  next_faces_pts[1]]],
+			//Closing triangle to next segment
+			( (segment < n_segments-1) ?
+				[[current_faces_pts[0],
+						next_faces_pts[1],
+						next_faces_pts[0]]]
+				:
+				[
+					//Bottom planar face up to last segment
+					get_closing_planar_bottom_face(first_faces_pts, current_faces_pts)
+				]
+			), // end condition bottom closing polygon
+							*/
+			// Tooths faces
+			[ for (face_set_index = [1 : len(current_faces_pts)-3])
+				for (face_set = [
+										[current_faces_pts[face_set_index],
+											next_faces_pts[face_set_index+1],
+											next_faces_pts[face_set_index]],
+										[current_faces_pts[face_set_index+1],
+											next_faces_pts[face_set_index+1],
+											current_faces_pts[face_set_index]]
+										])
+				face_set
+			],
+			// Top triangle to center
+			// Netfabb reported a hole when using the closing planes of each segement.
+			// So it was necessary to use the highest point as center. This will be cut away later.
+			[[current_faces_pts[len(current_faces_pts)-2],
+			  ( right_handed ? last_faces_pts[len(last_faces_pts)-1] 
+												: first_faces_pts[len(first_faces_pts)-1]),
+			  next_faces_pts[len(next_faces_pts)-2]]
+			],
+			// Top triangle down to first segment
+			( (segment == n_segments-1) ?
+			[	get_closing_planar_top_face(first_faces_pts, current_faces_pts, next_faces_pts)	]
+				: []
+				)
+			/*  This created a hole in netfabb but is more correct
+			//Top triangle to center
+			[[current_faces_pts[len(current_faces_pts)-1],
+			  next_faces_pts[len(next_faces_pts)-2],
+			  current_faces_pts[len(current_faces_pts)-2]]],
+			//Closing triangle to next segment
+			( (segment < n_segments-1) ?
+				[	//Top triangle to center and next segment 
+					[current_faces_pts[len(current_faces_pts)-1],
+						next_faces_pts[len(next_faces_pts)-1],
+						next_faces_pts[len(next_faces_pts)-2]]
+				]
+					:
+				[	//Top triangle down to first segment
+					get_closing_planar_top_face(first_faces_pts, current_faces_pts, next_faces_pts)
+				]
+			) // end condition top closing polygon
+			*/
+			); //end concat and function
+			
+
+		tooths_polygon_point_count = len(pre_calc_tooths_polygon);
+		
+		// An array of point index numbers used later for creating the faces points
+		// Returns always the same length for all segments of the same thread.
+		// get_faces_points(0) ==>  [0,1,2,...,13]
+		// get_faces_points(1) ==>  [15,16,17,...,27]
+		function get_faces_points(segment) = [ 
+					for (fp = [segment*tooths_polygon_point_count : (segment+1)*tooths_polygon_point_count-1]) fp];
+
+		pre_calc_faces_points = 
+					[ for (segment	= [ 0 : segments_to_calc ]) //one polygon more needed than segments (overlap)
+									get_faces_points(segment)
+					];
+		// Prepare the faces used later for polyhydron function which creates the thread.
+		thread_faces = [
+							for (segment	= [ 0 : segments_to_calc - 1 ]) 
+								let (current_faces_pts = pre_calc_faces_points[segment],
+										next_faces_pts  = pre_calc_faces_points[segment+1])
+								for (a = get_seg_faces(segment,
+																			pre_calc_faces_points[0], 
+																			current_faces_pts, 
+																			next_faces_pts,
+																			pre_calc_faces_points[len(pre_calc_faces_points)-1])) 
+										a //extract faces into 1-dim array
+						]; 
+			
+		// ------------------------------------------------------------
+		// Create Thread/polygon
+		// ------------------------------------------------------------
+
+		/* 
+		//DEBUG
+		echo("points_3Dvec len ", len(points_3Dvec));
+		echo("thread_faces len ", len(thread_faces));	
+		echo(points_3Dvec);
+		echo(thread_faces);	
+		*/
+
+		translate([0,0,-pitch])
+					polyhedron(	points = points_3Dvec,
+								faces = thread_faces);
+								
+
+	
+
+		// -------------------------------
+		//old polygon code
 		// Start one below z = 0.  Gives an extra turn at each end.
-		for (i_thread_turn=[-1*n_starts : n_turns]) 
+		/*
+		for (i_thread_turn=[-1*n_starts : n_turns-1]) 
 		{
 			for (i_turn_seg=[0 : n_segments-1])//n_segments-1]) 
 			{
@@ -1647,6 +1928,8 @@ module m_thread(
 										false);
 			}
 		}
+		*/
+		
 	}//end module make_thread()
 	// ------------------------------------------------------------
 	// ------------------------------------------------------------
