@@ -89,7 +89,7 @@
  *                          Reimplented features:
  *                          - metric, ACME, buttress, square, english threads
  *                          - left/right threads
- *                          - user defined $fn influences number of segements
+ *                          - user defined $fn influences number of segments
  *                          Added features:
  *                          - ensure clearance. Edges of bolt's polyhedrons may collide
  *                            with middle of nut's polyhedrons
@@ -296,6 +296,7 @@ module test_slot_tabs()
 
 module test_metric_right ($fa=5, $fs=0.1)
 {
+	//Case: Pitch larger than length
 	metric_thread( diameter = 20,
 		pitch = 4, 
 		length = 3, 
@@ -1609,7 +1610,7 @@ module m_thread(
 				)*/
 			: 0;
 
-	// The segement algorithm starts at the same z for
+	// The segment algorithm starts at the same z for
 	// internal and external threads. But the internal thread
 	// has a bigger diameter because of clearance/backlash so the
 	// internal thread must be shifted higher.	
@@ -1854,7 +1855,7 @@ module m_thread(
 	// ------------------------------------------------------------
 	// ------------------------------------------------------------
 	// functions for polyhedron point calculations
-	// To prevent errors if top slice barely touches bottom of next segement
+	// To prevent errors if top slice barely touches bottom of next segment
 	// afterone full turn.
 	function z_thread_top_simple_yes() = 0.000;
 
@@ -1928,7 +1929,7 @@ module m_thread(
  	function z_offset(seg_angle, i_turn_seg, i_thread_turn, 3D_vect) = [
 			3D_vect.x,
 			3D_vect.y,
-			3D_vect.z + i_turn_seg*n_starts*pitch*(seg_angle/360) //offset per segement
+			3D_vect.z + i_turn_seg*n_starts*pitch*(seg_angle/360) //offset per segment
 						+ internal_play_offset()
 						+ i_thread_turn*pitch 	
 						+ z_len_offest(i_thread_turn)  // for channel threads the next/above must 
