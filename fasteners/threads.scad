@@ -622,7 +622,7 @@ module test_BSP()
 // ----------------------------------------------------------------------------
 
 function metric_minor_radius(major_diameter, pitch) =
-				major_diameter / 2 - 5/8 * accurateCos(30) * pitch;
+				major_diameter / 2 - 5/8 * cos(30) * pitch;
  
 module metric_thread (
 		diameter = 8,
@@ -1119,48 +1119,7 @@ module channel_thread(
 // ---------------------------------------------------------------------
 // OpenSCAD version 2014.03 and also 2014.QX (only for tan) created
 // incorrect values for "even" angles.
-function accurateCos(x) = 
-(x%30)!=0?cos(x): (x<360?simpleCos(x):simpleCos(x-floor(x/360)*360));
-function simpleCos(x) =
-x==0 ? 1 :
-x==60 ? 0.5 :
-x==90 ? 0 :
-x==120 ? -0.5 :
-x==180 ? -1 :
-x==240 ? -0.5 :
-x==270 ? 0 :
-x==300 ? 0.5 :
-x==360 ? 1 : cos(x);
-// TEST
-/*
-echo("cos");
-for (angle = [0:1:361]) 
-{
-	if((cos(angle)-accurateCos(angle)) != 0)	
-		echo(angle," ", cos(angle)-accurateCos(angle));
-}
-*/
-function accurateSin(x) = 
-(x%15)!=0?sin(x): (x<360?simpleSin(x):simpleSin(x-floor(x/360)*360));
-function simpleSin(x) =
-x==0 ? 0 :
-x==30 ? 0.5 :
-x==90 ? 1 :
-x==150 ? 0.5 :
-x==180 ? 0 :
-x==210 ? -0.5 :
-x==270 ? -1 :
-x==330 ? -0.5 :
-x==360 ? 0 : sin(x);
-//TEST
-/*
-echo("sin");
-for (angle = [0:1:361]) 
-{
-	if((sin(angle)-accurateSin(angle)) != 0)	
-		echo(angle," ", sin(angle)-accurateSin(angle));
-}
-*/
+// As of OpenScad 2015.03 sin() and cos() deliver correct values
 
 function accurateTan(x) = 
 (x%15)!=0?tan(x): (x<360?simpleTan(x):simpleTan(x-floor(x/360)*360));
@@ -1446,12 +1405,12 @@ module m_thread(
 	// but also for big $fn values clearance is being reduced. If one prints a 
 	// thread/nut without addressing this they may not turn.
 	function bow_to_face_distance(radius, angle) = 
-				radius*(1-accurateCos(angle/2));
+				radius*(1-cos(angle/2));
 	function clearance_radius(radius, internal_thread) =
 				(internal_thread ? 
 					( exact_clearance ?
 						radius+clearance
-						:(radius+clearance)/accurateCos(seg_angle/2)
+						:(radius+clearance)/cos(seg_angle/2)
 					)
 					: radius);
 
@@ -1865,10 +1824,10 @@ module m_thread(
 				minor_rad-i_thread_seg*taper_per_segment;
 
 	function x_incr_outer(seg_angle, i_thread_seg, taper_per_segment) = 
-				2*(accurateSin(seg_angle/2)
+				2*(sin(seg_angle/2)
 					*current_major_rad(i_thread_seg, taper_per_segment));
 	function x_incr_inner(seg_angle, i_thread_seg, taper_per_segment) = 
-				2*(accurateSin(seg_angle/2)
+				2*(sin(seg_angle/2)
 					*current_minor_rad(i_thread_seg, taper_per_segment));
 	function x_incr_bottom(seg_angle, i_thread_seg, taper_per_segment) = 
 					x_incr_inner(seg_angle, i_thread_seg, taper_per_segment);
@@ -1877,7 +1836,7 @@ module m_thread(
 						x_incr_outer(seg_angle, i_thread_seg, taper_per_segment) 
 						: x_incr_inner(seg_angle, i_thread_seg, taper_per_segment);
 	function x_incr_hollow(seg_angle) = 
-				2*(accurateSin(seg_angle/2)
+				2*(sin(seg_angle/2)
 					*hollow_rad);
 
 	// radius correction to place polyhedron correctly
@@ -1939,8 +1898,8 @@ module m_thread(
 	function z_thread_bottom(is_bottom_turn) = -bottom_z_space(is_bottom_turn);
 
 	function rotate_xy(poly_rotation_total, 3D_vect) = [
-			3D_vect.x*accurateCos(poly_rotation_total)-3D_vect.y*accurateSin(poly_rotation_total),
-			3D_vect.x*accurateSin(poly_rotation_total)+3D_vect.y*accurateCos(poly_rotation_total),
+			3D_vect.x*cos(poly_rotation_total)-3D_vect.y*sin(poly_rotation_total),
+			3D_vect.x*sin(poly_rotation_total)+3D_vect.y*cos(poly_rotation_total),
 			3D_vect.z
 			];
 
@@ -2433,7 +2392,7 @@ function get_clockwise(clockwise)=
 
 function get_tabWidth(tab_is_ref, tabWidth_angle, tabWidth, radius, tolerance) =
 			tabWidth_angle!=0 ?
-				2*accurateSin(tabWidth_angle/2)*radius 
+				2*sin(tabWidth_angle/2)*radius 
 				: get_tabWidth_tol(tab_is_ref,tabWidth,tolerance);
 		;
 function get_tabWidth_angle(tab_is_ref, tabWidth_angle, tabWidth, radius, tolerance) =
