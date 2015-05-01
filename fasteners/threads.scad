@@ -430,7 +430,7 @@ module test_channel_thread(dia = 10)
 	backlash = 0.1;
 	starts = 1;
 
-	translate([0,0,len+5])
+	translate([0,0,length+5])
 	channel_thread(
 		thread_diameter = dia,
 		pitch = 2,
@@ -475,7 +475,7 @@ module test_channel_thread2()
 	function getdia(n) = 5 + n * 5;
 	for (n=[1 : 3])
 	{
-	translate([0,0,len+5])
+	translate([0,0,length+5])
 	channel_thread(
 		thread_diameter = getdia(n),
 		pitch = 1,
