@@ -228,6 +228,7 @@
 //test_slot_tabs();
 
 //test_metric_right();
+//test_metric_right_n_starts();
 //test_metric_left();
 //test_square_thread();
 //test_hollow_thread();
@@ -237,6 +238,7 @@
 //test_leftright_buttress(5);
 //test_internal_difference_buttress();
 //test_internal_difference_buttress_lefthanded();
+//test_buttress_no_lower_flat();
 //test_channel_thread(8);
 //test_channel_thread2(); 
 //test_channel_thread3();
@@ -295,6 +297,20 @@ module test_slot_tabs()
 
 
 module test_metric_right ($fa=5, $fs=0.1)
+{
+	//Case: Pitch larger than length
+	metric_thread( diameter = 20,
+		pitch = 4, 
+		length = 3, 
+		internal=false, 
+		n_starts=1, 
+		right_handed=true,
+		clearance = 0.1, 
+		backlash=0.4,
+		printify_top = false
+	);
+}
+module test_metric_right_n_starts ($fa=5, $fs=0.1)
 {
 	//Case: Pitch larger than length
 	metric_thread( diameter = 20,
@@ -404,6 +420,14 @@ module test_buttress($fa=20, $fs=0.1)
 	buttress_thread(diameter=20, pitch=4, length=4.3, 
 					internal=false, n_starts=1,
 					buttress_angles = [45, 3], right_handed=true);
+	
+}
+
+module test_buttress_no_lower_flat($fa=20, $fs=0.1)
+{
+	buttress_thread(diameter=20, pitch=4, length=4.3, 
+					internal=false, n_starts=1,
+					buttress_angles = [60, 60], right_handed=true);
 	
 }
 module test_leftright_buttress($fa=20, $fs=0.1)
@@ -1903,10 +1927,22 @@ module m_thread(
 		echo(points_3Dvec);
 		echo(thread_faces);	
 		*/
-
-		translate([0,0,-pitch])
+		if(!is_hollow)
+		{
+			translate([0,0,-pitch])
+				polyhedron(	points = points_3Dvec,
+										faces = thread_faces);
+		}
+		else
+		{
+			translate([0,0,-pitch])
+				difference()
+				{	
 					polyhedron(	points = points_3Dvec,
-								faces = thread_faces);
+										faces = thread_faces);
+					cylinder(r=hollow_rad, h=4*length);
+				}
+		}
 								
 
 	
