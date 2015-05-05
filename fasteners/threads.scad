@@ -637,10 +637,10 @@ module test_BSP()
 	// 0.001 seems to be the trigger level in netfab. ==> See Settings in Netfab.
 	// THe message in Netfabb about degenerated faces can be reduced by
 	// changing the treshold to 0.0001.
-	function nefabb_degenerated_min() = 0.0011; 
+	function netfabb_degenerated_min() = 0.0011; 
 	// OpenScad unfortunately works with CSG. So coincident faces (exact match) 
 	// do not work. Objects must always overlap.
-	csg_min = nefabb_degenerated_min();///2;
+	csg_min = netfabb_degenerated_min();///2;
 
 // ----------------------------------------------------------------------------
 // ----------------------------------------------------------------------------
@@ -1636,10 +1636,10 @@ module m_thread(
 		intersection() 
 		{
 			make_channel_thread();
-			// nefabb_degenerated_min() is needed because in netfabb a "hole" and
+			// netfabb_degenerated_min() is needed because in netfabb a "hole" and
 			// degenerated faces would be detected
-			translate([0, 0, -(len_backlash_compensated/2)+nefabb_degenerated_min()])
-				cube([diameter*1.1, diameter*1.1, len_backlash_compensated+2*nefabb_degenerated_min()], center=true);
+			translate([0, 0, -(len_backlash_compensated/2)+netfabb_degenerated_min()])
+				cube([diameter*1.1, diameter*1.1, len_backlash_compensated+2*netfabb_degenerated_min()], center=true);
 		}
 		/* DEBUG
 		#translate([0, diameter*1.1/2+0.05, -len_backlash_compensated/2]) 
@@ -2182,15 +2182,15 @@ module m_thread(
 
 	function z_thread_lower() = 
 					multiple_turns_over_height ?
-						(lower_flat > nefabb_degenerated_min() ? 
-								lower_flat : nefabb_degenerated_min())
-						: nefabb_degenerated_min() // a channel thread starts with left flank at bottom
+						(lower_flat > netfabb_degenerated_min() ? 
+								lower_flat : netfabb_degenerated_min())
+						: netfabb_degenerated_min() // a channel thread starts with left flank at bottom
 						;
 	function z_tip_lower() = z_thread_lower() + left_flat;
 	function z_tip_inner_middle() = z_tip_lower() + upper_flat/2;
-	function z_tip_upper() = (z_tip_lower() + upper_flat <= pitch-nefabb_degenerated_min()) ?
+	function z_tip_upper() = (z_tip_lower() + upper_flat <= pitch-netfabb_degenerated_min()) ?
 							z_tip_lower() + upper_flat
-							: pitch-nefabb_degenerated_min(); 
+							: pitch-netfabb_degenerated_min(); 
 	function z_thread_upper(open_top) = open_top ?
 								z_len_or_pitch()
 								:((z_tip_upper() + right_flat <= pitch) ?
