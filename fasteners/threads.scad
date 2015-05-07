@@ -1307,8 +1307,12 @@ module m_thread(
 	// ------------------------------------------------------------------
 	// Segments and its angle, number of turns
 	// ------------------------------------------------------------------
-	n_turns = ceil(length/pitch); // Number of turns needed. Delivers "1" for
-	                                 // length < pitch to get complete thread.
+	n_turns = floor(length/pitch) // floor(): full turn needed for length < pitch
+							+1	// +1 for below z=0 turn 
+							+1; // +1 for complete top thread
+									//thread starts with lower-to-right corner point. So
+									// it is necessary to have one more on top to get top most
+									// lower_flat (test with metric thread and length=x*length
 	n_segments_tmp =  $fn > 0 ? 
 						$fn :
 						max (30, min (2 * PI * minor_radius / $fs, 360 / $fa));
