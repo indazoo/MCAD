@@ -167,22 +167,22 @@
 // Parameters
 //
 // -------------------------------------------------------------------
-// internal 
+// internal
 //            true = clearances for internal thread (e.g., a nut).
 //            false = clearances for external thread (e.g., a bolt).
 //            (Internal threads may be "cut out" from a solid using
 //            difference()).
 //
-// n_starts  
+// n_starts
 //            Number of thread starts (e.g., DNA, a "double helix," has
 //            n_starts=2).  See wikipedia Screw_thread.
 //
-// backlash 
+// backlash
 //            Distance by which an ideal bolt can be moved in an ideal 
 //            nut(internal) in direction of its axis.
 //            "backlash" does not influence a bolt (internal = false)
 // 
-// clearance  
+// clearance
 //             Distance between the flat portions of the nut(internal) and bolt.
 //             With backlash==0 the nut(internal) and bolt will not have any
 //             play no matter what "clearance" used, because the flanks will 
@@ -229,6 +229,7 @@
 
 //test_metric_right();
 //test_metric_right_n_starts();
+//test_metric_right_large_pitch();
 //test_metric_left();
 //test_square_thread();
 //test_hollow_thread();
@@ -239,6 +240,7 @@
 //test_internal_difference_buttress();
 //test_internal_difference_buttress_lefthanded();
 //test_buttress_no_lower_flat();
+//test_channel_simple();
 //test_channel_thread(8);
 //test_channel_thread2(); 
 //test_channel_thread3();
@@ -298,6 +300,20 @@ module test_slot_tabs()
 
 module test_metric_right ($fa=5, $fs=0.1)
 {
+	//Case: Std right handed metric thread
+	metric_thread( diameter = 20,
+		pitch = 4, 
+		length = 8, 
+		internal=false, 
+		n_starts=1, 
+		right_handed=true,
+		clearance = 0.1, 
+		backlash=0.4,
+		printify_top = false
+	);
+}
+module test_metric_right_large_pitch ($fa=5, $fs=0.1)
+{
 	//Case: Pitch larger than length
 	metric_thread( diameter = 20,
 		pitch = 4, 
@@ -312,10 +328,10 @@ module test_metric_right ($fa=5, $fs=0.1)
 }
 module test_metric_right_n_starts ($fa=5, $fs=0.1)
 {
-	//Case: Pitch larger than length
+	//Case: More than one start (3)
 	metric_thread( diameter = 20,
 		pitch = 4, 
-		length = 3, 
+		length = 8, 
 		internal=false, 
 		n_starts=3, 
 		right_handed=true,
@@ -324,12 +340,13 @@ module test_metric_right_n_starts ($fa=5, $fs=0.1)
 		printify_top = false
 	);
 }
-module test_metric_left()
+module test_metric_left($fa=5, $fs=0.1)
 {
-	metric_thread(8, 
-				pitch=1.5, 
+	//Case: Std left(!) handed metric thread
+	metric_thread(20, 
+				pitch=4, 
 				internal=false, 
-				length=3, 
+				length=8, 
 				right_handed=false);
 }
 
@@ -356,28 +373,30 @@ module test_square_thread()
     square_thread(8, pitch=2, length=5);
 }
 
-module test_internal_difference_metric($fa=20, $fs=0.1)
-{
-	difference()
-	{
-		metric_thread(diameter=34, pitch=2, length=4.3, 
-						internal=true, n_starts=1, 
-						clearance = 0.1, backlash=0.4);
-		metric_thread(diameter=34, pitch=2, length=4.3, 
-						internal=false, n_starts=1);
-	}
-}
 
 module test_internal_difference_metric($fa=20, $fs=0.1)
 {
+	//Case: Diff of std right handed metric thread
+	starts = 3;
+	length = 2.3;
+	pitch = 2;
+	clearance = 0.1;
+	backlash = 0.3;
 	difference()
 	{
-		metric_thread(diameter=17.7, pitch=2, length=2.3,
-						internal=true, n_starts=3, 
-						clearance = 0.1, backlash=0.4);
-		metric_thread(diameter=17.7, pitch=2, length=2.3, 
-						internal=false, n_starts=3);
-		translate([10,10,0]) cube([20,20,20], center=true);
+		metric_thread(diameter=17.7, pitch=pitch, length=length,
+						internal=true, n_starts=starts, 
+						clearance = clearance, backlash=backlash,
+						bore_diameter = 0);
+		translate([0,0,-0.005]) 
+		metric_thread(diameter=17.7, pitch=pitch, length=length+0.01, 
+						internal=false, n_starts=starts,
+						clearance = clearance, backlash=backlash,
+						bore_diameter = 0);
+	cube_tooMuch = backlash + clearance;
+	cube_len = ceil(length/pitch)*starts*(ceil(length))+2*cube_tooMuch;
+	translate([10,10-0.01,cube_len/2-pitch*(starts)-cube_tooMuch]) 
+		cube([20,20,cube_len], center=true);
 	}
 }
 
@@ -423,13 +442,13 @@ module test_buttress($fa=20, $fs=0.1)
 	
 }
 
-module test_buttress_no_lower_flat($fa=20, $fs=0.1)
+module test_buttress_no_lower_flat($fa=5, $fs=0.1)
 {
-	buttress_thread(diameter=20, pitch=4, length=4.3, 
+	buttress_thread(diameter=20, pitch=4, length=8, 
 					internal=false, n_starts=1,
 					buttress_angles = [60, 60], right_handed=true);
-	
 }
+
 module test_leftright_buttress($fa=20, $fs=0.1)
 {
 
@@ -442,6 +461,39 @@ module test_leftright_buttress($fa=20, $fs=0.1)
 		buttress_thread(diameter=20, pitch=1.9, length=4.3, 
 					internal=true, n_starts=1,
 					buttress_angles = [15, 40], right_handed=false);
+}
+
+module test_channel_simple()
+{
+	wall_width = 2;
+	dia = 30 - 2*wall_width;
+	pitch = 2;
+	length = 4;
+	angles = [20,0]; //second angle needs to be zero for test case.
+	outer_flat_length = 0.5;
+	clearance = 0;
+	backlash = 0;
+	starts = 1;
+	exact_clearance = false;
+	cutout = true;
+	cutout_space = 0.2;
+	h_cutout = cutout ? cutout_space : 0;
+
+	channel_thread(
+		thread_diameter = dia,
+		pitch = 2,
+		turn_angle = 360,
+		length = length,
+		internal = false,
+		n_starts = starts,
+		thread_angles = angles,
+		outer_flat_length = outer_flat_length,
+		right_handed = false,
+		clearance = h_cutout,
+		backlash = h_cutout,
+		bore_diameter = 0,
+		exact_clearance = exact_clearance
+		);
 }
 
 module test_channel_thread(dia = 10)
@@ -571,6 +623,7 @@ module test_channel_thread3()
 
 module test_channel_thread_diff()
 {
+	//Case: both flanks with non zero angle
 	dia = 8;
 	//angles= [30,30];
 	angles= [10,50];  //[upper, lower]
@@ -584,20 +637,20 @@ module test_channel_thread_diff()
 			turn_angle = 360,
 			length = 2,
 			internal = true,
-			n_starts = 1,
+			n_starts = 2,
 			thread_angles = angles,
 			outer_flat_length = 0.2,
 			right_handed = true,
 			clearance = clearance,
 			backlash = backlash, 
-			bore_diameter = 5);
+			bore_diameter = 0);
 		channel_thread(
 			thread_diameter = dia,
 			pitch = 1,
 			turn_angle = 360,
 			length = 2,
 			internal = false,
-			n_starts = 1,
+			n_starts = 2,
 			thread_angles = angles,
 			outer_flat_length = 0.2,
 			right_handed = true,
