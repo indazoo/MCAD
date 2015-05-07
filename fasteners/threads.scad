@@ -1683,7 +1683,16 @@ module m_thread(
 				+ channel_thread_bottom_spacer()
 				;
 
-	// ------------------------------------------------------------------
+	function oversized_len() = (n_turns+1) * n_starts * pitch;
+	function rest_of_channel_len(length) = 
+							// reference is the non internal thread.
+							// So channel_thread_bottom_spacer() is not included
+							(	length >= 2*pitch ?
+									length-2*pitch
+									: 0
+							);
+	
+	//------------------------------------------------------------------
 	// Create the thread 
 	// ------------------------------------------------------------------
 	if(multiple_turns_over_height)
@@ -1691,20 +1700,10 @@ module m_thread(
 		// normal threads with multiple turns
 		if(true) //DEBUG : set to false to see full thread before cutting
 		{
-					
 			intersection() 
 			{
-				if(internal)
-				{
-					rotate([0,0,right_handed ? 0:0])
-					make_std_thread();
-				}
-				else
-				{
-					make_std_thread();
-				}
-						
-					
+				make_std_thread();
+				
 				// Cut to length.
 				translate([0, 0, length/2]) //(len_backlash_compensated-0.1)/2]) //0.001 : "simple=no" for square threads
 					cube([diameter*1.1, diameter*1.1, length], center=true);
@@ -1763,30 +1762,33 @@ module m_thread(
 	{
 			make_thread_polyhedron(turns = n_turns,
 													thread_starts_flat = true,
-													open_top = false
+													open_top = false,
+													is_channel_thread = false
 												);  
 	}
 	module make_channel_thread_v3()
 	{
 			make_thread_polyhedron(turns = n_turns,
 													thread_starts_flat = false,
-													open_top = true
+													open_top = true,
+													is_channel_thread = true
 												);  
 	}
 	module make_thread_polyhedron(
 						turns = 1, //make_thread_polygon() adds always one turn to this value
 						thread_starts_flat = true, //"true" adds extra loop, so at z=0 the
 																			 // resulting thread is flat/full
-						open_top = false  //std threads have no open top so far
+						open_top = false,  //std threads have no open top so far
+						is_channel_thread = false
 						)
 	{
 
-		function get_3Dvec_profile_xOffset_minor(turn, open_top, for_inner_flat, start) =
+		function get_3Dvec_profile_xOffset_minor(turn, open_top, for_inner_flat, vertical_start) =
 											internal ?
 												//provide space to insert male thread ==> major thread.
 												//	
 												(open_top && (turn > 1 
-																			|| (turn == 1 && start > 0) 
+																			|| (turn == 1 && vertical_start > 0) 
 																			|| (turn == 1 && for_inner_flat))) ? 
 														major_rad : minor_rad
 											:
@@ -1796,17 +1798,12 @@ module m_thread(
 												 major_rad 
 											:	(open_top && turn>0) ? minor_rad : major_rad ;
 		function get_3Dvec_profile_yOffset() =	0;
-		function get_3Dvec_profile_zOffset(turn, start) =	
-											pitch * ((turn*n_starts) + start 
-															- 1 //flats have positive values, but first turn
-																	//must be below zero because it is incomplete
-																	//and will later be intersected.
-															)
-		
+		function get_3Dvec_profile_zOffset(turn, vertical_start) =	
+											pitch * ((turn*n_starts) + vertical_start)
 											+ internal_play_offset_v3()
 											;
-		function get_3Dvec_profile_zOffset_bottom(turn, start) =	
-											get_3Dvec_profile_zOffset(turn, start)
+		function get_3Dvec_profile_zOffset_bottom(turn, vertical_start) =	
+											get_3Dvec_profile_zOffset(turn, vertical_start)
 											//+ ( (internal && turn == 0 && start == 0) ?
 											//			-clearance
 											//			: 0
@@ -1851,69 +1848,69 @@ module m_thread(
 		//TODO: if major minor radius gets expanded/shrunk because of open_top
 		//   then also zero left flats create degenerated faces.
 		
-		function get_3Dvec_tooth_points(turn, start, open_top) =
+		function get_3Dvec_tooth_points(turn, vertical_start, open_top) =
 							upper_flat >= netfabb_degenerated_min()  ?
 								(lower_flat >= netfabb_degenerated_min() ?
 									[ //CASE: Draw upper and lower flat
 										//Point lower_flat to right_flat
-										[get_3Dvec_profile_xOffset_minor(turn, open_top, false, start), 
+										[get_3Dvec_profile_xOffset_minor(turn, open_top, false, vertical_start), 
 											get_3Dvec_profile_yOffset(), 
-											get_3Dvec_profile_zOffset_bottom(turn, start)],
+											get_3Dvec_profile_zOffset_bottom(turn, vertical_start)],
 										//Point left_flat to upper_flat
 										[get_3Dvec_profile_xOffset_major(turn, open_top) , 
 											get_3Dvec_profile_yOffset(), 
-											get_3Dvec_profile_zOffset(turn, start) + left_flat],
+											get_3Dvec_profile_zOffset(turn, vertical_start) + left_flat],
 										//Point upper_flat to right_flat
 										[get_3Dvec_profile_xOffset_major(turn, open_top), 
 											get_3Dvec_profile_yOffset(), 
-											get_3Dvec_profile_zOffset(turn, start) + (left_flat + upper_flat)],
+											get_3Dvec_profile_zOffset(turn, vertical_start) + (left_flat + upper_flat)],
 										//Point right_flat to lower_flat
-										[get_3Dvec_profile_xOffset_minor(turn, open_top, true, start), 
+										[get_3Dvec_profile_xOffset_minor(turn, open_top, true, vertical_start), 
 											get_3Dvec_profile_yOffset(), 
-											get_3Dvec_profile_zOffset(turn, start) + tooth_flat] 
+											get_3Dvec_profile_zOffset(turn, vertical_start) + tooth_flat] 
 									]
 									:
 									[ //CASE: Draw upper but not lower flat
 										//Point lower_flat to right_flat
-										[get_3Dvec_profile_xOffset_minor(turn, open_top, false, start), 
+										[get_3Dvec_profile_xOffset_minor(turn, open_top, false, vertical_start), 
 											get_3Dvec_profile_yOffset(), 
-											get_3Dvec_profile_zOffset(turn, start)],
+											get_3Dvec_profile_zOffset(turn, vertical_start)],
 										//Point left_flat to upper_flat
 										[get_3Dvec_profile_xOffset_major(turn, open_top) , 
 											get_3Dvec_profile_yOffset(), 
-											get_3Dvec_profile_zOffset(turn, start) + left_flat],
+											get_3Dvec_profile_zOffset(turn, vertical_start) + left_flat],
 										//Point upper_flat to right_flat
 										[get_3Dvec_profile_xOffset_major(turn, open_top), 
 											get_3Dvec_profile_yOffset(), 
-											get_3Dvec_profile_zOffset(turn, start) + (left_flat + upper_flat)]
+											get_3Dvec_profile_zOffset(turn, vertical_start) + (left_flat + upper_flat)]
 									]
 								) // end not supressed upper flat
 						:
 							(lower_flat >= netfabb_degenerated_min() ?
 								[ //CASE: Draw not upper but with lower flat
 										//Point lower_flat to right_flat
-										[get_3Dvec_profile_xOffset_minor(turn, open_top, false, start), 
+										[get_3Dvec_profile_xOffset_minor(turn, open_top, false, vertical_start), 
 											get_3Dvec_profile_yOffset(), 
-											get_3Dvec_profile_zOffset(turn, start)],
+											get_3Dvec_profile_zOffset(turn, vertical_start)],
 										//Point left_flat to right_flat (peak, no upper_flat)
 										[get_3Dvec_profile_xOffset_major(turn, open_top) , 
 											get_3Dvec_profile_yOffset(), 
-											get_3Dvec_profile_zOffset(turn, start) + left_flat],
+											get_3Dvec_profile_zOffset(turn, vertical_start) + left_flat],
 										//Point right_flat to lower_flat
-										[get_3Dvec_profile_xOffset_minor(turn, open_top, true, start), , 
+										[get_3Dvec_profile_xOffset_minor(turn, open_top, true, vertical_start), , 
 											get_3Dvec_profile_yOffset(), 
-											get_3Dvec_profile_zOffset(turn, start) + left_flat + right_flat]
+											get_3Dvec_profile_zOffset(turn, vertical_start) + left_flat + right_flat]
 								]
 								:
 								[ //CASE: Draw neither upper nor lower flat
 										//Point lower_flat to right_flat
-										[get_3Dvec_profile_xOffset_minor(turn, open_top, false, start),  
+										[get_3Dvec_profile_xOffset_minor(turn, open_top, false, vertical_start),  
 											get_3Dvec_profile_yOffset(), 
-											get_3Dvec_profile_zOffset(turn, start)],
+											get_3Dvec_profile_zOffset(turn, vertical_start)],
 										//Point left_flat to right_flat (peak, no upper_flat)
 										[get_3Dvec_profile_xOffset_major(turn, open_top) , 
 											get_3Dvec_profile_yOffset(), 
-											get_3Dvec_profile_zOffset(turn, start) + left_flat]
+											get_3Dvec_profile_zOffset(turn, vertical_start) + left_flat]
 								]
 							)
 							;
@@ -2017,33 +2014,24 @@ module m_thread(
 		function norm_xy(point)= norm([point.x, point.y,0]);
 
 		segments_to_calc = n_segments; //set to 1 to see only one segment (debugging)
+		n_starts_for_vertical = is_channel_thread ? 1: n_starts;
 		
+		//-----------------------------------------------------------
 		//-----------------------------------------------------------
 		// Points
 		//-----------------------------------------------------------
+		//-----------------------------------------------------------
 		//Create an array of planar points describing the profile of the tooths.
 							
-		function get_3Dvec_tooths_points(open_top) = [
-					for (turn = [ 0 : (thread_starts_flat ? turns -1 : turns) ]) 
-						for (start = [0 : n_starts-1])  
-							for (point = get_3Dvec_tooth_points(turn, start, open_top) ) 
-								ensure_turnability(seg_angle, point)
-					];
-/*
-					for (turn = [ 0 : turns ]) 
-						for (start = [0 : n_starts-1])  
-							for (point = get_3Dvec_tooth_points(turn, start) ) 
-							{
-								echo("-----");
-								echo(point);
-								echo("len point xy",norm_xy(point));
-								echo("bow distance", bow_to_face_distance_v3(norm_xy(point), 6));
-								echo( bow_to_face_distance_v3_scale(point,6));
-												//internal ? radius*(1-cos(angle/2))/cos(angle/2) : radius;
-								echo(ensure_turnability(6, point));
-								echo(ensure_turnability(6, rotate_xy(6, point)));
-							}	;	
-*/
+		function get_3Dvec_tooths_points(open_top) = 
+						[
+						for (turn = [ 0 : (thread_starts_flat ? turns -1 : turns) ]) 
+							for (vertical_start = [0 : n_starts_for_vertical-1])  
+								for (point = get_3Dvec_tooth_points(turn, vertical_start, open_top) ) 
+									ensure_turnability(seg_angle, point)
+						]
+					;
+
 		// Profile for standard thread (not channel thread) ==> open_top is false
 		pre_calc_tooths_profile = get_3Dvec_tooths_points(open_top = open_top);
 
@@ -2089,64 +2077,121 @@ module m_thread(
 								for (point = poly_gon)
 									taper(point)
 							];	
-
+								
+								
+		//-----------------------------------------------------------
 		//-----------------------------------------------------------
 		// FACES
 		//-----------------------------------------------------------
-
-		/* These created a hole in netfabb but is more correct
-		function get_closing_planar_bottom_face(first_faces_pts, second_last_faces_pts) =
-								concat(
-								[ for (pointIndex = [len(pre_calc_3Dvec_tooth_points)+1 :-1: 0 ])
-									first_faces_pts[pointIndex]
-								],
-								//Center lifted bottom point of last segment
-								[second_last_faces_pts[0]]
-								);
+		//-----------------------------------------------------------
 								
-		function get_closing_planar_top_face(first_faces_pts, current_faces_pts, last_faces_pts) =
+		//Closing planar face polygon at thread end (top)
+		//Disable intersecting/differentiating of thread to correct length
+		//to see them
+		function get_closing_planar_top_face() =
 								concat(
-								//top most point
-								[current_faces_pts[len(current_faces_pts)-1]],
-								//Center lowered top point of first segment
-								[first_faces_pts[len(first_faces_pts)-1]],
-								//rest of face (tooth profile)
-								[ for (pointIndex = [len(last_faces_pts) - len(pre_calc_3Dvec_tooth_points)-2 : 1 : len(last_faces_pts)-2  ])
-									last_faces_pts[pointIndex]
-								]
-								);
-			*/				
-			
-		// Close the thread polyhydron on bottom
-		function get_closing_planar_bottom_face(first_faces_pts, last_faces_pts) =
-								concat(
-								 ( right_handed ? 
-										[for (pointIndex = [n_starts*len_tooth_points+1 :-1: 0 ])
-											first_faces_pts[pointIndex]
-										]
+									// 1 : The closing polygon points of tooths profile of last turn (z<0)
+									( right_handed ? 
+											[for (pointIndex = [len(pre_calc_tooths_polygon)-2
+																					:-1:len(pre_calc_tooths_polygon)-1
+																							- n_starts_for_vertical*len_tooth_points])
+												[
+													get_last_faces_pts()[pointIndex],
+													get_first_faces_pts()[len(pre_calc_tooths_polygon)-1],
+													get_last_faces_pts()[pointIndex-1]
+												]
+											]
 										:
-										[
-										for (pointIndex = [0: n_starts*len_tooth_points+1])
-											last_faces_pts[pointIndex]
-										]
+											[for (pointIndex = [len(pre_calc_tooths_polygon)-1
+																						:-1:len(pre_calc_tooths_polygon)
+																							- n_starts_for_vertical*len_tooth_points+0])
+												[get_first_faces_pts()[len(pre_calc_tooths_polygon)-1],
+													get_first_faces_pts()[pointIndex-1],
+													get_first_faces_pts()[pointIndex-2]
+												]
+											]
+										) //end right/left handed condition
+								,
+									// 2 : The closing polygon points of all center points at (x=y=0)
+									//     It was necessary to include all center points so
+									//     netfabb does not reports a "hole" in center
+									( right_handed ? 
+											[for (segIndex = [n_segments-1:-1:1])
+												[pre_calc_faces_points[segIndex][len(pre_calc_tooths_polygon)-1],
+													pre_calc_faces_points[segIndex-1][len(pre_calc_tooths_polygon)-1],
+													get_last_faces_pts()[len(pre_calc_tooths_polygon)- 2]
+												]
+											]
+										:
+											[for (segIndex = [n_segments-1:-1:1])
+												[pre_calc_faces_points[segIndex][len(pre_calc_tooths_polygon)-1],
+													pre_calc_faces_points[segIndex-1][len(pre_calc_tooths_polygon)-1],
+													get_last_faces_pts()[len(pre_calc_tooths_polygon)- 2]
+												]
+											]
+										)
 									)
-								//Center lifted bottom point of last segment
-								//[second_last_faces_pts[0]]
-								);
-										
-										
-		function get_closing_planar_top_face(first_faces_pts, current_faces_pts, last_faces_pts) =
-								right_handed ?
-									[	for (pointIndex = [len(last_faces_pts) - n_starts*len(pre_calc_3Dvec_tooth_points)-2 
-																			: 1 : len(last_faces_pts)-1])
-									last_faces_pts[pointIndex]
-									]
-									:
-									[	for (pointIndex = [len(first_faces_pts)-1 
-																			: -1 : len(first_faces_pts)-n_starts*len(pre_calc_3Dvec_tooth_points)-2])
-										first_faces_pts[pointIndex]
-									]
-								;		
+								;
+							
+											
+		//Closing planar face polygon at thread start (bottom, below z=0)				
+		//Disable intersecting/differentiating of thread to correct length
+		//to see them
+		function get_closing_planar_bottom_face() =
+												concat(
+								
+									// 1 : The polygon of tooths of first turn (z<0)
+									( right_handed ? 
+											[for (pointIndex = [n_starts_for_vertical*
+																									len_tooth_points+1:-1:2])
+													[get_first_faces_pts()[0],
+														get_first_faces_pts()[pointIndex],
+														get_first_faces_pts()[pointIndex-1]
+													]
+											]
+										: 
+											[for (pointIndex = [n_starts_for_vertical*
+																									len_tooth_points+1:-1:2])
+													[get_secondlast_faces_pts()[0],
+														get_last_faces_pts()[pointIndex],
+														get_last_faces_pts()[pointIndex-1]
+													]
+											]
+									)
+									,
+									// 2 : The polygon of all center points at (x=y=0)
+									//     It was necessary to include all center points so
+									//     netfabb does not reports a "hole" in center
+									//     Also it was necessary to split the planar multipoint
+									//     polygon into simple one (3 corners) to prevent "non
+									//     planar" messages
+									( right_handed ? 
+											[for (segIndex = [0:n_segments-2])
+													[pre_calc_faces_points[segIndex][0],
+														pre_calc_faces_points[segIndex+1][0],
+														get_first_faces_pts()[n_starts_for_vertical*
+																									len_tooth_points+1]
+													]
+											]
+										:
+											[for (segIndex = [0:n_segments-2])
+													[pre_calc_faces_points[segIndex][0],
+														pre_calc_faces_points[segIndex+1][0],
+														get_last_faces_pts()[n_starts_for_vertical*
+																									len_tooth_points+1]
+													]
+											]
+									))
+								;
+
+
+
+
+
+		function get_first_faces_pts() = pre_calc_faces_points[0];
+		function get_secondlast_faces_pts() = pre_calc_faces_points[n_segments-1];
+		function get_last_faces_pts() = pre_calc_faces_points[n_segments];	
+			
 		len_tooth_points = len(pre_calc_3Dvec_tooth_points);			
 
 		// Get faces of one segment.
@@ -2157,26 +2202,33 @@ module m_thread(
 										last_faces_pts) = 
 			concat(
 			// ******  Bottom  ******
+			// Bottom triangles to center and closing face	
 			// Bottom triangle to center	
-			// Netfabb reported a hole when using the closing planes of each segment.
-			// So it was necessary to use the highest point as center. This will be cut away later.
-				[[current_faces_pts[1],
-					next_faces_pts[1],
-					( right_handed ? first_faces_pts[0] : last_faces_pts[0])
-				]],
-			//Bottom planar face up to last segment of first turn
-			( (segment == 0) ?
-					[ get_closing_planar_bottom_face(first_faces_pts, last_faces_pts) ]	
-					: []
-				),
-				
-				
-				
+			
+			[[current_faces_pts[0],
+			  current_faces_pts[1],
+			  next_faces_pts[1]]],
+			//Closing triangle to next segment
+			( (segment < n_segments-1) ?
+				[[current_faces_pts[0],
+						next_faces_pts[1],
+						next_faces_pts[0]]]
+				:
+				//Bottom planar face up to last segment
+				//[get_closing_planar_bottom_face()]
+				get_closing_planar_bottom_face()
+			), // end condition bottom closing polygon
+							
+
+		
+			// ******  Closing faces for channel thread ******	
 			//internal channel thread needs closing face at begin of second turn
+			(is_channel_thread ?
 			[ for (faces = 
-							[ for (start = [0:n_starts-1])
+							let( n_starts_for_vertical = 1)
+							[ for (start = [0:n_starts_for_vertical-1])
 								let (offset_0 = start*len_tooth_points,
-											offset_starts = n_starts*len_tooth_points)
+											offset_starts = n_starts_for_vertical*len_tooth_points)
 								concat(
 										( (right_handed && !internal && open_top && segment==n_segments-1) ?
 												[
@@ -2272,28 +2324,10 @@ module m_thread(
 							) //end "for faces"
 					for (face = faces)
 						face
-			],
+			]:[]),
 			
-			
-			/* This created a hole in netfabb but is more correct
-			// Bottom triangle to center	
-			[[current_faces_pts[0],
-			  current_faces_pts[1],
-			  next_faces_pts[1]]],
-			//Closing triangle to next segment
-			( (segment < n_segments-1) ?
-				[[current_faces_pts[0],
-						next_faces_pts[1],
-						next_faces_pts[0]]]
-				:
-				[
-					//Bottom planar face up to last segment
-					get_closing_planar_bottom_face(first_faces_pts, current_faces_pts)
-				]
-			), // end condition bottom closing polygon
-							*/
-			// ******  Tooths  ******
-			// Tooths faces
+
+			// ******  Tooths faces  ******
 			[ for (face_set_index = [1 : len(current_faces_pts)-3])
 				for (face_set = [
 										[current_faces_pts[face_set_index],
@@ -2307,20 +2341,6 @@ module m_thread(
 			],
 			// ******  Top  ******
 			// Top triangle to center
-			// Netfabb reported a hole when using the closing planes of each segment.
-			// So it was necessary to use the highest point as center. This will be cut away later.
-			[[current_faces_pts[len(current_faces_pts)-2],
-			  ( right_handed ? last_faces_pts[len(last_faces_pts)-1] 
-												: first_faces_pts[len(first_faces_pts)-1]),
-			  next_faces_pts[len(next_faces_pts)-2]]
-			],
-			// Top triangle down to first segment of last turn
-			( (segment == n_segments-1) ?
-			[	get_closing_planar_top_face(first_faces_pts, current_faces_pts, next_faces_pts)	]
-				: []
-				)
-			/*  This created a hole in netfabb but is more correct
-			//Top triangle to center
 			[[current_faces_pts[len(current_faces_pts)-1],
 			  next_faces_pts[len(next_faces_pts)-2],
 			  current_faces_pts[len(current_faces_pts)-2]]],
@@ -2332,11 +2352,11 @@ module m_thread(
 						next_faces_pts[len(next_faces_pts)-2]]
 				]
 					:
-				[	//Top triangle down to first segment
-					get_closing_planar_top_face(first_faces_pts, current_faces_pts, next_faces_pts)
-				]
+					//Top triangle down to first segment
+					get_closing_planar_top_face()
+				
 			) // end condition top closing polygon
-			*/
+			
 			); //end concat and function
 			
 
