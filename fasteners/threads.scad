@@ -33,15 +33,33 @@
 // Possible Contibutions (yes, YOU!)
 // -------------------------------------------------------------------
 /*
- * - wood screws
- * - chamfer/bevel
- * - a lot of standard definitions can be implemented (tolerance etc).
+ * 
  * - small error (too much material) for channel thread differences at segment plan 0.
  * - big taper angles create invalid polygons (no limit checks implemented).
  * - test print BSP and NPT threads and check compatibility with std hardware.
  * - check/buils a 45(?) degree BSP/NPT thread variant which fits on metal std hardware 
      and has no leaks (i believe for garden stuff)
- * - printify does notwork after v1.8        
+ * - printify does notwork after v1.8      
+
+ * OPTIONAL
+ * - round base of tooth profile
+ *   For wire/fishing line pulleys a round base with the same diameter like the rope.
+ *   http://www.thingiverse.com/thing:70377
+ *   http://www.thingiverse.com/thing:49971/#comments
+ * - wood screws like
+ *   http://www.thingiverse.com/thing:8952 and OneNote
+ * - chamfer/bevel
+ * - Lead screw profile extension. We have already ACME and metric profiles.
+ *   Not sure if this is needed.
+ *   Picture "Leadscrew 5" on thing (http://www.thingiverse.com/thing:8793)
+ *   has raised profile which is currently not supported. Is this really needed? 
+ *   For worm drives?
+ *   Code: 
+ *   https://github.com/syvwlch/Thingiverse-Projects/tree/master/Threaded%20Library
+ * - Worm drive support would be nice. but then the thread must be able to
+ *   follow a curve
+ *   http://www.thingiverse.com/thing:8821 
+ * - D lot of standard definitions (DIN/ISO) can be implemented (tolerance etc).
  */
  
 // -------------------------------------------------------------------
