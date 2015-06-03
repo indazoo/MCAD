@@ -1963,37 +1963,44 @@ module m_thread(
 		//   lengths must be readded/distributed to the used/remaining flats.
 		
 		// -------------------------------------------------------------
-		function get_3Dvec_tooth_points(turn, combined_start) =
-							concat(
-								//Point lower_flat to left_flat
-								point_importance_order(turn, combined_start,
-																		get_3Dvec_profile_xOffset_minor(),
-																		get_3Dvec_profile_xOffset_major(),
-																		0)
-							,
-								//Point left_flat to upper_flat or left_flat
-								point_importance_order(turn, combined_start,
-																		get_3Dvec_profile_xOffset_major(),
-																		get_3Dvec_profile_xOffset_minor(),
-																		left_flat)
-							,
-								//CASE: upper flat
-								(upper_flat >= netfabb_degenerated_min()  ?
-									//Point left_flat to upper_flat or right_flat
-										point_importance_order(turn, combined_start,
-																		get_3Dvec_profile_xOffset_major(),
-																		get_3Dvec_profile_xOffset_minor(),
-																		left_flat + upper_flat)
-									: []
-								)
-							,
-									//Point left_flat or upper_flat to right_flat
-									point_importance_order(turn, combined_start,
-																		get_3Dvec_profile_xOffset_minor(),
-																		get_3Dvec_profile_xOffset_major(),
-																		tooth_flat)
-							);
-							
+		
+		function leftUpperRight_profile() =
+						upper_flat >= netfabb_degenerated_min()  ?
+							[ [	get_3Dvec_profile_xOffset_minor(),	// thread_x
+									get_3Dvec_profile_xOffset_major(),  // complement_x
+									0], //z offset
+								[	get_3Dvec_profile_xOffset_major(),
+									get_3Dvec_profile_xOffset_minor(),
+									left_flat],
+								[	get_3Dvec_profile_xOffset_major(),
+									get_3Dvec_profile_xOffset_minor(),
+									left_flat + upper_flat],
+								[	get_3Dvec_profile_xOffset_minor(),
+									get_3Dvec_profile_xOffset_major(),
+									tooth_flat]]
+						:
+							[ [	get_3Dvec_profile_xOffset_minor(),
+									get_3Dvec_profile_xOffset_major(),
+									0],
+								[	get_3Dvec_profile_xOffset_major(),
+									get_3Dvec_profile_xOffset_minor(),
+									left_flat],
+								[	get_3Dvec_profile_xOffset_minor(),
+									get_3Dvec_profile_xOffset_major(),
+									tooth_flat]]		
+						;
+
+		function get_3Dvec_tooth_points(turn, combined_start, tooth_profile_z ) =
+						[
+							for (profile_z_offset = tooth_profile_z)	
+								for (point = point_importance_order(turn, combined_start,
+																		profile_z_offset[0],
+																		profile_z_offset[1],
+																		profile_z_offset[2]))
+								point
+						]
+						;
+				
 		function point_importance_order(turn, combined_start,
 																		thread_x, complement_x,
 																		z_offset)	=
@@ -2032,8 +2039,7 @@ module m_thread(
 				:
 				(
 					// 3 : For external channel threads do not create a thread
-					//     above first turn	enough space to insert
-					//     male channel thread.
+					//     above first turn
 					[[(thread_x<complement_x ? thread_x : complement_x), 
 								get_3Dvec_profile_yOffset(), 
 								get_3Dvec_profile_zOffset(turn, combined_start) + z_offset]
@@ -2090,13 +2096,15 @@ module m_thread(
 						//for (turn = [ 0 : (thread_starts_flat ? turns -1 : turns) ]) 
 						for (turn = [ 0 : n_turns_of_seg_plane(seg_plane_index)-1 ]) 
 							for (combined_start = [0 : n_tooths_per_turn()-1])  
-								for (point = get_3Dvec_tooth_points(turn, combined_start) )
+								for (point = get_3Dvec_tooth_points(turn, 
+																										combined_start,
+																										leftUpperRight_profile()) )
 										ensure_turnability(seg_angle, point)
 						]
 					;
 		// Profile 
 
-		pre_calc_3Dvec_tooth_points = get_3Dvec_tooth_points(0,0);
+		pre_calc_3Dvec_tooth_points = get_3Dvec_tooth_points(0,0,leftUpperRight_profile());
 		len_tooth_points = len(pre_calc_3Dvec_tooth_points);
 /*
 	// DEBUG
@@ -2127,7 +2135,7 @@ module m_thread(
 		echo("get_3Dvec_profile_zOffset(turn, combined_start)",get_3Dvec_profile_zOffset(0, 1));
 		echo("get_3Dvec_profile_zOffset(turn, combined_start)",get_3Dvec_profile_zOffset(0, 2));
 		echo("get_3Dvec_profile_zOffset(turn, combined_start)",get_3Dvec_profile_zOffset(1, 0));
-		echo("get_3Dvec_tooth_points(0,0)",get_3Dvec_tooth_points(turn=0,combined_start=0));
+		echo("get_3Dvec_tooth_points(0,0,)",get_3Dvec_tooth_points(turn=0,combined_start=0,leftUpperRight_profile));
 		echo("get_3Dvec_seg_plane_point_polygons_aligned(seg_plane_index)[1]",get_3Dvec_seg_plane_point_polygons_aligned(seg_plane_index)[1]);
 		echo("get_segment_zOffset(seg_plane_index) ...",get_segment_zOffset(seg_plane_index) 
 															- (is_channel_thread ? pitch*2 : 
