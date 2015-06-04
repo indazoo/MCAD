@@ -288,7 +288,7 @@
 //test_internal_difference_buttress_lefthanded();
 //test_buttress_no_lower_flat();
 //test_channel_simple();
-test_channel_thread(dia=8);
+//test_channel_thread(dia=8);
 //test_channel_thread2(); 
 //test_channel_thread3();
 //test_channel_thread_diff();
@@ -362,7 +362,7 @@ module test_metric_right ($fa=5, $fs=0.1)
 	//Case: Std right handed metric thread
 	metric_thread( diameter = 20,
 		pitch = 4, 
-		length = 4, 
+		length = 8, 
 		internal=false, 
 		n_starts=1, 
 		right_handed=true,
@@ -406,7 +406,7 @@ module test_metric_right_and_internal ($fa=5, $fs=0.1)
 	
 	metric_thread( diameter = dia,
 		pitch = 4, 
-		length = 4, 
+		length = 8, 
 		internal=false, 
 		n_starts=2, 
 		right_handed=true,
@@ -418,7 +418,7 @@ module test_metric_right_and_internal ($fa=5, $fs=0.1)
 	rotate([0,0,360/3/2])
 	metric_thread( diameter = dia,
 		pitch = 4, 
-		length = 4, 
+		length = 8, 
 		internal=true, 
 		n_starts=2, 
 		right_handed=true,
@@ -434,7 +434,7 @@ module test_metric_left($fa=5, $fs=0.1)
 				pitch=4, 
 				internal=false, 
 				n_starts=2,
-				length=4, 
+				length=8, 
 				right_handed=false);
 }
 
