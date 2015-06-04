@@ -1963,6 +1963,8 @@ module m_thread(
 		// not important, but for channel threads it is exactly what we want.
 		// Before version 3 the threads started with lower_flat.	
 		
+		tooth_profile_map = leftUpperRight_xz_map();
+		
 	function leftUpperRight_xz_map() =
 						// Build xz map of tooth profile
 						upper_flat >= netfabb_degenerated_min()  ?
@@ -2027,27 +2029,55 @@ module m_thread(
 		//-----------------------------------------------------------
 		//-----------------------------------------------------------
 
-		function get_3Dvec_tooth_points(turn, combined_start, tooth_profile_map ) =
-				[for (points =	
+		function get_3Dvec_tooth_points(turn, combined_start, is_last_tooth, tooth_profile_map ) =
+				let(y_offset = get_3Dvec_profile_yOffset())
+				concat(
+					[for (points =	
+						
 						[
-							for (profile_xz_point = tooth_profile_map)	
+							for(profile_xz_point = tooth_profile_map)	
+							let(z_offset = get_3Dvec_profile_zOffset(turn, combined_start) 
+															+ profile_xz_point[1])
 								[ //The profile point
 									[	compensate_tooth_x(turn, combined_start,
 																				profile_xz_point[0],
 																				profile_xz_point[1]),
-										get_3Dvec_profile_yOffset(),
-										get_3Dvec_profile_zOffset(turn, combined_start) + profile_xz_point[1]
+										y_offset,
+										z_offset
 									]
 								,
 									[ //The minor radius point at same z
 										get_3Dvec_profile_xOffset_minor(),
-										get_3Dvec_profile_yOffset(),
-										get_3Dvec_profile_zOffset(turn, combined_start) + profile_xz_point[1]
+										y_offset,
+										z_offset
 									]
 							]])
 							for(point = points) //flatten
 								point
-						];
+						]
+						//Add lower flat/rest of pitch as point on top turn
+						, !is_last_tooth ? []
+							: 
+							(let(z_offset = get_3Dvec_profile_zOffset(turn+1, 0) 
+															+ tooth_profile_map[0][1])
+								[
+									[	compensate_tooth_x(turn, combined_start,
+																					tooth_profile_map[0][0],
+																					tooth_profile_map[0][1]),
+										y_offset,
+										z_offset
+									]
+								,
+									[ //The minor radius point at same z
+										get_3Dvec_profile_xOffset_minor(),
+										y_offset,
+										z_offset
+									]
+								]
+							)
+						);
+			
+
 				
 		// TODO: use open_top because woodscrews may need only x for shaft
 		function compensate_tooth_x(turn, combined_start, tooth_x, z_offset) =
@@ -2120,16 +2150,20 @@ module m_thread(
 						[
 						//for (turn = [ 0 : (thread_starts_flat ? turns -1 : turns) ]) 
 						for (turn = [ 0 : n_turns_of_seg_plane(seg_plane_index)-1 ]) 
+							let (is_last_turn = (turn == n_turns_of_seg_plane(seg_plane_index)-1))
 							for (combined_start = [0 : n_tooths_per_turn()-1])  
-								for (point = get_3Dvec_tooth_points(turn, 
+							let (is_last_comb_start = (combined_start == n_tooths_per_turn()-1),
+									is_last_tooth = is_last_turn && is_last_comb_start)
+								for (point = get_3Dvec_tooth_points(turn,
 																										combined_start,
-																										leftUpperRight_xz_map()) )
+																										is_last_tooth,
+																										tooth_profile_map) )
 										ensure_turnability(seg_angle, point)
 						]
 					;
 		// Profile 
 
-		pre_calc_3Dvec_tooth_points = get_3Dvec_tooth_points(0,0,leftUpperRight_xz_map());
+		pre_calc_3Dvec_tooth_points = get_3Dvec_tooth_points(0, 0,false,leftUpperRight_xz_map());
 		len_tooth_points = len(pre_calc_3Dvec_tooth_points);
 /*
 	// DEBUG
@@ -2160,7 +2194,7 @@ module m_thread(
 		echo("get_3Dvec_profile_zOffset(turn, combined_start)",get_3Dvec_profile_zOffset(0, 1));
 		echo("get_3Dvec_profile_zOffset(turn, combined_start)",get_3Dvec_profile_zOffset(0, 2));
 		echo("get_3Dvec_profile_zOffset(turn, combined_start)",get_3Dvec_profile_zOffset(1, 0));
-		echo("get_3Dvec_tooth_points(0,0,)",get_3Dvec_tooth_points(turn=0,combined_start=0,leftUpperRight_xz_map()));
+		echo("get_3Dvec_tooth_points(0,0,)",get_3Dvec_tooth_points(turn=0,combined_start=0,is_last_turn=false,leftUpperRight_xz_map()));
 		echo("get_3Dvec_seg_plane_point_polygons_aligned(seg_plane_index)[1]",get_3Dvec_seg_plane_point_polygons_aligned(seg_plane_index)[1]);
 		echo("get_segment_zOffset(seg_plane_index) ...",get_segment_zOffset(seg_plane_index) 
 															- (is_channel_thread ? pitch*2 : 
@@ -2169,9 +2203,14 @@ module m_thread(
 		
 	}	
 */
+
 		function len_seg_plane(seg_plane_index) =
 								n_tooths_of_seg_plane(seg_plane_index) * len_tooth_points
 								+ 2*n_center_points() //center points on top and end
+								+ ( //point pair added on top to complete pitch over lower flat 
+										tooth_profile_map[len(tooth_profile_map)-1][1] < pitch ?
+											n_points_per_edge() : 0
+									)
 								;
 		function n_tooths_of_seg_plane(seg_plane_index) = 
 							n_tooths_per_turn() * n_turns_of_seg_plane(seg_plane_index);
@@ -2341,7 +2380,7 @@ module m_thread(
 																					current_len) =
 							//for loop to count/add all lengths
 							start_seg_plane_index >= end_seg_plane_index ? 
-									current_len//+len_seg_plane(start_seg_plane_index) 
+									current_len
 								: seg_faces_point_offset(start_seg_plane_index+1, 
 										end_seg_plane_index, 
 										current_len+len_seg_plane(start_seg_plane_index))
