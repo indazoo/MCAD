@@ -1872,7 +1872,7 @@ module m_thread(
 		
 		//Channel threads
 
-		if(false) //DEBUG : set to false to see full thread before cutting
+		if(true) //DEBUG : set to false to see full thread before cutting
 		{
 		
 			difference() 
@@ -1893,7 +1893,9 @@ module m_thread(
 		}
 		else
 		{
-			translate([0, 0,  - (internal ? channel_thread_bottom_spacer():0)])
+			translate([0, 0,  - (internal ? channel_thread_bottom_spacer():0)
+												+ (length >= 2*pitch ? 0 : 2*pitch-length)
+								])
 			make_channel_thread(n_horiz_starts, n_vert_starts);
 		}
 	}
