@@ -557,8 +557,8 @@ module test_leftright_buttress($fa=20, $fs=0.1)
 module test_channel_simple(dia = 10, internal = false, right_handed = true)
 {
 	pitch = 2;
-	length = 2;
-	angles = [30,40]; //second angle needs to be zero for test case.
+	length = 4;
+	angles = [30,30]; //second angle needs to be zero for test case.
 	outer_flat_length = 0.2;
 	clearance = 0;
 	backlash = 0;
@@ -570,7 +570,7 @@ module test_channel_simple(dia = 10, internal = false, right_handed = true)
 
 	channel_thread(
 		thread_diameter = dia,
-		pitch = 2,
+		pitch = pitch,
 		length = length,
 		internal = internal,
 		n_starts = starts,
