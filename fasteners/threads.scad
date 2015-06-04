@@ -43,6 +43,8 @@
  * - Manual polygon triangulation for complex tooth profile maps
 
  * OPTIONAL
+ * - Cut thread to length without intersection but with polygon calculation.
+ *   This would give another speed boost.
  * - round base of tooth profile
  *   For wire/fishing line pulleys a round base with the same diameter like the rope.
  *   http://www.thingiverse.com/thing:70377
