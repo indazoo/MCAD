@@ -1403,12 +1403,12 @@ module m_thread(
 	// ------------------------------------------------------------------
 	// Segments and its angle, number of turns
 	// ------------------------------------------------------------------
-	n_turns = floor(length/pitch) // floor(): full turn needed for length < pitch
-							+1	// +1 for below z=0 turn 
-							+1; // +1 for complete top thread
-									//thread starts with lower-to-right corner point. So
-									// it is necessary to have one more on top to get top most
-									// lower_flat (test with metric thread and length=x*length
+	n_turns = ceil(length/pitch) // floor(): full turn needed for length < pitch
+							// below z=0 turn is included for length only for channel threads
+							+ (is_channel_thread ? 0 : 1)
+							// internal channel threads showed missing dent. Probably
+							// because for internal threads  backlash/clearance is missing in height
+							+1; 
 	
 	n_horiz_starts = is_channel_thread ? n_starts : 1;
 	n_vert_starts = is_channel_thread ? 1 : n_starts;
