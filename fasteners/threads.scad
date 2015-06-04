@@ -1351,7 +1351,7 @@ function radius_extension(radius, angle, screw_radius, internal) =
 				chord_apothem(radius, angle) >= screw_radius ? 0  //is turnable
 				:
 				 sagitta_to_radius_extension(
-											sagitta_diff = major_radius-chord_apothem(radius, angle),
+											sagitta_diff = screw_radius-chord_apothem(radius, angle),
 											angle =	angle)
 					 
 			);
@@ -1903,6 +1903,7 @@ module m_thread(
 		}
 	}
 
+					
 	// ------------------------------------------------------------------
 	// ------------------------------------------------------------------
 	// Thread modules
@@ -1914,8 +1915,24 @@ module m_thread(
 													thread_starts_flat = true,
 													open_top = false,
 													n_horiz_starts = n_horiz_starts,
-													n_vert_starts = n_vert_starts
-												);  
+													n_vert_starts = n_vert_starts,
+													minor_rad = minor_rad,
+													major_rad = major_rad,
+													major_radius = major_radius,
+													hollow_rad = hollow_rad,
+													is_hollow = is_hollow,
+													tooth_profile_map = 
+														leftUpperRight_xz_map(left_flat, upper_flat, tooth_flat,
+																										minor_rad, major_rad ),
+													is_channel_thread = is_channel_thread,
+													internal = internal,
+													pitch = pitch,
+													n_segments = n_segments,
+													seg_angle = seg_angle,
+													right_handed = right_handed,
+													taper_angle = taper_angle,
+													length = length
+												); 
 	}
 	
 	module make_channel_thread(n_horiz_starts, n_vert_starts)
@@ -1924,10 +1941,104 @@ module m_thread(
 													thread_starts_flat = false,
 													open_top = true,
 													n_horiz_starts = n_horiz_starts,
-													n_vert_starts = n_vert_starts
+													n_vert_starts = n_vert_starts,
+													minor_rad = minor_rad,
+													major_rad = major_rad,
+													major_radius = major_radius,
+													hollow_rad = hollow_rad,
+													is_hollow = is_hollow,
+													tooth_profile_map = 
+														leftUpperRight_xz_map(left_flat, upper_flat, tooth_flat,
+																										minor_rad, major_rad ),
+													is_channel_thread = is_channel_thread,
+													internal = internal,
+													pitch = pitch,
+													n_segments = n_segments,
+													seg_angle = seg_angle,
+													right_handed = right_handed,
+													taper_angle = taper_angle,
+													length = length	
 												);  
 	}
-			
+} // end module m_thread()
+
+
+
+//-----------------------------------------------------------
+//-----------------------------------------------------------
+// Tooth profile maps
+//-----------------------------------------------------------
+//-----------------------------------------------------------
+// A tooth can have any profile with multiple edges. 
+// But so far all threads use the standard profile map.
+// limitations: 
+//   - z-value must not be the same for two points.
+//   - no overhangs (low convexitiy)
+//
+// TODO:
+// Manual polygon triangulation for complex tooth profile maps		
+// Implement it for other maps (Round for ropes or lifted ACME)
+
+// Basic tooth profile
+// Only the tooth points are defined. Connections to the next/previous
+// tooth profile gives the full tooths profile. This way no in between
+// points (at zero or at pitch) are needed.
+// The profile starts with the left flat. For standard threads, this is
+// not important, but for channel threads it is exactly what we want.
+// Before version 3 the threads started with lower_flat.	
+
+
+function leftUpperRight_xz_map(left_flat, upper_flat, tooth_flat,
+																minor_rad, major_rad) =
+					// Build xz map of tooth profile
+					upper_flat >= netfabb_degenerated_min()  ?
+						[ [	minor_rad,  // x
+								0],         // z offset
+							[	major_rad,
+								left_flat],
+							[	major_rad,
+								left_flat + upper_flat],
+							[	minor_rad,
+								tooth_flat]]
+					:
+						[ [	minor_rad,
+								0],
+							[	major_rad,
+								left_flat],
+							[	minor_rad,
+								tooth_flat]]		
+					;
+function leftUpperRight_xz_map_test(left_flat, upper_flat, tooth_flat,
+																		minor_rad, major_rad ) =
+					// Build xz map of tooth profile
+						[ [	minor_rad,  // x
+								0],					// z offset
+							[	minor_rad+0.2,
+								0.1],
+							[	minor_rad+0.3,
+								0.25],
+							[	minor_rad+0.4,
+								0.28],
+							[	minor_rad+0.45,
+								0.2811],
+							[	major_rad(),
+								left_flat],
+							[	major_rad,
+								left_flat + upper_flat],
+							[	minor_rad+0.5,
+								tooth_flat-0.15],
+							[	minor_rad+0.4,
+								tooth_flat-0.1],
+							[	minor_rad+0.3,
+								tooth_flat-0.0401],
+							[	minor_rad+0.2,
+								tooth_flat-0.04],
+							[	minor_rad,
+								tooth_flat-0.0]
+						]
+					;
+
+
 	module make_thread_polyhedron(
 						turns = 1, //make_thread_polygon() adds always one turn to this value
 						thread_starts_flat = true, //"true" adds extra loop, so at z=0 the
@@ -1938,91 +2049,25 @@ module m_thread(
 																// to a certain depth without a thread over the
 																// whole depth
 						n_horiz_starts = 1, //channel threads start multiple times (rotated)
-						n_vert_starts = 1 //std threads can have more than one start (lifted)
+						n_vert_starts = 1, //std threads can have more than one start (lifted)
+						minor_rad = 10,
+						major_rad = 12,
+						major_radius = major_radius,
+						hollow_rad = 5,
+						is_hollow = true,
+						tooth_profile_map,
+						is_channel_thread = false,
+						internal = false,
+						pitch = 2,
+						n_segments = 30,
+						seg_angle = 12,
+						right_handed = true,
+						taper_angle = 0,
+						length = 20	
 						)
 	{
 
 
-		//-----------------------------------------------------------
-		//-----------------------------------------------------------
-		// Tooth profile maps
-		//-----------------------------------------------------------
-		//-----------------------------------------------------------
-		// A tooth can have any profile with multiple edges. 
-		// But so far all threads use the standard profile map.
-		// limitations: 
-		//   - z-value must not be the same for two points.
-		//   - no overhangs (low convexitiy)
-		//
-		// TODO:
-		// Manual polygon triangulation for complex tooth profile maps		
-		// Implement it for other maps (Round for ropes or lifted ACME)
-		
-		// Basic tooth profile
-		// Only the tooth points are defined. Connections to the next/previous
-		// tooth profile gives the full tooths profile. This way no in between
-		// points (at zero or at pitch) are needed.
-		// The profile starts with the left flat. For standard threads, this is
-		// not important, but for channel threads it is exactly what we want.
-		// Before version 3 the threads started with lower_flat.	
-		
-		tooth_profile_map = leftUpperRight_xz_map();
-		
-	function leftUpperRight_xz_map() =
-						// Build xz map of tooth profile
-						upper_flat >= netfabb_degenerated_min()  ?
-							[ [	get_3Dvec_profile_xOffset_minor(),  // x
-									0],                                 // z offset
-								[	get_3Dvec_profile_xOffset_major(),
-									left_flat],
-								[	get_3Dvec_profile_xOffset_major(),
-									left_flat + upper_flat],
-								[	get_3Dvec_profile_xOffset_minor(),
-									tooth_flat]]
-						:
-							[ [	get_3Dvec_profile_xOffset_minor(),
-									0],
-								[	get_3Dvec_profile_xOffset_major(),
-									left_flat],
-								[	get_3Dvec_profile_xOffset_minor(),
-									tooth_flat]]		
-						;
-	function leftUpperRight_xz_map_test() =
-						// Build xz map of tooth profile
-						upper_flat >= netfabb_degenerated_min()  ?
-							[ [	get_3Dvec_profile_xOffset_minor(),  // x
-									0],                                 // z offset
-								[	get_3Dvec_profile_xOffset_minor()+0.2,  // x
-									0.1],                                 // z offset
-								[	get_3Dvec_profile_xOffset_minor()+0.3,  // x
-									0.25],                                 // z offset
-								[	get_3Dvec_profile_xOffset_minor()+0.4,  // x
-									0.28],                                 // z offset
-								[	get_3Dvec_profile_xOffset_minor()+0.45,  // x
-									0.2811],                                 // z offset
-								[	get_3Dvec_profile_xOffset_major(),
-									left_flat],
-								[	get_3Dvec_profile_xOffset_major(),
-									left_flat + upper_flat],
-								[	get_3Dvec_profile_xOffset_minor()+0.5,
-									tooth_flat-0.15],
-								[	get_3Dvec_profile_xOffset_minor()+0.4,
-									tooth_flat-0.1],
-								[	get_3Dvec_profile_xOffset_minor()+0.3,
-									tooth_flat-0.0401],
-								[	get_3Dvec_profile_xOffset_minor()+0.2,
-									tooth_flat-0.04],
-								[	get_3Dvec_profile_xOffset_minor(),
-									tooth_flat-0.0]
-							]
-						:
-							[ [	get_3Dvec_profile_xOffset_minor(),
-									0],
-								[	get_3Dvec_profile_xOffset_major(),
-									left_flat],
-								[	get_3Dvec_profile_xOffset_minor(),
-									tooth_flat]]		
-						;
 
 
 
@@ -2166,7 +2211,7 @@ module m_thread(
 					;
 		// Profile 
 
-		pre_calc_3Dvec_tooth_points = get_3Dvec_tooth_points(0, 0,false,leftUpperRight_xz_map());
+		pre_calc_3Dvec_tooth_points = get_3Dvec_tooth_points(0, 0,false,tooth_profile_map);
 		len_tooth_points = len(pre_calc_3Dvec_tooth_points);
 /*
 	// DEBUG
@@ -2197,7 +2242,7 @@ module m_thread(
 		echo("get_3Dvec_profile_zOffset(turn, combined_start)",get_3Dvec_profile_zOffset(0, 1));
 		echo("get_3Dvec_profile_zOffset(turn, combined_start)",get_3Dvec_profile_zOffset(0, 2));
 		echo("get_3Dvec_profile_zOffset(turn, combined_start)",get_3Dvec_profile_zOffset(1, 0));
-		echo("get_3Dvec_tooth_points(0,0,)",get_3Dvec_tooth_points(turn=0,combined_start=0,is_last_turn=false,leftUpperRight_xz_map()));
+		echo("get_3Dvec_tooth_points(0,0,)",get_3Dvec_tooth_points(turn=0,combined_start=0,is_last_turn=false,tooth_profile_map));
 		echo("get_3Dvec_seg_plane_point_polygons_aligned(seg_plane_index)[1]",get_3Dvec_seg_plane_point_polygons_aligned(seg_plane_index)[1]);
 		echo("get_segment_zOffset(seg_plane_index) ...",get_segment_zOffset(seg_plane_index) 
 															- (is_channel_thread ? pitch*2 : 
@@ -3007,7 +3052,7 @@ module m_thread(
 		
 	}//end module make_thread_polyhedron()
 
-} // end module m_thread()
+
 
 
 //-------------------------------------------------------------------------
