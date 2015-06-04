@@ -1315,7 +1315,49 @@ function norm_xy(point)= norm([point.x, point.y,0]);
 function get_scale(radius, extension)	=
 						(radius + extension)/radius;
 						
+function sagitta_to_radius_extension(sagitta_diff, angle) =
+							//sagitta_diff*cos(90-angle/2) ;
+							sagitta_diff/sin(90-angle/2);
+function chord_sagitta(radius, angle) = radius - chord_apothem(radius, angle);
+function chord_apothem(radius, angle) = radius * cos(angle/2);		
 
+function ensure_turnability(radius, angle, screw_radius, point, internal) =
+					scale_xy(point, bow_to_face_distance_scale(radius, angle, screw_radius, internal));
+
+function bow_to_face_distance_scale(radius, angle, screw_radius, internal) =
+					radius_extension(radius, angle, screw_radius, internal) == 0 ?
+						1 : get_scale(radius, radius_extension(radius, angle, screw_radius, internal));
+
+function bow_to_face_distance(radius, angle) = 
+			radius*(1-cos(angle/2));
+			
+function radius_extension(radius, angle, screw_radius, internal) = 
+			// - the bolt is reference ==> apply change only to internal threads
+			!internal ? 0 //bolt will not be expanded
+			:
+			// - the internal thread must provide room for the external (screw) 
+			//   to turn ==> expand radius.
+			// - extreme case: With very flat flank angles and low $fn a screw
+			//   thread may fall through a nut (internal).
+			// - By using the diameter as reference for a screw, only the
+			//   corners of the thread (think low $fn) have the correct diameter.
+			//   So the screw has too little material between the corners.
+			//   TODO (optional): parameter for the user if he wants to recut 
+			//   the thread with machining tools
+			// - TODO: Study extreme case with high pitch and big taper angle
+			//      corners where are they? 
+			//old: radius*(1-cos(angle/2))/cos(angle/2) : 0; //30 ==>0.29509
+			(
+				chord_apothem(radius, angle) >= screw_radius ? 0  //is turnable
+				:
+				 sagitta_to_radius_extension(
+											sagitta_diff = major_radius-chord_apothem(radius, angle),
+											angle =	angle)
+					 
+			);
+
+		
+	
 // netfabb recognises/marks a triangle as "degenerated" if it is too small
 // Values:
 // 0.0015 was necessary for a channel thread to suppress degenerated message 
@@ -1635,46 +1677,7 @@ module m_thread(
 					)
 					: radius);
 					
-	function ensure_turnability(angle, point) =
-						scale_xy(point, bow_to_face_distance_scale(angle));
 
-	function bow_to_face_distance_scale(angle) =
-						radius_extension(major_radius, angle) == 0 ?
-							1 : get_scale(major_radius, radius_extension(major_radius, angle));
-	
-	function bow_to_face_distance(radius, angle) = 
-				radius*(1-cos(angle/2));
-				
-	function radius_extension(radius, angle) = 
-				// - the bolt is reference ==> apply change only to internal threads
-				!internal ? 0 //bolt will not be expanded
-				:
-				// - the internal thread must provide room for the external (screw) 
-				//   to turn ==> expand radius.
-				// - extreme case: With very flat flank angles and low $fn a screw
-				//   thread may fall through a nut (internal).
-				// - By using the diameter as reference for a screw, only the
-				//   corners of the thread (think low $fn) have the correct diameter.
-				//   So the screw has too little material between the corners.
-				//   TODO (optional): parameter for the user if he wants to recut 
-				//   the thread with machining tools
-				// - TODO: Study extreme case with high pitch and big taper angle
-				//      corners where are they? 
-				//old: radius*(1-cos(angle/2))/cos(angle/2) : 0; //30 ==>0.29509
-				(
-					chord_apothem(radius, angle) >= major_radius ? 0  //is turnable
-					:
-				   sagitta_to_radius_extension(
-												sagitta_diff = major_radius-chord_apothem(radius, angle),
-												angle =	angle)
-						 
-				);
-	function sagitta_to_radius_extension(sagitta_diff, angle) =
-								//sagitta_diff*cos(90-angle/2) ;
-								sagitta_diff/sin(90-angle/2);
-	function chord_sagitta(radius, angle) = radius - chord_apothem(radius, angle);
-	function chord_apothem(radius, angle) = radius * cos(angle/2);		
-		
 
 	// ------------------------------------------------------------------
 	// Warnings / Messages
@@ -2158,7 +2161,7 @@ module m_thread(
 																										combined_start,
 																										is_last_tooth,
 																										tooth_profile_map) )
-										ensure_turnability(seg_angle, point)
+										ensure_turnability(major_rad, seg_angle, major_radius, point, internal)
 						]
 					;
 		// Profile 
