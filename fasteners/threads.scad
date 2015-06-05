@@ -10,12 +10,30 @@
 // -------------------------------------------------------------------
 // Usage
 // -------------------------------------------------------------------
-/*  - OpenScad issues warning the warning:
- *    "Normalized tree is growing past 200000 elements. Aborting normalization."
- *    for medium to high $fn values ==> compile view is not correct. 
- *     Solution:
- *    Use low $fn during development of your part and increase option 
- *    "turn off rendering at" in Menu=>Edit=>Preferences substantially .
+/* 
+ *   > This single file lets you create many types of threads.
+ *   > No external dependencies other than OpenScad.
+ *   > You can define your custom tooth profile of your thread.
+ *     Check out test_rope_thread() and "rope_xz_map" in the code below. 
+ *     This simple sample should show you how to do it. A map is a 
+ *     vector with x/z elements. 
+ *
+ *   Already implemented:
+ *   > Metric threads
+ *   > Square threads
+ *   > ACME threads
+ *   > Buttress threads
+ *   > Channel threads
+ *   > Rope threads (for rope pulleys)
+ *   > NPT, BSP  (tapered for pipes)
+ *   > Simple twist and lock connectors
+ *   
+ *   > All can have a bore in the center
+ *   > All can have multiple starts
+ *   > All support internal(nut) and external(screw)
+ *
+ *   > Very fast rendering, no "normalization tree" problems
+ *
 */ 
  
 // -------------------------------------------------------------------
@@ -25,8 +43,11 @@
  * indazoo 
  *
  * Credits:
+ * kintel
+ * hyperair
  * Dan Kirshner
  * Chow Loong Jin
+ * You ?
  */
 
 // -------------------------------------------------------------------
@@ -41,6 +62,11 @@
      and has no leaks (i believe for garden stuff)
  * - printify does notwork after v1.8   
  * - Manual polygon triangulation for complex tooth profile maps
+ * - Internal threads start at y=0 as non internal do.
+ *   This is not 100% correct. The middle point between two segment planes
+ *   of internal and normal thread should be aligned. Barely noticable. 
+ *   No known effect on usability.
+ * - Often one wants a shaft attached to the thread. ==> param (len_top/bottom_shaft).
 
  * OPTIONAL
  * - Cut thread to length without intersection but with polygon calculation.
@@ -68,7 +94,16 @@
 // -------------------------------------------------------------------
 // History
 // -------------------------------------------------------------------
-/* Version 3.1  2015-05-29  indazoo
+/*
+ * Version 3.2  2015-06-05  indazoo
+ *                          - supports now tooth maps. You can create a map of your
+ *                            custom tooth profile and easily create a thread.
+ *                            As a sample, I implemented "rope threads" for 
+ *                            ropes/fishing line pulleys. Feel free to create your own
+ *                            and publish it. Thanks.
+ *                          - fixed issue with non minor radius at border points 
+ *                            of profile which created illegal polygons. 
+ * Version 3.1  2015-05-29  indazoo
  *                          - also channel threads with calculated polygons
  *                          - many fixes and tests. Lib should be ok now. 
  * Version 3.0  2015-05-01  indazoo
@@ -274,22 +309,26 @@
 //test_threads();
 //test_channel_threads();
 //test_slot_tabs();
-
-//test_metric_right();
+//test_metric_right(internal = false);
 //test_metric_right_n_starts();   
 //test_metric_right_large_pitch();
 //test_metric_right_and_internal();
 //test_metric_left();
+//test_internal_difference_metric();
+
+//test_turnability();
+
 //test_square_thread();
 //acme_thread(8, pitch=1.5, length=5);
 //test_hollow_thread();
 //test_threads();
-//test_internal_difference_metric();
 //test_buttress();
 //test_leftright_buttress(5);
 //test_internal_difference_buttress();
 //test_internal_difference_buttress_lefthanded();
 //test_buttress_no_lower_flat();
+
+//test_rope_thread(rope_diameter=1.2, rope_bury_ratio=0.9, coarseness=10,n_starts=2 );
 //test_channel_simple();
 //test_channel_thread(dia=8);
 //test_channel_thread2(); 
@@ -333,7 +372,12 @@ module test_threads ($fa=5, $fs=0.1)
 
     translate ([60.5, 0, 0])
 		test_BSP(dia_inches = 1/8);
-
+		
+		translate ([70, 0, 0])
+		test_rope_thread();
+		
+		translate ([70, -15, 0])
+		test_rope_thread(n_starts=3);
 }
 
 module test_channel_threads()
@@ -360,16 +404,16 @@ module test_slot_tabs()
 
 
 
-module test_metric_right ($fa=5, $fs=0.1)
+module test_metric_right ($fa=5, $fs=0.1, internal=false)
 {
 	//Case: Std right handed metric thread
 	metric_thread( diameter = 20,
 		pitch = 4, 
 		length = 8, 
-		internal=false, 
+		internal=internal, 
 		n_starts=1, 
 		right_handed=true,
-		clearance = 0.1, 
+		clearance = 0.22, 
 		backlash=0.4,
 		printify_top = false
 	);
@@ -379,7 +423,7 @@ module test_metric_right_large_pitch ($fa=5, $fs=0.1)
 	//Case: Pitch larger than length
 	metric_thread( diameter = 20,
 		pitch = 4, 
-		length = 3, 
+		length = 8, 
 		internal=false, 
 		n_starts=1, 
 		right_handed=true,
@@ -439,6 +483,15 @@ module test_metric_left($fa=5, $fs=0.1)
 				n_starts=2,
 				length=8, 
 				right_handed=false);
+}
+
+module test_turnability ($fa=5, $fs=0.1)
+{
+	$fn = 3;
+	translate([0,0,4])
+	test_metric_right(internal=false);
+	rotate([0,0,60])
+	test_metric_right(internal=true);
 }
 
 module test_hollow_thread ($fa=5, $fs=0.1)
@@ -765,6 +818,34 @@ module test_BSP(dia_inches = 3/4)
 		internal  = false);
 }
 
+module test_rope_thread(diameter=8,
+												length=10,
+												rope_diameter=1.5,
+												rope_bury_ratio=0.9,
+												coarseness = 10,
+												n_starts = 1
+												)
+{
+
+	rope_thread(
+		thread_diameter = diameter,
+		pitch=rope_diameter+0.5,
+		length=length,
+		internal = false,
+		n_starts = n_starts,
+		rope_diameter=rope_diameter,
+		rope_bury_ratio=rope_bury_ratio,
+		coarseness = coarseness,
+		right_handed = true,
+		clearance = 0,
+		backlash = 0,
+		printify_top = false,
+		printify_bottom = false,
+		bore_diameter = 4, //-1 = no bore hole. Use it for pipes 
+		taper_angle = 0,
+		exact_clearance = false)	;
+}
+
 // ----------------------------------------------------------------------------
 // ----------------------------------------------------------------------------
 // Thread Definitions
@@ -789,7 +870,7 @@ module metric_thread (
 		exact_clearance = true
 )
 {
-    thread (
+    simple_profile_thread (
 			pitch = pitch,
 			length = length,
 			upper_angle = 30, 
@@ -824,7 +905,7 @@ module square_thread (
 		exact_clearance = true
 )
 {
-    thread (
+    simple_profile_thread (
 			pitch = pitch,
 			length = length,
 			upper_angle = 0, 
@@ -859,7 +940,7 @@ module acme_thread (
 		exact_clearance = true
 )
 {
-    thread (
+    simple_profile_thread (
 			pitch = pitch,
 			length = length,
 			upper_angle = 29/2, 
@@ -897,7 +978,7 @@ module buttress_thread (
 		exact_clearance = true
 )
 {
-    thread (
+    simple_profile_thread (
 			pitch = pitch,
 			length = length,
 			upper_angle = buttress_angles[0], 
@@ -1058,7 +1139,7 @@ module BSP_thread(
 	mm_max_height_inner_to_outer_flat = max_height_inner_to_outer_flat *25.4;
 	mm_bore = nominal_pipe_size * 25.4;
 
-	thread (
+	simple_profile_thread (
 			pitch = mm_pitch,
 			length = mm_length,
 			upper_angle = angle, 
@@ -1187,7 +1268,7 @@ module US_national_pipe_thread(
 	mm_max_height_inner_to_outer_flat = max_height_inner_to_outer_flat *25.4;
 	mm_bore = nominal_pipe_size * 25.4;
 
-	thread (
+	simple_profile_thread (
 			pitch = mm_pitch,
 			length = mm_length,
 			upper_angle = angle, 
@@ -1231,7 +1312,7 @@ module channel_thread(
 		echo("channel_thread(): tip of thread (outer_flat_length) cannot be larger than height!");
 	}
 	
-	thread (
+	simple_profile_thread (
 			pitch = pitch,
 			length = length,
 			upper_angle = thread_angles[0], 
@@ -1252,6 +1333,7 @@ module channel_thread(
 			);
 
 }
+
 
 // ---------------------------------------------------------------------
 // ---------------------------------------------------------------------
@@ -1303,7 +1385,7 @@ function scale_xy(point, scale_factor) =
 				 point.y * scale_factor,
 				 point.z
 				];
-				
+	
 function z_offset_v3(z_offset, vect_3D) = 
 		[vect_3D.x,
 		vect_3D.y,
@@ -1312,8 +1394,7 @@ function z_offset_v3(z_offset, vect_3D) =
 
 function norm_xy(point)= norm([point.x, point.y,0]);
 	
-function get_scale(radius, extension)	=
-						(radius + extension)/radius;
+
 						
 function sagitta_to_radius_extension(sagitta_diff, angle) =
 							//sagitta_diff*cos(90-angle/2) ;
@@ -1321,13 +1402,13 @@ function sagitta_to_radius_extension(sagitta_diff, angle) =
 function chord_sagitta(radius, angle) = radius - chord_apothem(radius, angle);
 function chord_apothem(radius, angle) = radius * cos(angle/2);		
 
-function ensure_turnability(radius, angle, screw_radius, point, internal) =
-					scale_xy(point, bow_to_face_distance_scale(radius, angle, screw_radius, internal));
-
 function bow_to_face_distance_scale(radius, angle, screw_radius, internal) =
 					radius_extension(radius, angle, screw_radius, internal) == 0 ?
 						1 : get_scale(radius, radius_extension(radius, angle, screw_radius, internal));
 
+function get_scale(length, extension)	=
+						(length + extension)/length;
+						
 function bow_to_face_distance(radius, angle) = 
 			radius*(1-cos(angle/2));
 			
@@ -1363,21 +1444,25 @@ function radius_extension(radius, angle, screw_radius, internal) =
 // 0.0015 was necessary for a channel thread to suppress degenerated message 
 //        in netfabb.
 // 0.001 seems to be the trigger level in netfab. ==> See Settings in Netfab.
-// The message in Netfabb about degenerated faces can alos be reduced by
+// The message in Netfabb about degenerated faces can also be reduced by
 // changing the treshold to 0.0001 in Netfabb settings.
 function netfabb_degenerated_min() = 0.0011; 
-	
-	
+min_openscad_fs = 0.01;
+min_center_x = 1 * netfabb_degenerated_min();//DEBUG: use 1200 * degen_min()
+
+
+function get_clearance(clearance, internal) = (internal ? clearance : 0);
+function get_backlash(backlash, internal) = (internal ? backlash : 0);
+
+
 // ---------------------------------------------------------------------
 // ---------------------------------------------------------------------
 // ---------------------------------------------------------------------
-// internal - true = clearances for internal thread (e.g., a nut).
-//            false = clearances for external thread (e.g., a bolt).
-//            (Internal threads should be "cut out" from a solid using
-//            difference()).
-// n_starts - Number of thread starts (e.g., DNA, a "double helix," has
-//            n_starts=2).  See wikipedia Screw_thread.
-module thread(
+// Simple profile thread
+// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+module simple_profile_thread(
 	pitch,
 	length,
 	upper_angle,
@@ -1398,80 +1483,8 @@ module thread(
 	exact_clearance = true
 )
 {
-	m_thread (
-			pitch = pitch,
-			length = length,
-			upper_angle = upper_angle,
-			lower_angle = lower_angle,
-			outer_flat_length = outer_flat_length,
-			major_radius = major_radius,
-			minor_radius = minor_radius,
-			internal = internal,
-			n_starts = n_starts,
-			right_handed = right_handed,
-			clearance = (internal ? clearance : 0),
-			backlash = (internal ? backlash : 0),
-			printify_top = printify_top,
-			printify_bottom = printify_bottom,
-			is_channel_thread = is_channel_thread,
-			bore_diameter = bore_diameter,
-			taper_angle = taper_angle,
-			exact_clearance = exact_clearance
-			);
-}
-
-module m_thread(
-	pitch,
-	length,
-	upper_angle,
-	lower_angle,
-	outer_flat_length,
-	major_radius,
-	minor_radius,
-	internal = false,
-	n_starts = 1,
-	right_handed = true,
-	clearance = 0,
-	backlash = 0,
-	printify_top = false,
-	printify_bottom = false,
-	is_channel_thread = false,
-	bore_diameter = -1, //-1 = no bore hole. Use it for pipes 
-	taper_angle = 0,
-	exact_clearance = true
-)
-{
-
 	// ------------------------------------------------------------------
-	// Segments and its angle, number of turns
-	// ------------------------------------------------------------------
-	n_turns = ceil(length/pitch) // floor(): full turn needed for length < pitch
-							// below z=0 turn is included for length only for channel threads
-							+ (is_channel_thread ? 0 : 1)
-							// internal channel threads showed missing dent. Probably
-							// because for internal threads  backlash/clearance is missing in height
-							+1; 
-	
-	n_horiz_starts = is_channel_thread ? n_starts : 1;
-	n_vert_starts = is_channel_thread ? 1 : n_starts;
-	
-	n_segments_fn =  $fn > 0 ? 
-						$fn :
-						max (30, min (2 * PI * minor_radius / $fs, 360 / $fa));
-
-	n_segments = ceil(n_segments_fn/n_horiz_starts) * n_horiz_starts;
-
-	seg_angle = 360/n_segments;
-		
-	taper_per_segment = accurateTan(taper_angle)*length   //total taper
-						/ (length/pitch) / n_segments;
-
-	min_openscad_fs = 0.01;
-
-
-
-	// ------------------------------------------------------------------
-    // trapezoid calculation
+  // trapezoid calculation
 	// ------------------------------------------------------------------
 
     // looking at the tooth profile along the upper part of a screw held
@@ -1614,10 +1627,11 @@ module m_thread(
 					 -(tan_right*clearance-f_backlash/2)
 					: +(f_backlash/2-tan_right*clearance)
 				;
-	function get_backlash() =
-				get_upper_flat(backlash) >= 0 ? backlash 
-				: backlash + (-1)*get_upper_flat(backlash)
+	function calc_backlash(f_backlash) =
+				get_upper_flat(f_backlash) >= 0 ? f_backlash 
+				: f_backlash + (-1)*get_upper_flat(f_backlash)
 				;
+
 	function max_upper_flat(leftflat, rightflat) =
 				pitch-leftflat-rightflat > 0 ?
 					(pitch-leftflat-rightflat > calc_upper_flat() ?
@@ -1626,7 +1640,9 @@ module m_thread(
 					:0
 				;
 
-	backlash = get_backlash();
+	clearance = get_clearance(clearance, internal);
+	backlash = calc_backlash(get_backlash(backlash, internal));
+
 	minor_radius = get_minor_radius();
 	tooth_height = calc_tooth_height();
 	// calculate first the flank angles because they are 
@@ -1651,61 +1667,11 @@ module m_thread(
 			: length + backlash/2 
 			 ;
 
-	major_rad = clearance_radius(major_radius, internal);
-	minor_rad = major_rad-tooth_height;
-
-	diameter = major_rad*2;
-			
-	min_center_x = 1 * netfabb_degenerated_min();//DEBUG: use 1200 * degen_min()
-	is_hollow = bore_diameter > 0;
-	hollow_rad = is_hollow ? bore_diameter/2 : min_center_x;
-
-	// Clearance:
-	// The outer walls of the created threads are not circular. They consist
-	// of polyhydrons with planar front rectangles. Because the corners of 
-	// these polyhedrons are located at major radius (x,y), the middle of these
-	// rectangles is a little bit inside of major_radius. So, with low $fn
-	// this difference gets larger and may be even larger than the clearance itself
-	// but also for big $fn values clearance is being reduced. If one prints a 
-	// thread/nut without addressing this they may not turn.
-			
-	function clearance_radius(radius, internal_thread) =
-				(internal_thread ? 
-					( exact_clearance ?
-						radius+clearance
-						:(radius+clearance)/cos(seg_angle/2)
-					)
-					: radius);
-					
-
-
 	// ------------------------------------------------------------------
 	// Warnings / Messages
 	// ------------------------------------------------------------------
 	
 	//to add other objects to a thread it may be useful to know the diameters
-	echo("*** Thread dimensions !!! ***");
-	echo("outer diameter :",major_rad*2);
-	echo("inner diameter :",minor_rad*2);
-	if(is_hollow)
-		echo("bore diameter :",hollow_rad*2);
-
-	if(bore_diameter >= 2*minor_radius)
-	{
-		echo("*** Warning !!! ***");
-		echo("thread(): bore diameter larger than minor diameter of thread !");
-	}
-	//collision test: only possible when clearance defined (internal)
-	if(internal 
-		&& (clearance_radius(major_radius, true)
-			-bow_to_face_distance(clearance_radius(major_radius, true), seg_angle)
-			+ 0.00001 //ignore floating point errors
-		<  major_radius))
-	{
-		echo("*** Warning !!! ***");
-		echo("thread(): With these parameters (clearance and $fn) a bolt will not turn in internal/nut thread!");
-		echo("Consider using higher $fn,larger clearance and/or exact_clearance parameter.");
-	}
 	if(tooth_height != param_tooth_height())
 	{
 		echo("*** Warning !!! ***");
@@ -1778,53 +1744,10 @@ module m_thread(
 	echo("minor_rad",minor_rad);
 	echo("is_hollow", is_hollow);
 	echo("taper_angle",taper_angle);	
-	echo("taper_per_segment",taper_per_segment);
 	echo("poly_rot_slice_offset()",poly_rot_slice_offset());
 	echo("internal_play_offset",internal_play_offset());
 	echo("******************************");
-*/
-	// ----------------------------------------------------------------------------
-	// polyhedron axial orientation
-	// ------------------------------------------------------------------
-	function poly_rotation(i) =
-		(right_handed?1:-1)*(i*seg_angle);
-	// The facettes of OpenSCAD's cylinder() command start at x=0,y=radius.
-	// But so far, the created polygon starts at x=-1/2 facette,y=-radius.
-	// So, the cylinder's facettes are not aligned with the thread ones,
-	// creating holes in the thread behind the lower flat of the thread.
-	// channel threads: Because segment angle for channel threads is not equal
-	// to $fn, for channel threads this corrects only the start.
-	function poly_rot_offset() = 
-		90 + ((right_handed?1:-1)*(seg_angle/2));
-	//Correction angle so at x=0 is left_flat/angle
-	//Not needed so far. Two problems:
-	//Internal and external threads have different lower_flats and therefore
-	//a different turn angle. ==> no nice thread differences.
-	//With parameter "exact_clearance" a problem occurs. 
-	function poly_rot_slice_offset() =
-			((is_channel_thread ? 0 : 1)
-			 *(right_handed?1:-1)
-			 *(360/n_starts/pitch* (lower_flat/2)));
-	//total poly rotation
-	function poly_rotation_total(i)	=
-			poly_rotation(i) + poly_rot_offset() ;//+ poly_rot_slice_offset();
-
-	// An internal thread must be rotated/moved because the calculation starts	
-	// at base corner of left flat which is not exactly over base
-	// corner of bolt (clearance and backlash)
-	// Combination of small backlash and large clearance gives 
-	// positive numbers, large backlash and small clearance negative ones.
-	// This is not necessary for channel_threads.
-	function internal_play_offset() = 
-		internal && !is_channel_thread ?
-				0/*
-				( 	tan_right*clearance >= backlash/2 ?
-					-tan_right*clearance-backlash/2
-					: 
-					-(backlash/2-tan_right*clearance)
-				)*/
-			: 0;
-
+*/		
 	// The segment algorithm starts at the same z for
 	// internal and external threads. But the internal thread
 	// has a bigger diameter because of clearance/backlash so the
@@ -1832,12 +1755,328 @@ module m_thread(
 	function channel_thread_bottom_spacer() =
 			(internal ? clearance/accurateTan (left_angle)  : 0)
 			;
+			
 	// z offset includes length added to upper_flat on left angle side
 	function channel_thread_z_offset() = 
 				-len_backlash_compensated // "len_backlash_compensated" contains backlash already
 				+ channel_thread_bottom_spacer()
-				;
+				;	
+				
+	// An internal thread must be rotated/moved because the calculation starts	
+	// at base corner of right flat which is not exactly over base
+	// corner of bolt (clearance and backlash)
+	// Combination of small backlash and large clearance gives 
+	// positive numbers, large backlash and small clearance negative ones.
+	// This is not necessary for channel_threads.
+	function internal_play_offset() = 
+		internal && !is_channel_thread ?
+				( 	tan_right*clearance >= backlash/2 ?
+					-tan_right*clearance-backlash/2
+					: 
+					-(backlash/2-tan_right*clearance)
+				)
+			: 0;		
 
+	translate([0,0, - channel_thread_bottom_spacer()]
+									+ internal_play_offset())		
+		make_profile_thread (
+				pitch = pitch,
+				length = length,
+				major_radius = major_radius,
+				minor_radius = minor_radius,
+				internal = internal,
+				n_starts = n_starts,
+				right_handed = right_handed,
+				clearance = clearance,
+				backlash = backlash,
+				printify_top = printify_top,
+				printify_bottom = printify_bottom,
+				is_channel_thread = is_channel_thread,
+				bore_diameter = bore_diameter,
+				taper_angle = taper_angle,
+				exact_clearance = exact_clearance,
+				tooth_profile_map	= simple_tooth_xz_map(left_flat, upper_flat, tooth_flat,
+																							minor_radius, major_radius ),
+				tooth_height = tooth_height
+				);
+				
+	//-----------------------------------------------------------
+	//-----------------------------------------------------------
+	// Tooth profile map
+	//-----------------------------------------------------------
+	//-----------------------------------------------------------
+	// A tooth can have any profile with multiple edges. 
+	// But so far all threads use the standard profile map.
+	// limitations: 
+	//   - z-value must not be the same for two points.
+	//   - no overhangs (low convexitiy)
+	//
+	// TODO:
+	// Manual polygon triangulation for complex tooth profile maps		
+
+	// Basic tooth profile
+	// Only the tooth points are defined. Connections to the next/previous
+	// tooth profile gives the full tooths profile. This way no in between
+	// points (at zero or at pitch) are needed.
+	// The profile starts with the left flat. For standard threads, this is
+	// not important, but for channel threads it is exactly what we want.
+	// Before version 3 the threads started with lower_flat.	
+
+	function simple_tooth_xz_map(left_flat, upper_flat, tooth_flat,
+																	minor_rad, major_rad) =
+						// Build xz map of tooth profile
+						upper_flat >= netfabb_degenerated_min()  ?
+							[ [	minor_rad,  // x
+									0],         // z offset
+								[	major_rad,
+									left_flat],
+								[	major_rad,
+									left_flat + upper_flat],
+								[	minor_rad,
+									tooth_flat]]
+						:
+							[ [	minor_rad,
+									0],
+								[	major_rad,
+									left_flat],
+								[	minor_rad,
+									tooth_flat]]		
+						;
+				
+}
+
+// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+// Rope profile thread
+// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+
+module rope_thread(
+	thread_diameter = 20,
+	pitch=2,
+	length=8,
+	internal = false,
+	n_starts = 1,
+	rope_diameter=1,
+	rope_bury_ratio=0.4,
+	coarseness = 10,
+	right_handed = true,
+	clearance = 0,
+	backlash = 0,
+	printify_top = false,
+	printify_bottom = false,
+	bore_diameter = 4, //-1 = no bore hole. Use it for pipes 
+	taper_angle = 0,
+	exact_clearance = false)
+{
+
+	rope_profile_thread(
+		pitch = pitch,
+		length = length,
+		rope_diameter = rope_diameter,
+		rope_bury_ratio=rope_bury_ratio,
+		coarseness = coarseness,
+		major_radius = thread_diameter/2,
+		internal = internal,
+		n_starts = n_starts,
+		right_handed = right_handed,
+		clearance = clearance,
+		backlash = backlash,
+		printify_top = printify_top,
+		printify_bottom = printify_bottom,
+		bore_diameter = bore_diameter, //-1 = no bore hole. Use it for pipes 
+		taper_angle = taper_angle,
+		exact_clearance = exact_clearance
+	);
+
+}
+
+module rope_profile_thread(
+	pitch,
+	length,
+	rope_diameter,
+	rope_bury_ratio=0.4,
+	coarseness = 10,
+	major_radius,
+	internal = false,
+	n_starts = 1,
+	right_handed = true,
+	clearance = 0,
+	backlash = 0,
+	printify_top = false,
+	printify_bottom = false,
+	bore_diameter = -1, //-1 = no bore hole. Use it for pipes 
+	taper_angle = 0,
+	exact_clearance = true
+)
+{
+	tooth_height = rope_diameter/2 * rope_bury_ratio;
+	minor_radius = major_radius-tooth_height;
+	clearance = get_clearance(clearance, internal);
+	backlash = get_backlash(backlash, internal);
+
+	xz_map = rope_xz_map(pitch, rope_diameter, rope_bury_ratio, coarseness,
+																	minor_radius, major_radius);
+
+	make_profile_thread (
+		pitch = pitch,
+		length = length,
+		major_radius = major_radius,
+		minor_radius = minor_radius,
+		internal = internal,
+		n_starts = n_starts,
+		right_handed = right_handed,
+		clearance = clearance,
+		backlash = backlash,
+		printify_top = printify_top,
+		printify_bottom = printify_bottom,
+		is_channel_thread = false,
+		bore_diameter = bore_diameter,
+		taper_angle = taper_angle,
+		exact_clearance = exact_clearance,
+		tooth_profile_map	= xz_map,
+		tooth_height = tooth_height
+		);
+
+	//-----------------------------------------------------------
+	//-----------------------------------------------------------
+	// Tooth profile map
+	//-----------------------------------------------------------
+	//-----------------------------------------------------------
+	// A tooth can have any profile with multiple edges. 
+	// But so far all threads use the standard profile map.
+	// limitations: 
+	//   - z-value must not be the same for two points.
+	//   - no overhangs (low convexitiy)
+	//
+	// TODO:
+	// Manual polygon triangulation for complex tooth profile maps		
+
+	// Basic tooth profile
+	// Only the tooth points are defined. Connections to the next/previous
+	// tooth profile gives the full tooths profile. This way no in between
+	// points (at zero or at pitch) are needed.
+	// The profile starts with the left flat. For standard threads, this is
+	// not important, but for channel threads it is exactly what we want.
+	// Before version 3 the threads started with lower_flat.	
+
+	function rope_xz_map(pitch, rope_diameter, rope_bury_ratio, coarseness,
+																	minor_radius, major_radius) =
+			let(rope_radius = rope_diameter/2,
+					buried_depth = rope_radius * rope_bury_ratio,
+					unburied_depth = rope_radius-buried_depth,
+					unused_radius = rope_radius - sqrt(pow(rope_radius,2)-pow(unburied_depth,2)),
+					left_upper_flat	= (pitch-(rope_diameter-2*unused_radius))/2,
+					right_upper_flat = pitch-(rope_diameter-2*unused_radius) -left_upper_flat
+					)
+			concat(
+				[	[major_radius, 0],
+					[major_radius, left_upper_flat]]
+			,
+				[for ( circel_seg = [1:coarseness-1])
+					let(z_offset = circel_seg * (rope_diameter/coarseness),
+							current_rad_on_base = abs(rope_radius - (unused_radius + z_offset)),
+							depth = sqrt(pow(rope_radius,2)- abs(pow(current_rad_on_base,2)))
+												-unburied_depth
+						)
+					//[major_radius-depth, left_upper_flat+z_offset]
+					[major_radius-depth, left_upper_flat+z_offset]
+				]	
+			,	
+				[	[major_radius, pitch-right_upper_flat]]
+
+			);
+}
+
+			
+// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+// internal - true = clearances for internal thread (e.g., a nut).
+//            false = clearances for external thread (e.g., a bolt).
+//            (Internal threads should be "cut out" from a solid using
+//            difference()).
+// n_starts - Number of thread starts (e.g., DNA, a "double helix," has
+//            n_starts=2).  See wikipedia Screw_thread.
+module make_profile_thread(
+	pitch,
+	length,
+	major_radius,
+	minor_radius,
+	internal = false,
+	n_starts = 1,
+	right_handed = true,
+	clearance = 0,
+	backlash = 0,
+	printify_top = false,
+	printify_bottom = false,
+	is_channel_thread = false,
+	bore_diameter = -1, //-1 = no bore hole. Use it for pipes 
+	taper_angle = 0,
+	exact_clearance = true,
+	tooth_profile_map,
+	tooth_height = 1
+)
+{
+	echo("tooth_profile_map", tooth_profile_map);
+	// ------------------------------------------------------------------
+	// Segments and its angle, number of turns
+	// ------------------------------------------------------------------
+	n_turns = ceil(length/pitch) // floor(): full turn needed for length < pitch
+							// below z=0 turn is included for length only for channel threads
+							+ (is_channel_thread ? 0 : 1)
+							// internal channel threads showed missing dent. Probably
+							// because for internal threads  backlash/clearance is missing in height
+							+1; 
+	
+	n_horiz_starts = is_channel_thread ? n_starts : 1;
+	n_vert_starts = is_channel_thread ? 1 : n_starts;
+	
+	n_segments_fn =  $fn > 0 ? 
+						$fn :
+						max (30, min (2 * PI * minor_radius / $fs, 360 / $fa));
+
+	n_segments = ceil(n_segments_fn/n_horiz_starts) * n_horiz_starts;
+
+	seg_angle = 360/n_segments;
+	
+	is_hollow = bore_diameter > 0;
+	hollow_rad = is_hollow ? bore_diameter/2 : min_center_x;
+
+
+	
+	clearance_ext = clearance_extension(major_radius, internal);
+	turnability_ext = radius_extension(major_radius+clearance_ext, 
+																		seg_angle, major_radius, internal);
+	major_rad = major_radius + clearance_ext + turnability_ext;
+	minor_rad = major_rad-tooth_height;
+	diameter = major_rad*2;
+	
+	tooth_profile_map = 
+		[for(point = tooth_profile_map)
+			[point[0]+clearance_ext+turnability_ext,
+				point[1] //leave z alone
+			]
+		];
+
+	// Clearance/Turnability:
+	// The outer walls of the created threads are not circular. They consist
+	// of polyhydrons with planar front rectangles. Because the corners of 
+	// these polyhedrons are located at major radius (x,y), the middle of these
+	// rectangles is a little bit inside of major_radius. So, with low $fn
+	// this difference gets larger and may be even larger than the clearance itself
+	// but also for big $fn values clearance is being reduced. If one prints a 
+	// thread/nut without addressing this they may not turn.
+			
+	function clearance_radius(radius) =
+							radius + clearance_extension(radius);
+	function clearance_extension(radius) =
+							exact_clearance ?
+								clearance
+							:(radius+clearance)/cos(seg_angle/2)-radius
+							;				
 	function oversized_len() = (n_turns+1) * n_starts * pitch;
 	function rest_of_channel_len(length) = 
 							// reference is the non internal thread.
@@ -1846,97 +2085,82 @@ module m_thread(
 									length-2*pitch
 									: 0
 							);
+						
+				
+	// ------------------------------------------------------------------
+	// Warnings / Messages
+	// ------------------------------------------------------------------
 	
+	//to add other objects to a thread it may be useful to know the diameters
+	echo("*** Thread dimensions !!! ***");
+	echo("outer diameter :",major_rad*2);
+	echo("inner diameter :",minor_rad*2);
+
+	if(is_hollow)
+		echo("bore diameter :",hollow_rad*2);
+
+	if(bore_diameter >= 2*minor_radius)
+	{
+		echo("*** Warning !!! ***");
+		echo("thread(): bore diameter larger than minor diameter of thread !");
+	}
+	//collision test: only possible when clearance defined (internal)
+	if(internal 
+		&& (clearance_radius(major_radius, true)
+			-bow_to_face_distance(clearance_radius(major_radius, true), seg_angle)
+			+ 0.00001 //ignore floating point errors
+		<  major_radius))
+	{
+		echo("*** Warning !!! ***");
+		echo("thread(): With these parameters (clearance and $fn) a bolt will not turn in internal/nut thread!");
+		echo("Consider using higher $fn,larger clearance and/or exact_clearance parameter.");
+	}
+
 	//------------------------------------------------------------------
 	// Create the thread 
 	// ------------------------------------------------------------------
 	if(!is_channel_thread)
 	{
-		// normal threads with multiple turns
-		if(true) //DEBUG : set to false to see full thread before cutting
+		// Standard threads with multiple turns
+		intersection() 
 		{
-			intersection() 
+			make_thread_polyhedron(turns = n_turns,
+										thread_starts_flat = true,
+										open_top = false,
+										n_horiz_starts = n_horiz_starts,
+										n_vert_starts = n_vert_starts,
+										minor_rad = minor_rad,
+										major_rad = major_rad,
+										major_radius = major_radius,
+										is_hollow = is_hollow,
+										hollow_rad = hollow_rad,
+										tooth_profile_map = tooth_profile_map,	
+										is_channel_thread = is_channel_thread,
+										internal = internal,
+										pitch = pitch,
+										n_segments = n_segments,
+										seg_angle = seg_angle,
+										right_handed = right_handed,
+										taper_angle = taper_angle,
+										length = length
+									); 
+			// Cut to length.
+			if(true) //DEBUG : set to false to see full thread before cutting
 			{
-				make_std_thread(n_horiz_starts, n_vert_starts);
-				
-				// Cut to length.
 				translate([0, 0, length/2]) 
-					cube([diameter*1.1, diameter*1.1, length], center=true);
+					cube([diameter*4, diameter*4, length], center=true);
 			}
 		}
-		else
-		{
-			make_std_thread(n_horiz_starts, n_vert_starts);
-		}
-			
+		
 	}
 	else
 	{
-		
 		//Channel threads
-
-		if(true) //DEBUG : set to false to see full thread before cutting
+		difference() 
 		{
-		
-			difference() 
-			{
-				//
-				translate([0, 0, - (internal ? channel_thread_bottom_spacer():0)
-												+ (length >= 2*pitch ? 0 : 2*pitch-length)
-									])
-					make_channel_thread(n_horiz_starts, n_vert_starts);
-
-				//Cut to length
-				translate([0, 0, 
-											oversized_len()/2 + //correct center = true
-												rest_of_channel_len(length)])
-						cube([diameter*1.1, diameter*1.1, oversized_len()], center=true);
-				
-			}
-		}
-		else
-		{
-			translate([0, 0,  - (internal ? channel_thread_bottom_spacer():0)
-												+ (length >= 2*pitch ? 0 : 2*pitch-length)
+			//
+			translate([0, 0, (length >= 2*pitch ? 0 : 2*pitch-length)
 								])
-			make_channel_thread(n_horiz_starts, n_vert_starts);
-		}
-	}
-
-					
-	// ------------------------------------------------------------------
-	// ------------------------------------------------------------------
-	// Thread modules
-	// ------------------------------------------------------------------
-	// ------------------------------------------------------------------
-	module make_std_thread(n_horiz_starts, n_vert_starts)
-	{
-			make_thread_polyhedron(turns = n_turns,
-													thread_starts_flat = true,
-													open_top = false,
-													n_horiz_starts = n_horiz_starts,
-													n_vert_starts = n_vert_starts,
-													minor_rad = minor_rad,
-													major_rad = major_rad,
-													major_radius = major_radius,
-													hollow_rad = hollow_rad,
-													is_hollow = is_hollow,
-													tooth_profile_map = 
-														leftUpperRight_xz_map(left_flat, upper_flat, tooth_flat,
-																										minor_rad, major_rad ),
-													is_channel_thread = is_channel_thread,
-													internal = internal,
-													pitch = pitch,
-													n_segments = n_segments,
-													seg_angle = seg_angle,
-													right_handed = right_handed,
-													taper_angle = taper_angle,
-													length = length
-												); 
-	}
-	
-	module make_channel_thread(n_horiz_starts, n_vert_starts)
-	{
 				make_thread_polyhedron(turns = n_turns,
 													thread_starts_flat = false,
 													open_top = true,
@@ -1945,11 +2169,9 @@ module m_thread(
 													minor_rad = minor_rad,
 													major_rad = major_rad,
 													major_radius = major_radius,
-													hollow_rad = hollow_rad,
 													is_hollow = is_hollow,
-													tooth_profile_map = 
-														leftUpperRight_xz_map(left_flat, upper_flat, tooth_flat,
-																										minor_rad, major_rad ),
+													hollow_rad = hollow_rad,
+													tooth_profile_map = tooth_profile_map,
 													is_channel_thread = is_channel_thread,
 													internal = internal,
 													pitch = pitch,
@@ -1958,7 +2180,17 @@ module m_thread(
 													right_handed = right_handed,
 													taper_angle = taper_angle,
 													length = length	
-												);  
+												);  				
+
+			//Cut to length
+			if(true) //DEBUG : set to false to see full thread before cutting
+			{
+				translate([0, 0, 
+										oversized_len()/2 + //correct center = true
+											rest_of_channel_len(length)])
+					cube([diameter*4, diameter*4, oversized_len()], center=true);
+			}
+		}
 	}
 } // end module m_thread()
 
@@ -1966,79 +2198,9 @@ module m_thread(
 
 //-----------------------------------------------------------
 //-----------------------------------------------------------
-// Tooth profile maps
+// Thread Polyhedron calculation
 //-----------------------------------------------------------
 //-----------------------------------------------------------
-// A tooth can have any profile with multiple edges. 
-// But so far all threads use the standard profile map.
-// limitations: 
-//   - z-value must not be the same for two points.
-//   - no overhangs (low convexitiy)
-//
-// TODO:
-// Manual polygon triangulation for complex tooth profile maps		
-// Implement it for other maps (Round for ropes or lifted ACME)
-
-// Basic tooth profile
-// Only the tooth points are defined. Connections to the next/previous
-// tooth profile gives the full tooths profile. This way no in between
-// points (at zero or at pitch) are needed.
-// The profile starts with the left flat. For standard threads, this is
-// not important, but for channel threads it is exactly what we want.
-// Before version 3 the threads started with lower_flat.	
-
-
-function leftUpperRight_xz_map(left_flat, upper_flat, tooth_flat,
-																minor_rad, major_rad) =
-					// Build xz map of tooth profile
-					upper_flat >= netfabb_degenerated_min()  ?
-						[ [	minor_rad,  // x
-								0],         // z offset
-							[	major_rad,
-								left_flat],
-							[	major_rad,
-								left_flat + upper_flat],
-							[	minor_rad,
-								tooth_flat]]
-					:
-						[ [	minor_rad,
-								0],
-							[	major_rad,
-								left_flat],
-							[	minor_rad,
-								tooth_flat]]		
-					;
-function leftUpperRight_xz_map_test(left_flat, upper_flat, tooth_flat,
-																		minor_rad, major_rad ) =
-					// Build xz map of tooth profile
-						[ [	minor_rad,  // x
-								0],					// z offset
-							[	minor_rad+0.2,
-								0.1],
-							[	minor_rad+0.3,
-								0.25],
-							[	minor_rad+0.4,
-								0.28],
-							[	minor_rad+0.45,
-								0.2811],
-							[	major_rad(),
-								left_flat],
-							[	major_rad,
-								left_flat + upper_flat],
-							[	minor_rad+0.5,
-								tooth_flat-0.15],
-							[	minor_rad+0.4,
-								tooth_flat-0.1],
-							[	minor_rad+0.3,
-								tooth_flat-0.0401],
-							[	minor_rad+0.2,
-								tooth_flat-0.04],
-							[	minor_rad,
-								tooth_flat-0.0]
-						]
-					;
-
-
 module make_thread_polyhedron(
 					turns = 1, //make_thread_polygon() adds always one turn to this value
 					thread_starts_flat = true, //"true" adds extra loop, so at z=0 the
@@ -2052,9 +2214,9 @@ module make_thread_polyhedron(
 					n_vert_starts = 1, //std threads can have more than one start (lifted)
 					minor_rad = 10,
 					major_rad = 12,
-					major_radius = major_radius,
-					hollow_rad = 5,
+					major_radius = 12,
 					is_hollow = true,
+					hollow_rad = 5,
 					tooth_profile_map,
 					is_channel_thread = false,
 					internal = false,
@@ -2066,10 +2228,6 @@ module make_thread_polyhedron(
 					length = 20	
 					)
 {
-
-
-
-
 
 	//-----------------------------------------------------------
 	//-----------------------------------------------------------
@@ -2166,8 +2324,6 @@ module make_thread_polyhedron(
 										//==> base height for one tooth. Flats must be added.
 										//1) increase z for every vertical start (tooth)
 										pitch * ((turn*n_tooths_per_turn()) + combined_start)
-										//2) add play offset
-										+ internal_play_offset_v3()
 										;
 	function get_3Dvec_profile_zOffset_bottom(turn, combined_start) =	
 										get_3Dvec_profile_zOffset(turn, combined_start)
@@ -2176,27 +2332,13 @@ module make_thread_polyhedron(
 										//			: 0
 										//	)
 										;	
-	// An internal thread must be rotated/moved because the calculation starts	
-	// at base corner of right flat which is not exactly over base
-	// corner of bolt (clearance and backlash)
-	// Combination of small backlash and large clearance gives 
-	// positive numbers, large backlash and small clearance negative ones.
-	// This is not necessary for channel_threads.
-	function internal_play_offset_v3() = 
-		internal && !is_channel_thread ?
-				( 	tan_right*clearance >= backlash/2 ?
-					-tan_right*clearance-backlash/2
-					: 
-					-(backlash/2-tan_right*clearance)
-				)
-			: 0;
+
 			
 			
 	// -------------------------------------------------------------
 	//Create an array of planar points describing the profile of the tooths.
 	function get_3Dvec_tooths_points(seg_plane_index) = 
 					[
-					//for (turn = [ 0 : (thread_starts_flat ? turns -1 : turns) ]) 
 					for (turn = [ 0 : n_turns_of_seg_plane(seg_plane_index)-1 ]) 
 						let (is_last_turn = (turn == n_turns_of_seg_plane(seg_plane_index)-1))
 						for (combined_start = [0 : n_tooths_per_turn()-1])  
@@ -2206,7 +2348,7 @@ module make_thread_polyhedron(
 																									combined_start,
 																									is_last_tooth,
 																									tooth_profile_map) )
-									ensure_turnability(major_rad, seg_angle, major_radius, point, internal)
+									point
 					]
 				;
 	// Profile 
@@ -2297,7 +2439,6 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 	// -------------------------------------------------------------
 	//- Rotate and lift ( z axis) the pre calculated planar tooths polygon
 	//  for each segment angle.
-	//- Extend radius for turnability
 	//- taper point
 	// Array of planar polygons rotated and lifted in z
 	function get_3Dvec_seg_plane_point_polygons() = [
@@ -2317,7 +2458,22 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 									) // z_offset
 								)// taper
 						];
-						
+	
+	// ----------------------------------------------------------------------------
+	// TODO : polyhedron axial orientation
+	// ------------------------------------------------------------------
+	//Correction angle so at x=0 is left_flat/angle
+	//Not needed so far. Two problems:
+	//Internal and external threads have different lower_flats and therefore
+	//a different turn angle. ==> no nice thread differences.
+	//With parameter "exact_clearance" a problem occurs. 
+	function poly_rot_slice_offset() =
+			((is_channel_thread ? 0 : 1)
+			 *(right_handed?1:-1)
+			 *(360/n_starts/pitch* (lower_flat/2)));
+
+
+			 
 	function rotation_angle(seg_plane_index) = 
 							right_handed ? 
 								(360/n_segments * seg_plane_index)
@@ -2380,13 +2536,11 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 					//   is too long and will be later cut to length.
 					taper_angle == 0 ? point //no taper needed
 					:	point.z == length ? point //start point, no taper
-						:	scale_xy(point, get_scale(get_taper_z(point)))
+						:	scale_xy(point, get_scale(major_radius, get_taper_at_z(point)))
 					;
 					
-	function get_scale(extension)	=
-						(major_radius + extension)/major_radius;
-						
-	function get_taper_z(point) = accurateTan(taper_angle)*(point.z-length);
+					
+	function get_taper_at_z(point) = accurateTan(taper_angle)*(point.z-length);
 
 		
 	// -------------------------------------------------------------
@@ -2503,8 +2657,105 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 	function is_last_plane_of_horiz_start(seg_plane) = 
 					(seg_plane+1) % (horiz_raster()+1) == 0 ;				
 	
-		
+	function i_2nd_center_point(faces_pts)	= 
+							len(faces_pts)
+								-1 //array, first center point
+								-1 //second center point
+						;
+		function i_2nd_center_point_bottom()	= 
+							0		// first center point
+							+ 1 //second center point
+						;					
 	
+	//-----------------------------------------------------------
+	//-----------------------------------------------------------
+	
+	function get_bottom_ring_faces(seg_plane_index,
+															current_faces_pts,
+															next_faces_pts) =
+			//Create facets if lowest thread point has a diameter larger
+			//than minor_rad		
+			let( //first tooth point, minor
+						adj_next_seg_index = get_adj_seg_plane_index(seg_plane_index+1),
+						point2_index = i_2nd_center_point_bottom()
+														+1 //first tooth point, minor
+						,
+						//first tooth point, major
+						point1_index = i_2nd_center_point_bottom()
+														+n_points_per_edge() //first tooth point, major
+										
+						,	
+						//first tooth point, major					
+						point4_index = i_2nd_center_point_bottom()
+														+ n_points_per_edge()
+														+ ((is_first_plane_of_horiz_start(adj_next_seg_index)) ? 
+																		n_points_per_turn() : 0)
+						,
+						//first tooth point, minor
+						point3_index = i_2nd_center_point_bottom()
+														+1
+														+ ((is_first_plane_of_horiz_start(adj_next_seg_index)) ? 
+																		n_points_per_turn() : 0)
+				)	
+			!(norm_xy(points_3Dvec[current_faces_pts[point2_index]])
+			>  norm_xy(points_3Dvec[current_faces_pts[point1_index]]))
+			&& false?
+				[]	
+			:
+				get_ring_faces(current_faces_pts, next_faces_pts,
+															false,  //is for bottom face
+															point1_index, point2_index, point3_index, point4_index)
+			
+			
+			;	
+															
+	function get_top_ring_faces(seg_plane_index,
+															current_faces_pts,
+															next_faces_pts) =
+			//Create facets if highest thread point has a diameter larger
+			//than minor_rad		
+			let( //first tooth point, minor
+						point1_index = i_2nd_center_point(current_faces_pts)
+										-1 //first tooth point, minor
+										- ((is_first_plane_of_horiz_start(seg_plane_index)) ? 
+																		n_points_per_turn() : 0),
+						//first tooth point, major
+						point2_index = i_2nd_center_point(current_faces_pts)
+										-n_points_per_edge() //first tooth point, major
+										- ((is_first_plane_of_horiz_start(seg_plane_index)) ? 
+																		n_points_per_turn() : 0),	
+						//first tooth point, major					
+						point3_index = i_2nd_center_point(next_faces_pts)-n_points_per_edge(),
+						//first tooth point, minor
+						point4_index = i_2nd_center_point(next_faces_pts)-1
+						
+				)	
+			!(norm_xy(points_3Dvec[current_faces_pts[point2_index]])
+			>  norm_xy(points_3Dvec[current_faces_pts[point1_index]]))
+			&& false?
+				[]	
+			:
+				get_ring_faces(current_faces_pts, next_faces_pts,
+															true,  //is_for_top_face
+															point1_index, point2_index, point3_index, point4_index)
+			
+			
+			;										
+	function get_ring_faces(current_faces_pts, next_faces_pts,
+													is_for_top_face,
+													point1_index, point2_index, point3_index, point4_index) =	
+									[	uturn(right_handed, is_for_top_face,			
+										[current_faces_pts[point1_index],
+										next_faces_pts[point4_index],
+										next_faces_pts[point3_index]						
+										]),
+									uturn(right_handed, is_for_top_face,
+										[current_faces_pts[point2_index],
+										current_faces_pts[point1_index],
+										next_faces_pts[point3_index]						
+									])
+									];											
+	//-----------------------------------------------------------
 	//-----------------------------------------------------------
 	// Get faces of one segment.
 	function get_seg_faces(seg_plane_index, 
@@ -2518,24 +2769,17 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 		// ******  Top  ******
 		// Top large cover triangles of segments to center
 		[uturn(right_handed, true,
-			[next_faces_pts[len(next_faces_pts)
-											-1 //array, first center point
-											-1 //second center point
-											],
+			[next_faces_pts[i_2nd_center_point(next_faces_pts)],
 				next_faces_pts[get_minor_face_point_index(
 														seg_faces_pts = next_faces_pts,
 														thread_face_point_index =	
-													len(next_faces_pts)
-													-1 //array, first center point
-													-1 //second center point
+													i_2nd_center_point(next_faces_pts)
 													-1 //minor point of point pair
 													)],
 				current_faces_pts[get_minor_face_point_index(
 														seg_faces_pts = current_faces_pts,
 														thread_face_point_index =	
-													len(current_faces_pts)
-													-1 //array, first center point
-													-1 //second center point
+													i_2nd_center_point(current_faces_pts)
 													-1 //minor point of point pair
 													- ((is_first_plane_of_horiz_start(seg_plane_index)) ? 
 																n_points_per_turn() : 0
@@ -2545,21 +2789,14 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 		// ******  Top  ******
 		// Top small cover triangles between segments to center
 		[uturn(right_handed, true,
-			[current_faces_pts[len(current_faces_pts)
-											-1 //array, first center point
-											-1 //second center point
-											],
-				next_faces_pts[len(next_faces_pts)
-											-1 //array, first center point
-											-1 //second center point
+			[current_faces_pts[i_2nd_center_point(current_faces_pts)],
+				next_faces_pts[i_2nd_center_point(next_faces_pts)
 											//-n_points_per_edge() //first tooth point
 											],
 				current_faces_pts[get_minor_face_point_index(
 														seg_faces_pts = current_faces_pts,
 														thread_face_point_index =	
-															len(current_faces_pts)
-																-1 //array, first center point
-																-1 //second center point
+																i_2nd_center_point(current_faces_pts)
 																-1 //minor point of point pair
 																- ((is_first_plane_of_horiz_start(seg_plane_index)) ? 
 																			n_points_per_turn() : 0
@@ -2567,59 +2804,16 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 				]
 				)
 			]
-		// For internal channel threads there is a gap between
-		// top segment covers to major diameter	
+		// ******  Top  ******
+		// If the top most point is larger than minor radius, then
+		// a gap appears on top of thread.
+		// Sample cases: - internal channel threads 
+		//               - rope threads
 		,
-			!(is_channel_thread && internal) ? []	
-			:
-			[	uturn(right_handed, true,			
-				[current_faces_pts[len(current_faces_pts)
-											-1 //array, first center point
-											-1 //second center point
-											-1
-											- ((is_first_plane_of_horiz_start(seg_plane_index)) ? 
-																			n_points_per_turn() : 0
-																			)
-											],
-				next_faces_pts[len(next_faces_pts)
-											-1 //array, first center point
-											-1 //second center point
-											-1 //first tooth point, minor
-											],
-				next_faces_pts[len(next_faces_pts)
-											-1 //array, first center point
-											-1 //second center point
-											-n_points_per_edge() //first tooth point, major
-											]						
-				]),
-				uturn(right_handed, true,
-				[current_faces_pts[len(current_faces_pts)
-											-1 //array, first center point
-											-1 //second center point
-											-n_points_per_edge() //first tooth point, major
-											- ((is_first_plane_of_horiz_start(seg_plane_index)) ? 
-																			n_points_per_turn() : 0
-																			)
-											],
-				current_faces_pts[len(current_faces_pts)
-											-1 //array, first center point
-											-1 //second center point
-											-1 //first tooth point, minor
-											- ((is_first_plane_of_horiz_start(seg_plane_index)) ? 
-																			n_points_per_turn() : 0
-																			)
-											],
-				next_faces_pts[len(next_faces_pts)
-											-1 //array, first center point
-											-1 //second center point
-											-n_points_per_edge() //first tooth point, major
-											]						
-				])
-				
-				
-				]
-		,
-		
+			get_top_ring_faces(seg_plane_index,
+													current_faces_pts,
+													next_faces_pts
+													)
 		
 		//Closing triangles to next segment
 		,( (!is_first_plane_of_horiz_start(seg_plane_index))? []
@@ -2627,23 +2821,15 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 				//Top triangle down to first segment
 				get_closing_planar_face(seg_plane_index = seg_plane_index,
 							start_seg_faces_pts = current_faces_pts,
-							face_center_pointIndex = len(current_faces_pts)
-																					-1 ///array, first center point
-																					-1, //second center point
-							highest_tooth_point_index = len(current_faces_pts)
-																						-1 //array, first center point
-																						-1 //second center point
+							face_center_pointIndex = i_2nd_center_point(current_faces_pts),
+							highest_tooth_point_index = i_2nd_center_point(current_faces_pts)
 																						-n_points_per_edge(), //first tooth point
-							lowest_tooth_point_index = len(current_faces_pts)
-																						-1 //array, first center point
-																						-1 //second center point
+							lowest_tooth_point_index = i_2nd_center_point(current_faces_pts)
 																						-n_points_per_edge() //first tooth point
 																						-n_points_per_turn(),
 							center_point_index = len(current_faces_pts)
 																					-1, ///array, first center point
-							last_visible_tooth_point_index = len(current_faces_pts)
-																					-1 ///array, first center point
-																					-1 //second center point
+							last_visible_tooth_point_index = i_2nd_center_point(current_faces_pts)
 																					-n_points_per_edge()
 																					-n_points_per_turn()
 																					,
@@ -2666,13 +2852,11 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 																//Each point existed twice in a point
 																//pair(major/minor). The most
 																//important is at first position.
-															: len(current_faces_pts)
-																-1 //array, first center point
-																-1 //second center point
+															: i_2nd_center_point(current_faces_pts)
 																-n_points_per_edge() //first point pair
 																-n_points_per_edge() //stop on point pair early
 																				//because we use later "face_set_index+2"
-																-0
+																+0
 																
 																]) 
 			if (facets_needed(next_point_offset, 
@@ -2699,16 +2883,20 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 		// Bottom triangles to center and closing face	
 		// Bottom triangle to center	
 	
-		[uturn(right_handed, false,
-			[current_faces_pts[2],
+	[uturn(right_handed, false,
+			[current_faces_pts[2+1],
 				current_faces_pts[1],
-				next_faces_pts[next_point_offset+2]])]
-	,
+				next_faces_pts[next_point_offset+n_points_per_edge()
+													+1 //Take minor 
+												]])]
+		,
 			[uturn(right_handed, false,
 				[current_faces_pts[1],
 					next_faces_pts[1],
-					next_faces_pts[next_point_offset+2]])]
-	,
+					next_faces_pts[next_point_offset+n_points_per_edge() 
+													+1 //Take minor 
+												]])]
+		,
 		//Closing triangle to next segment
 		(!is_first_plane_of_horiz_start(seg_plane_index) ? [] :
 			//Bottom planar face up to last seg_plane_index
@@ -2723,7 +2911,10 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 							is_for_top_face = false
 																)					
 		) // end condition bottom closing polygon
-
+		,
+			get_bottom_ring_faces(seg_plane_index,
+															current_faces_pts,
+															next_faces_pts)
 		); //end concat and function		
 		
 
@@ -2795,7 +2986,7 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 																				0 // center point
 																				+ n_center_points() //first point pair
 																				+ (tooth_index+1)*len_tooth_points
-																				- n_points_per_edge() //lower flat, no polygon
+																				//- n_points_per_edge() //lower flat, no polygon
 																		),
 																							
 																	lowest_tooth_point_index = 
@@ -2986,13 +3177,14 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 
 			[for (facets =		
 				[	for (tooth_element= [0:n_points_per_edge()
-																:highest_tooth_point_index
-																			-lowest_tooth_point_index-n_points_per_edge()])
+																:highest_tooth_point_index-lowest_tooth_point_index
+																	-n_points_per_edge()])
 					let(index = lowest_tooth_point_index + tooth_element,
 							needed_polygons = needed_tooth_element_polygons(seg_faces_pts, index)
 							)
 						[
-							//DEBUG : [999999, lowest_tooth_point_index,highest_tooth_point_index],
+							//DEBUG : 
+							//[999999, lowest_tooth_point_index,highest_tooth_point_index],
 							// 1 : Higher polygon of tooth element
 							(needed_polygons[1] ?	
 								uturn(right_handed, is_for_top_face,
