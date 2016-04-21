@@ -1288,8 +1288,86 @@ module US_national_pipe_thread(
 			);	
 }
 
+//-------------------------------------------------------------------
+//-------------------------------------------------------------------
+// Meccano Worm Thread
+//
+module meccano_worm_gear_narrow_No32b (
+			right_handed = true,
+			printify_top = false,
+			printify_bottom = false,
+			exact_clearance = true
+)
+{
+	meccano_worm_thread (
+			length = (7/8 * 25.4)-6,  //6mm = about the length of the hub
+			diameter = 15/32 * 25.4,  //http://www.meccanospares.com/32b-BR-N.html
+			right_handed = true,
+			printify_top = false,
+			printify_bottom = false,
+			exact_clearance = true
+			);
+}
 
-// ----------------------------------------------------------------------------
+module meccano_worm_gear_std_No32 (
+			right_handed = true,
+			printify_top = false,
+			printify_bottom = false,
+			exact_clearance = true
+)
+{
+	meccano_worm_thread (
+			length = (7/8 * 25.4)-6,  //6mm ca Hub
+			diameter = 25.4*0.553,		//technical drawing
+			right_handed = true,
+			printify_top = false,
+			printify_bottom = false,
+			exact_clearance = true
+			);
+}
+			
+			
+
+ module meccano_worm_thread (
+			length = 10,
+			diameter = 25.4*0.553,
+			right_handed = true,
+			printify_top = false,
+			printify_bottom = false,
+			exact_clearance = true
+)
+{
+	maj_rad = diameter / 2;
+	min_rad = diameter / 2 - 25.4*0.064;
+	echo("*** Meccano Worm Data ***");
+	echo("thread depth :",1/25.4*(maj_rad));
+	echo("gear mesh [inch]:",(maj_rad+min_rad)/25.4);
+	echo("gear mesh [mm]:",(maj_rad+min_rad), 25.4/2);	
+	echo("*** End Meccano Worm Data ***");
+	
+    simple_profile_thread (
+			pitch = 25.4/12,  //12 TPI
+			length = length,
+			upper_angle = 20, 
+			lower_angle = 20,
+			outer_flat_length = (25.4*0.037)-2*(tan(20)*(25.4*0.026)),
+			major_radius = maj_rad,
+			minor_radius = min_rad,
+			internal = false,
+			n_starts = 1,
+			right_handed = right_handed,
+			clearance = 0,
+			backlash =  0,
+			printify_top = printify_top,
+			printify_bottom = printify_bottom,
+			bore_diameter = 4,
+			exact_clearance = exact_clearance
+			);
+}
+
+//-------------------------------------------------------------------
+//-------------------------------------------------------------------
+// Channel Thread
 //
 module channel_thread(
 		thread_diameter = 8,
