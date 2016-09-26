@@ -91,6 +91,8 @@
 // History
 // -------------------------------------------------------------------
 /*
+ * Version 3.3  2016-09-26  indazoo
+ *                          - fixed wrong calculation of round "rope threads".
  * Version 3.2  2015-06-05  indazoo
  *                          - supports now tooth maps. You can create a map of your
  *                            custom tooth profile and easily create a thread.
