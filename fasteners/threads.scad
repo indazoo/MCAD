@@ -337,7 +337,6 @@
 //test_NPT();
 //test_BSP();
 
-
 module test_threads ($fa=5, $fs=0.1)
 {
     // M8
@@ -1327,8 +1326,7 @@ module meccano_worm_gear_std_No32 (
 }
 			
 			
-
- module meccano_worm_thread (
+module meccano_worm_thread (
 			length = 10,
 			diameter = 25.4*0.553,
 			right_handed = true,
@@ -1972,12 +1970,12 @@ module rope_thread(
 }
 
 module rope_profile_thread(
-	pitch,
-	length,
-	rope_diameter,
+	pitch=1,
+	length=10,
+	rope_diameter=0.5,
 	rope_bury_ratio=0.4,
 	coarseness = 10,
-	major_radius,
+	major_radius=20,
 	internal = false,
 	n_starts = 1,
 	right_handed = true,
@@ -2019,12 +2017,9 @@ module rope_profile_thread(
 		);
 
 	//-----------------------------------------------------------
-	//-----------------------------------------------------------
 	// Tooth profile map
 	//-----------------------------------------------------------
-	//-----------------------------------------------------------
 	// A tooth can have any profile with multiple edges. 
-	// But so far all threads use the standard profile map.
 	// limitations: 
 	//   - z-value must not be the same for two points.
 	//   - no overhangs (low convexitiy)
@@ -2045,6 +2040,7 @@ module rope_profile_thread(
 			let(rope_radius = rope_diameter/2,
 					buried_depth = rope_radius * rope_bury_ratio,
 					unburied_depth = rope_radius-buried_depth,
+					buried_height =  2*sqrt(pow(rope_radius,2)-pow(unburied_depth,2)), //coarseness must go over the buried part only
 					unused_radius = rope_radius - sqrt(pow(rope_radius,2)-pow(unburied_depth,2)),
 					left_upper_flat	= (pitch-(rope_diameter-2*unused_radius))/2,
 					right_upper_flat = pitch-(rope_diameter-2*unused_radius) -left_upper_flat
@@ -2053,8 +2049,8 @@ module rope_profile_thread(
 				[	[major_radius, 0],
 					[major_radius, left_upper_flat]]
 			,
-				[for ( circel_seg = [1:coarseness-1])
-					let(z_offset = circel_seg * (rope_diameter/coarseness),
+				[for ( circel_seg = [1:coarseness-1]) 
+					let(z_offset = circel_seg * (buried_height/coarseness),
 							current_rad_on_base = abs(rope_radius - (unused_radius + z_offset)),
 							depth = sqrt(pow(rope_radius,2)- abs(pow(current_rad_on_base,2)))
 												-unburied_depth
