@@ -2375,7 +2375,7 @@ module make_thread_polyhedron(
 	//-----------------------------------------------------------
 
 	function get_3Dvec_tooth_points(turn, combined_start, is_last_tooth, tooth_profile_map ) =
-			let(y_offset = get_3Dvec_profile_yOffset())
+			let(y_offset = get_3Dvec_profile_yOffset())  //So far it is zero.
 			concat(
 				[for (points =	
 					
@@ -2438,15 +2438,16 @@ module make_thread_polyhedron(
 			tooth_x
 		:
 		(
+			// 2 : Channel threads
 			internal?
 			(
-				// 2 : For internal channel threads create enough space to insert
+				// 2A : For internal channel threads create enough space to insert
 				//     male channel thread.
 				get_3Dvec_profile_xOffset_major()
 			)
 			:
 			(
-				// 3 : For external channel threads do not create a thread
+				// 2B : For external channel threads do not create a thread
 				//     above first turn
 				get_3Dvec_profile_xOffset_minor()
 			)
