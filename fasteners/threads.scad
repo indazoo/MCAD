@@ -1573,8 +1573,8 @@ function radius_extension(radius, angle, screw_radius, internal) =
 // changing the treshold to 0.0001 in Netfabb settings.
 function netfabb_degenerated_min() = 0.0011; 
 min_openscad_fs = 0.01;
-min_center_x = 1 * netfabb_degenerated_min();//DEBUG: use 1200 * degen_min()
-
+min_center_x = 2 * netfabb_degenerated_min();//DEFAULT 2*netfabb_degenerated_min(), DEBUG: use 1200 * netfabb_degenerated_min()
+tol = 1/pow(2,50); //8.88178*10-16
 
 function get_clearance(clearance, internal) = (internal ? clearance : 0);
 function get_backlash(backlash, internal) = (internal ? backlash : 0);
