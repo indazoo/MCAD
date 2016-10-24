@@ -3075,24 +3075,33 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 																		is_for_top_face
 																	) =
 							concat(
-								// 1 : The face polygons along tooth bases of first turn 
-								//     to the center
-				
+								// 1 : The closing face polygons along tooth base (minor radius) of first or last turn 
+								//     to the center. This does not include the polygons of the tooth itself.
+								//     Since std threads have a flat top/bottom they are not needed.
+								//     Since channel threads have a flat top, supress it also for this case.
+								1==1
+									&& (is_channel_thread && !is_for_top_face) ?
 								[ 
 										for (face = get_closing_face_to_toothbase(
 														seg_faces_pts = start_seg_faces_pts,
 														face_center_pointIndex = face_center_pointIndex,
 														is_for_top_face = is_for_top_face))
 											face
-								]	
+								]	: []
+								
 						,
-								// 2 : every tooth has its polygon.
-								//     Tests showed, that polygons from center to tooth peak
+								// 2 : The closing face polygons for the tooth profile to tooth base (minor radius).
+								//     Tests showed, that polygons from center to tooth points
 								//     are not ok for OpenScad. It creates its own polygons for
-								//     the tooth if it feels so. Because polygons from center point (0)
+								//     the tooth if it feels so. So tooth face and base to center were seperated.
+								//     Also, because polygons from center point (0)
 								//     do not work because with large flank angles lines from 
 								//     center point to upper flat intersect with lower flat line.	
+								//     Since std threads have a flat top/bottom they are not needed.
+								//     Since channel threads have a flat top, supress it also for this case.
 						
+								(1==1 
+									&& is_channel_thread && !is_for_top_face) ?						
 								[ for (tooth_index = [0:n_tooths_per_start()-1])
 										for (face = get_closing_tooth_face(
 																	seg_faces_pts = start_seg_faces_pts,
@@ -3126,75 +3135,7 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 													)
 										face
 								]		//n_tooths_per_start()
-								
-							,
-								// 3 : The polygons to center points of all segments
-								//     or hollow shaft
-								//     It was necessary to include all center points so
-								//     netfabb does not reports a "hole" in center
-								//     Also it was necessary to split the planar multipoint
-								//     polygon into simple one (3 corners) to prevent "non
-								//     planar" messages
-								
-								( is_hollow ?
-									(is_for_top_face ? [] : //inner walls only once if hollow
-									[for (vert_facets =
-										[for (segIndex = [seg_plane_index:
-																			seg_plane_index + (n_segments/n_horiz_starts)-1])
-											let(adj_seg_index = get_adj_seg_plane_index(segIndex+1),
-													adj_plane_len = //points to second center point
-														len(pre_calc_faces_points[adj_seg_index])-1-1) 
-											[uturn(right_handed, true,
-												[pre_calc_faces_points[adj_seg_index][adj_plane_len],
-												pre_calc_faces_points[segIndex][
-															len(pre_calc_faces_points[segIndex])-1-1],
-												pre_calc_faces_points[adj_seg_index][1]
-												])
-											,
-											uturn(right_handed, true,
-												[pre_calc_faces_points[segIndex][
-															len(pre_calc_faces_points[segIndex])-1-1],
-												pre_calc_faces_points[segIndex][1],
-												pre_calc_faces_points[adj_seg_index][1]
-												])
-											]
-										])
-										for (facet=vert_facets) //flatten
-											if (len(facet) == 3) 
-											facet
-									]
-										) // end is_for_top_face
-								:
-									 //Not hollow, draw center facets
-									( is_for_top_face ?
-										// is_for_top_face
-										[for (segIndex = [seg_plane_index:
-																			seg_plane_index + (n_segments/n_horiz_starts)-1])
-											let(adj_seg_index = get_adj_seg_plane_index(segIndex+1),
-													adj_plane_len = //points to second center point
-														len(pre_calc_faces_points[adj_seg_index])-1-1) 
-											uturn(right_handed, is_for_top_face,
-												[pre_calc_faces_points[adj_seg_index][adj_plane_len],
-												pre_calc_faces_points[segIndex][
-															len(pre_calc_faces_points[segIndex])-1-1],
-												start_seg_faces_pts[center_point_index]
-												])
-										]
-										:
-										// is_for_bottom_face
-										[for (segIndex = [seg_plane_index :
-																		seg_plane_index + (n_segments/n_horiz_starts)-1])
-										let(adj_seg_index = get_adj_seg_plane_index(segIndex+1)
-												) 
-										uturn(right_handed, is_for_top_face,
-											[pre_calc_faces_points[adj_seg_index][face_center_pointIndex],
-											pre_calc_faces_points[segIndex][face_center_pointIndex],
-											start_seg_faces_pts[center_point_index]
-											])
-										]
-									) // end center facets (not hollow) 
-								) // end is_hollow
-								
+								: []		
 							);
 										
 
