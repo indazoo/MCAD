@@ -306,7 +306,7 @@
 //$fn=67;
 // Test Case 1:
 // $fn=26; //or 58
-// metric_thread(8, pitch=3, length=5, right_handed=true, internal=false, n_starts=3, bore_diameter=2);
+//metric_thread(8, pitch=3, length=5, right_handed=true, internal=false, n_starts=3, bore_diameter=2);
 // ==>  if bottom _z() is above zero then there was a polygon too much at bottom.
 
 // Test Case 2 (TODO) :
@@ -352,7 +352,7 @@
 //test_threads();
 //test_channel_threads();
 //test_slot_tabs();
-//test_metric_right(internal = false);
+test_metric_right(internal = false);
 //test_metric_right_n_starts();   
 //test_metric_right_large_pitch();
 //test_metric_right_and_internal();
@@ -383,20 +383,20 @@
 module test_threads ($fa=5, $fs=0.1)
 {
     // M8
-    metric_thread(8, pitch=1.5, length=5);
+	metric_thread(8, pitch=1.5, length=5);
 	
-    translate ([0, 15, 0])
-        metric_thread(8, pitch=1.5, length=5, right_handed=false);
+  translate ([0, 15, 0])
+    metric_thread(8, pitch=1.5, length=5, right_handed=false);
 
 
-    // multiple start:
-    translate ([0, -15, 0])
+  // multiple start:
+  translate ([0, -15, 0])
     metric_thread(8, pitch=3, length=5, internal=false, n_starts=3);
 
-
+	
     translate ([10, 0, 0])
     square_thread(8, pitch=1.5, length=5);
-
+	
     translate ([20, 0, 0])
     acme_thread(8, pitch=1.5, length=5);
 
@@ -2352,11 +2352,12 @@ module make_thread_polyhedron(
 	// ------------------------------------------------------------------
 	// Debug Messages
 	// ------------------------------------------------------------------
-	
+	/*
 	echo("n_segments",n_segments);
 	echo("seg_angle",seg_angle);
 	echo("tooth_profile_map", tooth_profile_map);
 	echo("is_hollow", is_hollow);
+	*/
 	
 	//-----------------------------------------------------------
 	//-----------------------------------------------------------
@@ -2443,7 +2444,7 @@ module make_thread_polyhedron(
 			)
 		)
 		;	
-		
+
 	function get_3Dvec_profile_xOffset_minor() = minor_rad;
 	function get_3Dvec_profile_xOffset_major() = major_rad;
 	function get_3Dvec_profile_yOffset() =	0;
@@ -2535,14 +2536,14 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 	function n_turns_of_seg_plane(seg_plane_index) =
 						is_first_plane_of_horiz_start(seg_plane_index) ? (turns+1) : turns;
 
-	function n_points_per_turn() =  n_tooths_per_turn() *len_tooth_points;
-	function n_points_per_start() =  n_vert_starts *len_tooth_points;
+	function n_points_per_turn() =  n_tooths_per_turn() * len_tooth_points;
+	function n_points_per_start() =  n_vert_starts * len_tooth_points;
 	function n_tooths_per_turn()	= n_vert_starts;//*n_horiz_starts;					
 	function n_tooths_per_start()	= n_vert_starts;										
 	function n_center_points() = 2;				
 	function n_points_per_edge() = 2;		
 	function is_center_point(point_index, tooths_polygon) = (point_index < n_center_points()) || (point_index > len(tooths_polygon)-n_center_points()-1);
-	function top_z() = is_channel_thread ? length-(-1)*bottom_z() : length;
+	function top_z() = is_channel_thread ? length-(-1)*bottom_z(): length;
 	function bottom_z() = is_channel_thread ? -thread_height_below_zero() :  0;
 	function thread_height_below_zero() = is_channel_thread ? 2* pitch*n_tooths_per_start() : pitch*n_tooths_per_turn();
 	
@@ -2551,7 +2552,13 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 	//Create a closed planar (point.y=0) polygon with tooths profile and center points
 	function get_3Dvec_tooths_polygon(seg_plane_index) =
 						complete_3Dvec_tooths_polygon(get_3Dvec_tooths_points(seg_plane_index));
-
+	//DEBUG
+	/*
+	echo("******************", len(get_3Dvec_tooths_points(0)), len(get_3Dvec_tooths_points(1)));
+	echo("******************", get_3Dvec_tooths_points(0));
+	echo("******************", get_3Dvec_tooths_points(1));
+	*/
+	
 	function complete_3Dvec_tooths_polygon(tooths_profile) = 
 				concat(
 					//bottom center point
@@ -2578,24 +2585,728 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 	//  for each segment angle.
 	//- taper point
 	// Array of planar polygons rotated and lifted in z
-	function get_3Dvec_seg_plane_point_polygons() = [
-							for (seg_plane_index = [0:get_n_segment_planes()-1])
-								get_3Dvec_seg_plane_point_polygons_aligned(seg_plane_index)
+	function get_3Dvec_seg_plane_point_polygons() = 
+						[
+							let(aligned_3Dvec_segments_points = 
+									[
+										for (seg_plane_index = [0:get_n_segment_planes()-1])
+											get_3Dvec_seg_plane_point_polygons_aligned(seg_plane_index, tol)
+									],
+									all_toped_seg_points =
+									[
+											for(seg_index = [0:1:len(aligned_3Dvec_segments_points)-1])
+												let(previous_seg_index = get_adj_seg_plane_index(seg_index-1),
+														toped_seg_points = orientate_thread_points_at_z(top_z(), true, false, seg_index, aligned_3Dvec_segments_points[seg_index], 
+																											previous_seg_index, aligned_3Dvec_segments_points[previous_seg_index])
+													)
+												//aligned_3Dvec_segments_points[seg_index]
+												toped_seg_points
+							
+									],
+									all_bottomed_seg_points_reinverted = 
+										[
+											for(seg_index = [0:1:len(all_toped_seg_points)-1]) //the order direction does not matter, the z-values are given per segement.
+												let(adj_seg_index = get_adj_seg_plane_index(seg_index),
+														previous_seg_index = get_adj_seg_plane_index(adj_seg_index+1), //+1 because the inverse thread has more negative z-values with rising segement index (for right -handed threads).
+														toped_seg_points_inv =invert_minor_major(
+																											invert_order(
+																												invert_z(all_toped_seg_points[adj_seg_index])
+																											)
+																										)
+																										,
+														previous_toped_seg_points_inv = invert_minor_major(
+																											invert_order(
+																												invert_z(all_toped_seg_points[previous_seg_index])
+																											)
+																										),
+														bottomed_seg_points = is_channel_thread ? toped_seg_points_inv
+																							: orientate_thread_points_at_z(-(bottom_z()+0), true, true, 
+																											adj_seg_index, toped_seg_points_inv, 
+																											previous_seg_index, previous_toped_seg_points_inv),
+														bottomed_seg_points_reinv = invert_z(
+																													invert_order(
+																														invert_minor_major(bottomed_seg_points)
+																													)
+																												)
+													)
+											bottomed_seg_points_reinv
+										],
+									return_reversed = false,
+									start_seg = return_reversed ? len(all_bottomed_seg_points_reinverted)-1 : 0,
+									end_seg = return_reversed ? 0 : len(all_bottomed_seg_points_reinverted)-1,
+									step_seg = return_reversed ? -1 : 1
+							)
+								//return segements in reverse
+								for(seg_index = [start_seg:step_seg:end_seg])
+									all_bottomed_seg_points_reinverted[seg_index]
 						];
-	pre_calc_seg_plane_point_polygons = get_3Dvec_seg_plane_point_polygons();
 
-	function get_3Dvec_seg_plane_point_polygons_aligned(seg_plane_index) = [
-							for (point = get_3Dvec_tooths_polygon(seg_plane_index))  
-								taper(
-									z_offset_v3(get_segment_zOffset(seg_plane_index) 
-													- (is_channel_thread ? 2* pitch*n_tooths_per_start() : 
-																					pitch*n_tooths_per_turn()),
-										rotate_xy(rotation_angle_synced(seg_plane_index), point)
+	pre_calc_seg_plane_point_polygons = get_3Dvec_seg_plane_point_polygons();
+	/*
+	//DEBUG
+	pre_calc_seg_index=0;	
+	echo("get_3Dvec_seg_plane_point_polygons_aligned(pre_calc_seg_index)",pre_calc_seg_plane_point_polygons[pre_calc_seg_index], len(pre_calc_seg_plane_point_polygons[pre_calc_seg_index]), len(get_3Dvec_tooths_polygon(pre_calc_seg_index)));
+	*/
+								
+	function invert_minor_major(array_of_3D_vectors) =
+			[
+				for(index = [0:1:len(array_of_3D_vectors)-1])
+					index < n_center_points() || index > len(array_of_3D_vectors) -1 - n_center_points() ?
+						array_of_3D_vectors[index]
+					: index % n_points_per_edge() == 0 ?
+							array_of_3D_vectors[index+1]
+						:
+							array_of_3D_vectors[index-1]
+			];
+				
+	function invert_order(array_of_3D_vectors) =
+			[
+				for(index = [len(array_of_3D_vectors)-1:-1:0])
+					array_of_3D_vectors[index]
+			];
+	function invert_z(array_of_3D_vectors) =
+			[
+				for(vec = array_of_3D_vectors)
+					[vec.x, vec.y, -1*vec.z]
+			];
+
+	/*
+	//DEBUG
+	p_tol_index = 11;
+	echo("points tolerance", get_3Dvec_tooths_polygon(p_tol_index));
+	echo("po new tolerance", orientate_length_points_for_tolerance(tol, get_3Dvec_tooths_polygon(p_tol_index)));
+	echo("po diff", arrayDiff(get_3Dvec_tooths_polygon(p_tol_index),orientate_length_points_for_tolerance(tol, get_3Dvec_tooths_polygon(p_tol_index))));
+	*/
+				
+	function get_3Dvec_seg_plane_point_polygons_aligned(seg_plane_index, tol) = 
+							let(tooths_polygon = get_3Dvec_tooths_polygon(seg_plane_index)		
+									)
+									orientate_all_points_for_rotation(seg_plane_index,  
+											orientate_profile_tooths_for_taper(
+												orientate_all_points_in_z(seg_plane_index,
+													orientate_length_points_for_tolerance(tol, 
+													tooths_polygon
+													) //orientate_all_points_in_z
+												) //orientate_all_points_in_z
+											)// taper
+									)// orientate_all_points_for_rotation
+						;
+						
+	function orientate_length_points_for_tolerance(tol, tooths_polygon) = [
+							for( point = tooths_polygon)
+								(point.z < top_z()-tol || point.z > top_z()+tol) ? point : [point.x, point.y, top_z()]//length+tol]  
+							];
+							
+	function orientate_all_points_for_rotation(seg_plane_index, tooths_polygon ) = [
+								for( point = tooths_polygon)
+									rotate_xy(rotation_angle_synced(seg_plane_index), point )
+								];
+								
+	function orientate_all_points_in_z(seg_plane_index,tooths_polygon ) = 
+								!is_channel_thread  ?
+								[
+									for (point_index = [0:1:len(tooths_polygon)-1] ) 
+										is_center_point(point_index, tooths_polygon) ? 
+											(//because we want a thread ending at zero or length
+											point_index <= n_center_points() ?
+												[tooths_polygon[point_index].x,  tooths_polygon[point_index].y, bottom_z()] //Bottom center points
+											:
+												[tooths_polygon[point_index].x,  tooths_polygon[point_index].y, top_z()] //Top center points
+											)
+										:
+											(z_offset_v3(get_segment_zOffset(seg_plane_index) - thread_height_below_zero() //Tooth points
+															, tooths_polygon[point_index] )
+											)
+								]
+								:
+								[
+									for (point_index = [0:1:len(tooths_polygon)-1] ) 
+										is_center_point(point_index, tooths_polygon) && (point_index > n_center_points()) ? 
+											//Top center points to zero
+											[tooths_polygon[point_index].x,  tooths_polygon[point_index].y, top_z()] 
+										:
+											z_offset_v3(get_segment_zOffset(seg_plane_index) - thread_height_below_zero() 
+															, tooths_polygon[point_index] )
 										
-									) // z_offset
-								)// taper
-						];
+								]									
+								;
+
+	function orientate_profile_tooths_for_taper(tooths_polygon) =
+		(!is_channel_thread ?
+			// 1 : For standard threads shrink profile to get a tapered thread.
+			[ for (point_index = [0:1:len(tooths_polygon)-1] ) 
+					(is_center_point(point_index, tooths_polygon) ? 
+						tooths_polygon[point_index]  //do not taper center points
+						:
+						((point_index - n_center_points() % n_points_per_edge()) == 0 ?
+							taper(tooths_polygon[point_index])
+							: tooths_polygon[point_index] //do not taper secondary helper point of profile
+						)
+					)
+			]
+		:
+			// Channel thread
+			tooths_polygon
+		)
+		;			
+
+	function arrayDiff(array1,array2) = [
+		for (index = [0:1:len(array1)-1] )
+			[array1[index].x-array2[index].x,array1[index].y-array2[index].y,array1[index].z-array2[index].z]
+		];
+		
+	function array_replace_at(index, array, replacement) =
+					concat(
+					//first part
+					[
+					for(first_index = [0:1: index-1])
+						array[first_index]
+					]
+					,
+					//replacement part
+					replacement
+					,
+					//end part
+					[
+					for(last_index = [index+len(replacement):1: len(array)-1])
+						array[last_index]
+					]
+				);
+					
+	function matrix_3x3_determinant(matrix) = 
+		  	A[0][0]*(A[1][1]*A[2][2]-A[2][1]*A[1][2])
+     		-A[0][1]*(A[1][0]*A[2][2]-A[1][2]*A[2][0])
+      	+A[0][2]*(A[1][0]*A[2][1]-A[1][1]*A[2][0]);
+			
+	function matrix_3x3_transposed_inversed(A) =
+		//http://stackoverflow.com/a/984286
+		let(invdet = 1/matrix_3x3_determinant(A)
+				)
+		[
+			[
+				(A[1][1]*A[2][2]-A[2][1]*A[1][2])*invdet //result(0,0)
+			 -(A[1][0]*A[2][2]-A[1][2]*A[2][0])*invdet //result(0,1)
+				(A[1][0]*A[2][1]-A[2][0]*A[1][1])*invdet //result(0,2)
+			],[                                        
+			 -(A[0][1]*A[2][2]-A[0][2]*A[2][1])*invdet //result(1,0)
+			  (A[0][0]*A[2][2]-A[0][2]*A[2][0])*invdet //result(1,1)
+			 -(A[0][0]*A[2][1]-A[2][0]*A[0][1])*invdet //result(1,2)
+			 ],[                                       
+			  (A[0][1]*A[1][2]-A[0][2]*A[1][1])*invdet //result(2,0)
+			 -(A[0][0]*A[1][2]-A[1][0]*A[0][2])*invdet //result(2,1)
+			  (A[0][0]*A[1][1]-A[1][0]*A[0][1])*invdet //result(2,2)
+			]
+		];		
+		
+	function matrix_3x3_inversed(A) =
+		//http://stackoverflow.com/a/18504573
+		//https://en.wikipedia.org/wiki/Invertible_matrix
+		let(invdet = 1/matrix_3x3_determinant(A)
+				)
+		[
+			[
+				(A[1][1]*A[2][2]-A[2][1]*A[1][2])*invdet //minv(0, 0)
+			 -(A[0][2]*A[2][1]-A[0][1]*A[2][2])*invdet //minv(0, 1)
+				(A[0][1]*A[1][2]-A[0][2]*A[1][1])*invdet //minv(0, 2)
+			],[                                        
+			 -(A[1][2]*A[2][0]-A[1][0]*A[2][2])*invdet //minv(1, 0)
+			  (A[0][0]*A[2][2]-A[0][2]*A[2][0])*invdet //minv(1, 1)
+			 -(A[1][0]*A[0][2]-A[0][0]*A[1][2])*invdet //minv(1, 2)
+			 ],[                                       
+			  (A[1][0]*A[2][1]-A[2][0]*A[1][1])*invdet //minv(2,0)
+			 -(A[2][0]*A[0][1]-A[0][0]*A[2][1])*invdet //minv(2,1)
+			  (A[0][0]*A[1][1]-A[1][0]*A[0][1])*invdet //minv(2,2)
+				]
+		];
+
+	function zero_cross_x2(point_below, point_above, cross_z) =
+		let(x_distance = abs(point_below.x - point_above.x),
+				z_distance = abs(point_above.z-point_below.z),
+				x_sign = point_below.x > point_above.x ? 1 : -1
+				)	
+				x_distance == 0 ? point_below.x : 
+					point_above.x + x_sign*(x_distance/z_distance)*(point_above.z-cross_z); //congruence helps
 	
+	
+	function orientate_thread_points_at_z(z, is_for_top, is_inverted, current_seg_plane_index, current_seg_points, 
+																				previous_seg_plane_index, previous_seg_points) =
+		//For threads with steep slopes (for example with many starts) the "next" point
+		//of the second polygon of a face set may be above top_z() (length or z=0) or below zero.
+		let(firstpoint_index = is_for_top ? n_center_points() //start at first point
+														: //For inverse arrays the points are called in reverse order (88,87,86,85).
+														  //So we must end at second point to have a valid P2
+															n_center_points() + n_points_per_edge(),
+				lastpoint_index = is_for_top ? 
+														//end at second last point to have a valid P2
+														len(current_seg_points)-n_center_points() // points to second top center point
+																		-n_points_per_edge() //points to last point
+																		-n_points_per_edge() //points to second last point
+													: //For inverse array we can start at last point
+														len(current_seg_points)-n_center_points() // points to second top center point
+																		-n_points_per_edge() //points to last point
+				)//end let
+		//Result
+		[
+		for(point =
+			recursive_cross_point_calculation(z, is_for_top, is_for_top ? 1 : -1, is_inverted, 
+						is_for_top ? 0 : len(current_seg_points)-1, 
+						firstpoint_index, 
+						lastpoint_index-0, is_for_top ? len(current_seg_points)-1 : 0,
+						current_seg_points, current_seg_plane_index,
+						previous_seg_points, previous_seg_plane_index))
+			point
+		]
+		;
+			
+	function recursive_cross_point_calculation(z, is_for_top, inversion_index_sign, is_inverted, 
+										point_index, firstpoint_index, lastpoint_index, maxpoint_index,
+										current_seg_points, current_seg_plane_index,
+										previous_seg_points, previous_seg_plane_index) =
+				// inversion_index_sign:
+				//	The algorithm in function orientate_thread_points_of_faceset_for_below_z() expects the z values increase from bottom to top.
+				//	Therefore, it expects Current_P1 is always at lower or the same height as Current_P2 and Next_P1 is always at lower
+				//	or the same height as Next_P2.
+				//	If the thread is inverted (z-axis, is_for_top = false) then points with higher indexes have a lower z value. The indexes of the points
+				//	at the bottom of the inverted object are higher than the indexes at top. But the order of the points inside the array is the same. 
+				//	Also, for inverted arrays, this recursive function is being called first with high indexes then going to lower to imitate
+				//	the behaviour as for non inverted arrays of "crawling up".
+				//	So, to let orientate_thread_points_of_faceset_for_below_z work properly we must subtract to get the correct minor/next point.
+				
+					is_for_top && point_index >= maxpoint_index //top calculation ends at len
+					|| !is_for_top && point_index <= maxpoint_index	? //bottom calculation ends at zero
+						 current_seg_points //break recursion
+					:
+					let(z_check_not_needed = point_index < firstpoint_index 
+													|| point_index >	lastpoint_index
+													|| (is_inverted && 
+															//ignore points on top for inverted threads, there are no previous points.
+															(is_first_plane_of_horiz_start(current_seg_plane_index) && point_index > len(current_seg_points)
+																																																				- n_center_points() //at second last center point 
+																																																				- n_points_per_edge() //at last major point
+																																																				- n_points_per_start()
+																																																				))
+													|| false && (is_for_top  ?
+																is_inverted ? false :
+																//ignore points on bottom for non-inverted threads, there are no previous points.
+																(is_first_plane_of_horiz_start(current_seg_plane_index) && point_index < (n_points_per_start() + n_center_points()))
+															: //Bottom case:
+																//The thread is inverted. Therefore also the z-values are inverted. Lower indexes ar at top.
+																// ==> The same code as for "top"
+																//For inverse arrays we go through 7,6,5..2,1,0 segement indexes and
+																//through 6,5,4,...1,0,7 previous segment indexes.
+																//Also, for inverse arrays we go through 99,98,97,...0 point indexes.
+																(is_first_plane_of_horiz_start(current_seg_plane_index) && point_index < (n_points_per_start() + n_center_points()))
+																//(is_first_plane_of_horiz_start(current_seg_plane_index) && point_index > len(current_seg_points)-1-n_center_points()-n_points_per_start()-10)
+															)
+						)
+						z_check_not_needed ?
+							//Ignore center points, top last points and first seg_plane on first turn (these points have no previous).
+							//Continue working with unchanged "current_seg_points" one index higher.
+							recursive_cross_point_calculation(z, is_for_top, inversion_index_sign, is_inverted, 
+												point_index+1*inversion_index_sign, firstpoint_index, lastpoint_index, maxpoint_index,
+												current_seg_points, current_seg_plane_index,
+												previous_seg_points, previous_seg_plane_index)
+						:
+							// TODO:
+							// For the function's orientate_thread_points_of_faceset_for_below_z() cases to work, the condition exists that previous points are below current.
+							// This is the case for right and left handed threads for top. With left handed threads, the segements come in the inverse order.
+							// For "top" the function orientate_thread_points_of_faceset_for_below_z() returns its "next" or here the "current" as modified points.
+							/*TODO:  For "bottom"	this is not true, the indexes must be exchanged.
+							        Retry the negative mirroring. With an Inverse (z) thread we havethe situation, that the segment ordering is in wrong order.
+											Maybe we also need to go through the indexes in reverse order and reverse the result segement arrays also as result.
+							*/
+							let(previous_index = point_index + (is_for_top ? 
+																										is_inverted ?
+																												//+n_points_per_start()
+																											is_first_plane_of_horiz_start(current_seg_plane_index) ?
+																												//0 
+																											-n_points_per_start()+0
+																												//get_point_index_offset_previous(previous_seg_plane_index)
+																												: 0
+																										 // get_point_index_offset_previous(previous_seg_plane_index) +0
+																										 : 
+																										 get_point_index_offset_previous(previous_seg_plane_index) +0
+																									: //Bottom case:
+																										//The thread is inverted. Therefore also the z-values of the points are inverted. Lower indexes ar at top.
+																										//==> So, the offset must be subtracted too
+																										//For inverse arrays we go through 7,6,5..2,1,0 segement indexes and
+																										//through 6,5,4,...1,0,7 previous segment indexes.
+																										//Also, for inverse arrays we go through 99,98,97,...0 point indexes.
+																										//When previous_seg_plane_index is 7 then the point index may be 99
+																										//whose z-values are at bottom of thread. But the "0" segment has more points
+																										//because it must reach from bottom to top. So, the z-values of segement "0" at point index 99
+																										//are well above(for the inverse array) of the z-values of "previous". So we have to subtract n_starts()*n_points_per_tooth()
+																										//to get the points with the correct z values.
+																										//
+																										get_point_index_offset_previous(previous_seg_plane_index)-0
+																									),
+									inverted_index = point_index + 
+																		(
+																		is_inverted ? 
+																				is_first_plane_of_horiz_start(current_seg_plane_index) ?  0 : 0 // - n_points_per_start() 
+																		:
+																			0
+																		)	
+																		,
+									changed_points = is_for_top ?
+																			orientate_thread_points_of_faceset_for_below_z(z, is_for_top,
+																				previous_seg_points[previous_index], previous_seg_points[previous_index+1*inversion_index_sign], 
+																				previous_seg_points[previous_index+n_points_per_edge()*inversion_index_sign], previous_seg_points[previous_index+(n_points_per_edge()+1)*inversion_index_sign],
+																				current_seg_points[inverted_index], current_seg_points[inverted_index+1*inversion_index_sign],
+																				current_seg_points[inverted_index+n_points_per_edge()*inversion_index_sign], current_seg_points[inverted_index+(n_points_per_edge()+1)*inversion_index_sign]
+																			)
+																		:
+																			orientate_thread_points_of_faceset_for_below_z(z, is_for_top,
+																				previous_seg_points[previous_index], previous_seg_points[previous_index+1], 
+																				previous_seg_points[previous_index-n_points_per_edge()], previous_seg_points[previous_index-1],
+																				current_seg_points[point_index], current_seg_points[point_index+1],
+																				current_seg_points[point_index-n_points_per_edge()], current_seg_points[point_index-n_points_per_edge()+1]
+																			)
+																	,
+									//The function orientate_thread_points_of_faceset_for_below_z() returns 
+									//[returnvalue, [current_p1, current_P1_minor, current_P2, current_P2_minor]].
+									//For inverted arrays we call orientate_thread_points_of_faceset_for_below_z() with indexes 
+									//like [80,79,78,77] and also get this order back.
+									//But the order of the points in the array is the same for inverted arrays. So the result's 
+									//order must be inverted and inserted at index 77.
+								  //The next call to recursive_cross_point_calculation() has the point_index set to 78 (minus n_points_per_edge).	
+									seg_points = is_for_top ?
+																	is_inverted ?
+																		is_first_plane_of_horiz_start(current_seg_plane_index) ?
+																			array_replace_at(point_index, current_seg_points, changed_points[1])
+																		:
+																			array_replace_at(point_index, current_seg_points, changed_points[1])
+																	: array_replace_at(point_index, current_seg_points, changed_points[1])
+															: //For inverse arrays we input into recursive function
+																// [P(index), P(index+1), P(index-2), P(index-1) ]
+																// and must store back 
+																// [P(index-2), P(index-1), P(index), P(index+1) ]
+																array_replace_at(point_index-n_points_per_edge(), current_seg_points, [changed_points[1][2],changed_points[1][3],changed_points[1][0],changed_points[1][1]])
+								)
+									recursive_cross_point_calculation(z, is_for_top, inversion_index_sign, is_inverted, 
+														point_index+n_points_per_edge()*inversion_index_sign, firstpoint_index, lastpoint_index, maxpoint_index,
+														seg_points, current_seg_plane_index,
+														previous_seg_points, previous_seg_plane_index)
+				;
+
+
+	//DEBUG			
+	show_all_facets = false	;		
+	show_z_plane_cyl = false;
+	if(show_z_plane_cyl) cylinder(d=8,h=0.01);
+	
+	function orientate_thread_points_of_faceset_for_below_z(z, is_for_top,
+																														current_seg_p1, current_seg_p1_minor, 
+																														current_seg_p2, current_seg_p2_minor,
+																														next_seg_p1, next_seg_p1_minor,
+																														next_seg_p2, next_seg_p2_minor) =
+		//For threads with steep slopes (for example with many starts) the "next" point
+		//of the second polygon of a face set may be above top_z() which is for std threads "length", for channel threads zero.
+		//Lower polygon = [current_seg_p1, current_seg_p2, next_seg_p1]
+		//Higher polygon = [current_seg_p2, next_seg_p1, next_seg_p2]
+		//Since for left handed threads the current/next direction of the segments alternates there is no need
+		//to check "right_handed" value because the "next" points are higher for both cases.
+		//
+		//The initial "design" was coded to calculate the points on z="top" of the thread where the thread reaches its length.
+		//To get a flat plane at length, some points above length will be moved down to length thus distorting the thread above.
+		//
+		//When calling for "top", then "current" is "previous" and "next" is the input (current seg) and will "next" will be returned.
+		//When calling for "bootom", then "current" is the input (current seg) and will be returned meanwhile "next" is "next".
+		//This is because for "top" we have to change/return the "next" points while for "bottom" we must change/return "current".
+		//
+		let(//unchanged = [current_seg_p1, current_seg_p2, next_seg_p1, next_seg_p2]
+				unchanged = [0,[next_seg_p1, next_seg_p1_minor, next_seg_p2, next_seg_p2_minor]],
+				not_done = unchanged,
+				current_p1_above_z = current_seg_p1.z > z,
+				current_p1_at_z = current_seg_p1.z == z,
+				current_p1_below_z = current_seg_p1.z < z,
+				current_p2_above_z = current_seg_p2.z > z,
+				current_p2_at_z = current_seg_p2.z == z,
+				current_p2_below_z = current_seg_p2.z < z,
+				next_p1_above_z = next_seg_p1.z > z,
+				next_p1_at_z = next_seg_p1.z == z,
+				next_p1_below_z = next_seg_p1.z < z,
+				next_p2_above_z = next_seg_p2.z > z,
+				next_p2_at_z = next_seg_p2.z == z,
+				next_p2_below_z = next_seg_p2.z < z,
+				cross_point1 = z_cross_of_line(current_seg_p1, next_seg_p1, z),
+				cross_point2 = z_cross_of_line(current_seg_p2, next_seg_p2, z),
+				cross_point_next1_next2 = z_cross_of_line(next_seg_p1, next_seg_p2, z),
+				c2=next_seg_p2+[0,0,-0.1],
+				changed = [0,[next_seg_p1, next_seg_p1_minor, c2, next_seg_p2_minor]]
+				)
+		current_p1_above_z ?
+			//*************************
+			// A
+			// If current p1 is above z, then all others are above z too and should not be changed
+			// The face polygons will be ignored.
+			unchanged 
+		: current_p1_at_z ?
+			//*************************
+			// B
+			// Current P1 is exactly at z.
+				current_p2_above_z ?
+					//*****************************
+					// B1
+					// Current P1 is at z. 
+					// Current P2 is above z.
+					// For Top: 
+					// ==> The upper polygon is not needed.
+					// Next P1 is higher as Current P1 ==> Next P1 is above z
+					// ==> The lower polygon is not needed too.
+					unchanged
+				:
+					//*****************************
+					// B2
+					// Current P1 is at z.
+					// Current P2 is at z.
+					// ==> because Next points are higher, no polygons are needed.
+					unchanged
+			:
+				//*************************
+				// C
+				// Current P1 is below z.
+					current_p2_above_z 
+						//*************************
+						// C1 ==C2
+						// Current P1 is below z.
+						// Current P2 is above z.
+						// ==> Since "current" is "previous" for the calling loop, this case will be corrected as soon
+						//     the previous plane will be corrected when it is "current/next". Then P2 will be "Next P2"
+						//     and lowered to z. So we behave here as if :
+						//     Current P1 is below z.
+						//     Current P2 is at z (Assuming).
+					||
+					current_p2_at_z ?
+						//*************************
+						// C2 = C1
+						// Current P1 is below z.
+						// Current P2 is at z.
+						// ==> Both polygons may be needed.
+						next_p1_above_z ?
+							//*************************
+							// C2_1 = C1_1
+							// Current P1 is below z.
+							// Current P2 is at z.
+							// Next P1 is above z
+							// ==> Next P2 is above z too
+							// ==> We need only the lower polygon, so we lower Next P1.
+							//unchanged
+							[2,[cross_point1, calc_minor(cross_point1), next_seg_p2, next_seg_p2_minor]]
+						:							
+							next_p1_at_z ?
+								//*************************
+								// C2_2
+								// Current P1 is below z.
+								// Current P2 is at z.
+								// Next P1 is at z
+								// ==> Next P2 cannot be below z
+								next_p2_above_z ?
+									//*************************
+									// C2_2_1
+									// Current P1 is below z.
+									// Current P2 is at z.
+									// Next P1 is at z
+									// Next P2 is above z
+									// ==> We need only the lower polygon. A correction is not needed, because Next P1 is already at z
+									unchanged
+								:
+									//*************************
+									// C2_2_2
+									// Current P1 is below z.
+									// Current P2 is at z.
+									// Next P1 is at z
+									// Next P2 is at z
+									// ==> The lower polygon is needed.
+									// ==> The higher polygon is flat at z (all corners). We do not change the values. The decision to draw it or not 
+									//     will be decided by facet generator.
+									unchanged
+							:
+								//*************************
+								// C2_3
+								// Current P1 is below z.
+								// Current P2 is at z.
+								// Next P1 is below z.
+								// ==> Next P2 undefined
+								next_p2_above_z ?
+									//*************************
+									// C2_3_1
+									// Current P1 is below z.
+									// Current P2 is at z.
+									// Next P1 is below z.
+									// Next P2 is above z.
+									// ==> The lower polygon will be drawn without change.
+									// ==> The higher polygon is needed too because next p1 is below not at z. So we need to fill up to z.
+									//unchanged
+									[1,[next_seg_p1, next_seg_p1_minor, cross_point_next1_next2, calc_minor(cross_point_next1_next2)]]
+								: 
+									next_p2_at_z ?
+										//*************************
+										// C2_3_2
+										// Current P1 is below z.
+										// Current P2 is at z.
+										// Next P1 is below z.
+										// Next P2 is at z.
+										// ==> The lower and higher polygon will be drawn without change.
+										unchanged
+									:
+										//*************************
+										// C2_3_3
+										// Current P1 is below z.
+										// Current P2 is at z.
+										// Next P1 is below z.
+										// Next P2 is below z.	
+										// ==> Both polygons needed. Since no values above z, no change is needed.
+										unchanged
+					:
+						//*************************
+						// C3
+						// Current P1 is below z.
+						// Current P2 is below z.
+						// ==> Both polygons may be needed.
+						next_p1_above_z ?
+							//*************************
+							// C3_1
+							// Current P1 is below z.
+							// Current P2 is below z.
+							// Next P1 is above z
+							// ==> Next P2 is above z too
+							// ==> Both polygons needed, both points must be changed.
+							//unchanged
+							is_for_top ?
+								[2,[cross_point1, calc_minor(cross_point1), cross_point2, calc_minor(cross_point2)]]
+								:
+								[2,[cross_point1, calc_minor(cross_point1), cross_point2, calc_minor(cross_point2)]]
+						:							
+							next_p1_at_z ?
+								//*************************
+								// C3_2
+								// Current P1 is below z.
+								// Current P2 is below z.
+								// Next P1 is at z
+								// ==> Next P2 cannot be below z
+								next_p2_above_z ?
+									//*************************
+									// C3_2_1
+									// Current P1 is below z.
+									// Current P2 is below z.
+									// Next P1 is at z
+									// Next P2 is above z
+									// For Top: 
+									// ==> Both polygons needed, only one point must be changed
+									//unchanged
+									[1,[next_seg_p1, next_seg_p1_minor, cross_point2, calc_minor(cross_point2)]]
+								:
+									//*************************
+									// C3_2_2
+									// Current P1 is below z.
+									// Current P2 is below z.
+									// Next P1 is at z
+									// Next P2 is at z
+									// ==> Both polygons are needed. Points must not be changed. 
+									unchanged
+							:
+								//*************************
+								// C3_3
+								// Current P1 is below z.
+								// Current P2 is below z.
+								// Next P1 is below z.
+								// ==> Next P2 undefined
+								next_p2_above_z ?
+									//*************************
+									// C3_3_1
+									// Current P1 is below z.
+									// Current P2 is below z.
+									// Next P1 is below z.
+									// Next P2 is above z.
+									// ==> First polygon must not be changed because Next P1 is below z.
+									// ==> Second polygon is needed, because Current P2 is below z so we have to correct Next P2.
+									//unchanged
+									//changed
+									[1,[next_seg_p1, next_seg_p1_minor, cross_point2, calc_minor(cross_point2)]]
+								: 
+									next_p2_at_z ?
+										//*************************
+										// C3_3_2
+										// Current P1 is below z.
+										// Current P2 is below z.
+										// Next P1 is below z.
+										// Next P2 is at z.
+										// ==> Everything in range. Two polygons, no change
+										unchanged
+									:
+										//*************************
+										// C3_3_3
+										// Current P1 is below z.
+										// Current P2 is below z.
+										// Next P1 is below z.
+										// Next P2 is below z.
+										// ==> Std case for facets below z. Return them unchanged.
+										unchanged				
+		;
+
+		function z_cross_of_line(p1, p2, z_target) =
+			//Generally : Because both points are at or over minor_radius, the z-corrected value is also at or over minor_radius.
+			//But, if both points ar at minor radius, then, due to the nature of a round cylinder, the new point may be smaller than minor radius.
+			//This is not solvable in an exact manner. Some walls of the thread will always be smaller than minor_rad.
+			//Since this function is being used to calculate the start or end of the thread the corners must be at minor_rad. Thus
+			//we expand the points outwards if needed.
+			//
+			let (//Cross point calculation
+						p1_p2 = p2-p1, //Richtungsvektor
+						t = (z_target-p1.z)/p1_p2.z, //3 Equations from x_vec = p1_vec + t*p1_p2
+						x_t = p1.x + t*p1_p2.x,
+						y_t = p1.y + t*p1_p2.y,
+						//length correction
+						rad = sqrt(pow(x_t,2)+pow(y_t,2)),
+						rad_min = get_3Dvec_profile_xOffset_minor(),
+						corr_needed = rad < rad_min-tol,
+						corr = corr_needed ? rad_min/rad : 1, //correct only smaller distances
+						x_t_corr = corr_needed ? x_t * corr : x_t,
+						//To minimize rounding errors we use corr only once to get exact minor_radius.
+						y_t_sign = y_t >= 0 ? 1 : -1,
+						y_t_corr = corr_needed ? y_t * corr : y_t, //sqrt(pow(rad_min,2)-pow(x_t_corr,2)) * y_t_sign,
+						new_rad_square = pow(x_t_corr,2) + pow(y_t_corr,2),
+						new_rad = sqrt(new_rad_square),
+						minor_rad_square = pow(rad_min,2),
+						is_minor = (new_rad == rad_min),
+						is_in_minor_tol = !is_minor && (new_rad <= rad_min + tol) && (new_rad >= rad_min - tol)
+					)
+					//[x_t_corr,y_t_corr,z_target]
+					is_minor && !is_in_minor_tol ? 
+						//Outside of minor tolerance or exactly minor, just return value
+						[x_t_corr, y_t_corr, z_target]
+					:
+						[x_t_corr, y_t_corr, z_target]
+					//
+					//p2
+					//[p2.x,p2.y,p2.z]
+					//p1_p2
+					;
+
+	function calc_minor(point) =
+		let(rad = sqrt(pow(point.x,2)+pow(point.y,2)),
+				rad_min = get_3Dvec_profile_xOffset_minor(),
+				tolerance = 2*tol,
+				is_minor = (rad <= rad_min + tolerance) && (rad >= rad_min - tolerance),
+				mul = rad == 0 ? 1 : rad_min/rad	)
+			is_minor ?
+					point //for later comparisons they should be the same
+				:
+					[point.x*mul, point.y*mul, point.z];
+			
+	// ----------------------------------------------------------------------------
+	// TODO : polyhedron axial orientation
+	// ------------------------------------------------------------------
+	//Correction angle so at x=0 is left_flat/angle
+	//Not needed so far. Two problems:
+	//Internal and external threads have different lower_flats and therefore
+	//a different turn angle. ==> no nice thread differences.
+	//With parameter "exact_clearance" a problem occurs. 
+	function poly_rot_slice_offset() =
+			((is_channel_thread ? 0 : 1)
+			 *(right_handed?1:-1)
+			 *(360/n_starts/pitch* (lower_flat/2)));
 
 
 			 
@@ -2676,7 +3387,51 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 								point
 						];	
 							
+							
+	pre_calc_faces_points = generate_all_seg_faces_points();
+							
+	/* DEBUG
+	// Test minor rads for their value (all should be the same).
+	minor_rads = [for(plane_i = [0:1:len(pre_calc_seg_plane_point_polygons)-1])
+							[
+							let(points = pre_calc_seg_plane_point_polygons[plane_i])
+							for(i =[ n_center_points()+1:2:len(points)-n_center_points()-1])
+							[sqrt(pow(points[i].x,2)+pow(points[i].y,2))-get_3Dvec_profile_xOffset_minor()]
+							]
+				];
+	echo("minor_rads", minor_rads);
+	*/
+							
+	// Since this method returns the first zero cross point use it with care
+	// for threads with square profiles.		
+	// Does not return center points or minor points.			
+	function find_first_point_index_with_z(points_3Dvec, faces_pts, z) =
+		[
+			for(point_index = [n_center_points():n_points_per_edge():len(faces_pts)-n_center_points()-1])
+					if(points_3Dvec[faces_pts[point_index]].z == z )
+						point_index
+		];
+					
+	/*
+	//DEBUG	find_first_point_index_with_z	
+	testPlaneIndex = 1;		
+	found_indexes = find_first_point_index_with_z(points_3Dvec, pre_calc_faces_points[testPlaneIndex],bottom_z());
+	major_index = found_indexes[0];
+	minor_index = found_indexes[0]+1;
+	major_index_3D = pre_calc_faces_points[testPlaneIndex][major_index];
+	minor_index_3D = pre_calc_faces_points[testPlaneIndex][minor_index];
+						
+	echo("find_first_point_index_with_z_zero", found_indexes);
+	echo("major_index:", major_index);
+	echo("minor_index:", minor_index);
+	echo("major_index_3D:", major_index_3D);
+	echo("minor_index_3D:", minor_index_3D);
+	echo("first_point_index_with_z_zero", points_3Dvec[major_index_3D], points_3Dvec[minor_index_3D]);
 
+	echo("faces", len(pre_calc_faces_points[testPlaneIndex]), pre_calc_faces_points[testPlaneIndex]);
+	echo("points", [for(i=pre_calc_faces_points[testPlaneIndex]) points_3Dvec[i]]);
+	*/								
+			
 	//-----------------------------------------------------------
 	//-----------------------------------------------------------
 	// FACES
@@ -2686,11 +3441,12 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 	// Generate an array of point index numbers used later for 
 	// creating the faces points.
 	// Its structure/length is equal to the previously created 3D points.
-	// Returns always the same length for all segments of the same thread.
-	// generate_faces_points(0) ==>  [0,1,2,...,13]
-	// generate_faces_points(1) ==>  [14,15,16,...,27]
-	pre_calc_faces_points = generate_all_seg_faces_points();
-							
+	// Returns always the same length for all segments of the same thread except for the first segment which starts at lowest point
+	// but also includes the endpoints of the top turn
+	// generate_faces_points(0) ==>  [0,1,2,...,13]  (14 points = 10points + 4 extra profile points,  just a sample)
+	// generate_faces_points(1) ==>  [14,15,16,...,23] (10 points)
+	// generate_faces_points(2) ==>  [24,15,16,...,33] (10 points)
+
 	function generate_all_seg_faces_points() = 
 					[ for (seg_plane_index	= [ 0 : get_n_segment_planes()-1])
 								generate_faces_points(seg_plane_index)
@@ -2731,24 +3487,30 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 				// length: std_thread length above z=0
 				//         channel thread length = below zero.
 				for (seg_plane_index	= [ 0 : get_n_segment_planes()-1]) 
-					let (current_faces_pts = pre_calc_faces_points[seg_plane_index],
+					let (next_seg_plane_index = get_adj_seg_plane_index(seg_plane_index+1),
+							current_faces_pts = pre_calc_faces_points[seg_plane_index],
 							next_faces_pts  = pre_calc_faces_points[
 																	get_adj_seg_plane_index(seg_plane_index+1)],
 							next_point_offset = get_point_index_offset(
 												get_adj_seg_plane_index(seg_plane_index+1),false) 
 							)
-					for (a = get_seg_faces(seg_plane_index,
-																pre_calc_faces_points[0], 
-																current_faces_pts, 
-																next_faces_pts,
-																pre_calc_faces_points[len(pre_calc_faces_points)-1],
-																next_point_offset
+					for (a = get_seg_faces(seg_plane_index = seg_plane_index,
+																next_seg_plane_index = next_seg_plane_index,
+																first_faces_pts = pre_calc_faces_points[0], 
+																current_faces_pts = current_faces_pts, 
+																next_faces_pts = next_faces_pts,
+																last_faces_pts = pre_calc_faces_points[len(pre_calc_faces_points)-1],
+																next_point_offset = next_point_offset
 																)
 								) 
-							a //extract faces into 1-dim array
+							if(len(a)>0) //suppress empty face sets, reported as "degenerated faces"
+								a	//extract faces into 1-dim array
 					]; 
+	/*
+	//DEBUG
+	echo("len thread faces", len(thread_faces));
+	*/
 
-	
 	// To draw last segment's polygons we need the first (0)
 	// seg plane as "next" seg plane.
 	function get_adj_seg_plane_index(seg_plane_index) =
@@ -2770,17 +3532,27 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 					:
 					// For every horiz start we must overcome the vertical starts
 					//(right_handed ? 1 : -1) *
-						n_vert_starts * len_tooth_points
+						n_points_per_start()
 					;
 
-					
+	function get_point_index_offset_previous(previous_seg_plane_index) =
+					(!is_last_plane_of_horiz_start(previous_seg_plane_index)
+						)
+					? 0 //always zero since points are lifted 
+							//according to horiz_start on start point
+							// seg planes and on normal seg planes
+					:
+					// For every horiz start we must overcome the vertical starts
+					// Current is first and previous is last ==> step
+						-n_points_per_start()
+					;				
 
 							
 	function is_first_plane_of_horiz_start(seg_plane) = 
 					(seg_plane) % (horiz_raster()) == 0 ;
 
 	function is_last_plane_of_horiz_start(seg_plane) = 
-					(seg_plane+1) % (horiz_raster()+1) == 0 ;				
+					(seg_plane+1) % (horiz_raster()) == 0 ;				
 	
 	function i_2nd_center_point(faces_pts)	= 
 							len(faces_pts)
@@ -2824,7 +3596,7 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 				)	
 			!(norm_xy(points_3Dvec[current_faces_pts[point2_index]])
 			>  norm_xy(points_3Dvec[current_faces_pts[point1_index]]))
-			&& false?
+			&& true ?
 				[]	
 			:
 				get_ring_faces(current_faces_pts, next_faces_pts,
@@ -2880,98 +3652,44 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 										next_faces_pts[point3_index]						
 									])
 									];											
+									
+									
+									
+	function facet_polygon_is_belowOrEqual(cross_z, faces_pts_polygon) =
+		points_3Dvec[faces_pts_polygon[0]].z <= cross_z 
+		&& points_3Dvec[faces_pts_polygon[1]].z <= cross_z 
+		&& points_3Dvec[faces_pts_polygon[2]].z <= cross_z ;
+
+	function facet_polygon_is_aboveOrEqual(cross_z, faces_pts_polygon) =
+		points_3Dvec[faces_pts_polygon[0]].z >= cross_z 
+		&& points_3Dvec[faces_pts_polygon[1]].z >= cross_z 
+		&& points_3Dvec[faces_pts_polygon[2]].z >= cross_z ;
+
 	//-----------------------------------------------------------
 	//-----------------------------------------------------------
 	// Get faces of one segment.
-	function get_seg_faces(seg_plane_index, 
+	
+	function get_seg_faces(seg_plane_index, next_seg_plane_index,
 									first_faces_pts, 
 									current_faces_pts, 
 									next_faces_pts, 
 									last_faces_pts,
 									next_point_offset) = 
+		let(i_top_current_center_point = len(current_faces_pts)-1,
+				i_top_next_center_point = len(next_faces_pts)-1,
+				i_top_current_2nd_center_point = len(current_faces_pts)-1-1,
+				i_top_next_2nd_center_point = len(next_faces_pts)-1-1,
+				current_first_point_indexes_with_z_top = find_first_point_index_with_z(points_3Dvec, current_faces_pts, top_z()),
+				next_first_point_indexes_with_z_top = find_first_point_index_with_z(points_3Dvec, next_faces_pts, top_z()))
+		let(i_bottom_center_point = 0,
+				i_bottom_2nd_center_point = 1,
+				current_first_point_indexes_with_z_bottom = find_first_point_index_with_z(points_3Dvec, current_faces_pts, bottom_z()),
+				next_first_point_indexes_with_z_bottom = find_first_point_index_with_z(points_3Dvec, next_faces_pts, bottom_z()))				
 		concat(
 
-		// ******  Top  ******
-		// Top large cover triangles of segments to center
-		[uturn(right_handed, true,
-			[next_faces_pts[i_2nd_center_point(next_faces_pts)],
-				next_faces_pts[get_minor_face_point_index(
-														seg_faces_pts = next_faces_pts,
-														thread_face_point_index =	
-													i_2nd_center_point(next_faces_pts)
-													-1 //minor point of point pair
-													)],
-				current_faces_pts[get_minor_face_point_index(
-														seg_faces_pts = current_faces_pts,
-														thread_face_point_index =	
-													i_2nd_center_point(current_faces_pts)
-													-1 //minor point of point pair
-													- ((is_first_plane_of_horiz_start(seg_plane_index)) ? 
-																n_points_per_turn() : 0
-																))]
-			])]
-		,
-		// ******  Top  ******
-		// Top small cover triangles between segments to center
-		[uturn(right_handed, true,
-			[current_faces_pts[i_2nd_center_point(current_faces_pts)],
-				next_faces_pts[i_2nd_center_point(next_faces_pts)
-											//-n_points_per_edge() //first tooth point
-											],
-				current_faces_pts[get_minor_face_point_index(
-														seg_faces_pts = current_faces_pts,
-														thread_face_point_index =	
-																i_2nd_center_point(current_faces_pts)
-																-1 //minor point of point pair
-																- ((is_first_plane_of_horiz_start(seg_plane_index)) ? 
-																			n_points_per_turn() : 0
-																			))]
-				]
-				)
-			]
-		// ******  Top  ******
-		// If the top most point is larger than minor radius, then
-		// a gap appears on top of thread.
-		// Sample cases: - internal channel threads 
-		//               - rope threads
-		,
-			get_top_ring_faces(seg_plane_index,
-													current_faces_pts,
-													next_faces_pts
-													)
-		
-		//Closing triangles to next segment
-		,( (!is_first_plane_of_horiz_start(seg_plane_index))? []
-			:
-				//Top triangle down to first segment
-				get_closing_planar_face(seg_plane_index = seg_plane_index,
-							start_seg_faces_pts = current_faces_pts,
-							face_center_pointIndex = i_2nd_center_point(current_faces_pts),
-							highest_tooth_point_index = i_2nd_center_point(current_faces_pts)
-																						-n_points_per_edge(), //first tooth point
-							lowest_tooth_point_index = i_2nd_center_point(current_faces_pts)
-																						-n_points_per_edge() //first tooth point
-																						-n_points_per_turn(),
-							center_point_index = len(current_faces_pts)
-																					-1, ///array, first center point
-							last_visible_tooth_point_index = i_2nd_center_point(current_faces_pts)
-																					-n_points_per_edge()
-																					-n_points_per_turn()
-																					,
-							is_for_top_face = true
-																)				
-			
-		) // end condition top closing polygon
-		
 
-
-		// ******  Closing faces for channel thread ******	
-		//internal channel thread needs closing face at begin of second turn
-		// ==> Not needed so far. The automaticall existing "slope" is OK.
-		//,
-		
-		,
 		// ******  Tooths faces  ******
+
 		[ for (face_set_index = [n_center_points() //start after bottom center points
 														: n_points_per_edge() //step size:
 																//Each point existed twice in a point
@@ -2980,52 +3698,391 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 															: i_2nd_center_point(current_faces_pts)
 																-n_points_per_edge() //first point pair
 																-n_points_per_edge() //stop on point pair early
-																				//because we use later "face_set_index+2"
+																				//because we use later "face_set_index+n_points_per_edge()"
 																+0
 																
 																]) 
-			if (facets_needed(next_point_offset, 
+			for (face_polygon = 
+			(!facets_needed(next_point_offset, 
 												face_set_index, 
 												current_faces_pts,
-												next_faces_pts))
-			for (face_set = 
-							[uturn(right_handed, true,
-								[current_faces_pts[face_set_index],
-								 next_faces_pts[next_point_offset+face_set_index+n_points_per_edge()],
-								 next_faces_pts[next_point_offset+face_set_index]]),
-							 uturn(right_handed, true,
-								[current_faces_pts[face_set_index+n_points_per_edge()],
-								 next_faces_pts[next_point_offset+face_set_index+n_points_per_edge()],
-								 current_faces_pts[face_set_index]])
-							]
+												next_faces_pts) ? [] :
+				( 
+					//A face_set consits of four points. They are not planar. Therefore two polygons are needed.
+					//Of the first face set after z=zero only one polygon is needed to get a flat bottom at z=0 and
+					//a flat top at z=length. With four points there are two possibilities to create the two polygons. 
+					//To get a flat bottom at z=zero and a flat top at z=length different point arrangments are needed
+					//for right or for left handed threads.
+					let(i_current_first_point = current_faces_pts[face_set_index],
+							i_current_second_point = current_faces_pts[face_set_index+n_points_per_edge()],
+							i_next_first_point = next_faces_pts[next_point_offset+face_set_index],
+							i_next_second_point = 
+								
+								next_faces_pts[next_point_offset+face_set_index+n_points_per_edge()]
 						)
-				face_set
+					let(facet_polygons =
+								right_handed ?
+									[	//A : First polygon of face set
+										1==2 ? [] :
+										uturn(right_handed, true,
+											[i_current_first_point,
+											 i_current_second_point,
+											 i_next_first_point
+											])
+										,
+										//B : Second polygon of face set
+											((points_3Dvec[i_next_first_point].z == bottom_z()
+											&& points_3Dvec[i_next_second_point].z > bottom_z()
+											&& points_3Dvec[i_current_second_point].z < bottom_z())
+										?
+											//Special polygon for steep threads at z = 0
+											1==2 ? []:
+											uturn(right_handed, true,
+												[current_faces_pts[face_set_index+2*n_points_per_edge()],
+											 	i_next_second_point,
+											 	i_next_first_point
+												])
+										:
+											(points_3Dvec[ i_next_first_point].z == top_z()
+												&& points_3Dvec[i_next_second_point].z > top_z()
+												&& points_3Dvec[i_current_second_point].z < top_z())
+											?
+												//Special polygon for steep threads at z = length
+												1==1 ? [] :
+												uturn(right_handed, true,
+											[i_current_second_point,
+											 i_next_second_point,
+											 i_next_first_point
+											])
+											:
+												//With a square thread exists a face set polygon at z=0, y=0 (thread start).
+												//Also the same polygon with all points at z=0 exists if the tooth of the square thread
+												//travels through z=0. The first case is not needed (plane without volume) the second polygon
+												//is needed to close the tooth volume.
+												//Case: square_thread(8, pitch=1.5, length=5);
+												(1==1 &&
+													(points_3Dvec[i_current_second_point].z == bottom_z() && points_3Dvec[i_next_second_point].z == bottom_z() && points_3Dvec[i_next_first_point].z == bottom_z()  )
+													//&& (abs(points_3Dvec[i_next_second_point].x)
+														//		< abs(points_3Dvec[i_next_first_point].x))
+													) ? [] :
+												//normal polygon , in between
+												1==2 ? [] :
+												uturn(right_handed, true,
+													[i_current_second_point,
+													 i_next_second_point,
+													 i_next_first_point
+													])
+										)
+									]
+									:
+									[ //A : First polygon of face set
+										1==2 ? [] :
+										uturn(right_handed, true,
+													[i_current_first_point,
+													 i_current_second_point,
+													 i_next_first_point
+													])
+										,
+										//B : Second polygon of face set
+										((points_3Dvec[i_current_second_point].z == bottom_z()
+											&& points_3Dvec[i_next_first_point].z == bottom_z())
+											&& points_3Dvec[i_next_second_point].z > bottom_z()
+
+										?
+											//Special polygon for steep threads at z = 0
+											1==2 ? [] :
+											uturn(right_handed, true,
+												[i_next_first_point,
+											 	i_current_second_point,
+											 	i_next_second_point
+												])
+										:
+											(points_3Dvec[i_current_first_point].z == top_z()
+											&& points_3Dvec[i_current_second_point].z > top_z()
+											&& points_3Dvec[i_next_first_point].z < top_z())
+											?
+												//Special polygon for steep angles at z = length
+												1==2 ? [] :
+												uturn(right_handed, true,
+													[i_current_first_point,
+													 i_current_second_point,
+													 next_faces_pts[next_point_offset+face_set_index+2*n_points_per_edge()]
+													])
+											:
+												//With a square thread exists a face set polygon at z=0, y=0 (thread start).
+												//Also the same polygon with all points at z=0 exists if the tooth of the square thread
+												//travels through z=0. The first case is not needed (plane without volume) the second polygon
+												//is needed to close the tooth volume.
+												//Case: square_thread(8, pitch=1.5, length=5);
+												(1==1 &&
+													(points_3Dvec[i_current_second_point].z == bottom_z() && points_3Dvec[i_next_second_point].z == bottom_z() && points_3Dvec[i_next_first_point].z == bottom_z()  )
+													&& (abs(points_3Dvec[i_next_second_point].x)
+																< abs(points_3Dvec[i_next_first_point].x))
+													) ? [] :
+												//normal polygon , in between
+												1==2 ? [] :
+												uturn(right_handed, true,
+													[i_next_second_point,
+													 i_next_first_point,
+													 i_current_second_point
+													])
+										)
+										
+									]
+							)
+					[
+						for(facet_polygon = facet_polygons )
+							is_channel_thread ?
+								1==2 ? [] :
+									(show_all_facets 
+										|| facet_polygon_is_belowOrEqual(top_z(), facet_polygon)) ? facet_polygon : []
+							:
+								false 
+								|| show_all_facets 
+								|| (facet_polygon_is_aboveOrEqual(bottom_z(), facet_polygon)
+										&& (facet_polygon_is_belowOrEqual(top_z(), facet_polygon)
+												&& //ignore flat facet ont top without volume above
+													//Test Case 4 (square thread)
+														!(all_points_at_z(facet_polygon, top_z()) 
+														&&  (//	(right_handed ?
+																	!points_3Dvec[next_faces_pts[i_next_second_point]].z < top_z()		//Volume above facet exists
+																//: !points_3Dvec[current_faces_pts[i_next_second_point]].z < top_z()	
+																)
+														)
+												)
+										)
+								?
+									false ? [] :
+									facet_polygon 
+								: []
+
+					]
+				)
+			)
+
+			) //end for face set index loop (flatten)
+			face_polygon
 		]
-
-	,
-
-		// ******  Bottom  ******
-		// Bottom triangles to center and closing face	
-		// Bottom triangle to center	
 	
-	[uturn(right_handed, false,
-			[current_faces_pts[2+1],
-				current_faces_pts[1],
-				next_faces_pts[next_point_offset+n_points_per_edge()
-													+1 //Take minor 
-												]])]
-		,
-			[uturn(right_handed, false,
-				[current_faces_pts[1],
-					next_faces_pts[1],
-					next_faces_pts[next_point_offset+n_points_per_edge() 
-													+1 //Take minor 
-												]])]
-		,
-		//Closing triangle to next segment
-		(!is_first_plane_of_horiz_start(seg_plane_index) ? [] :
-			//Bottom planar face up to last seg_plane_index
-			get_closing_planar_face(seg_plane_index = seg_plane_index,
+	,
+	[ //Define indexes of current_faces_pts/next_faces_pts 
+
+		let(i_top_current_last_point = is_channel_thread ? current_first_point_indexes_with_z_top[len(current_first_point_indexes_with_z_top)-1]//i_top_current_2nd_center_point - 1
+					: //current_first_point_indexes_with_z_top[0],
+						//Take the last point (if more than one) because for square threads the second last point can also be at z=top_z().
+						current_first_point_indexes_with_z_top[len(current_first_point_indexes_with_z_top)-1],
+				i_top_next_last_point = is_channel_thread ? next_first_point_indexes_with_z_top[len(next_first_point_indexes_with_z_top)-1]//i_top_next_2nd_center_point - 1
+					: //next_first_point_indexes_with_z_top[0]
+						next_first_point_indexes_with_z_top[len(next_first_point_indexes_with_z_top)-1]
+				)
+		let(i_top_current_second_last_point = i_top_current_last_point-n_points_per_edge(),
+				i_top_next_second_last_point = i_top_next_last_point-n_points_per_edge()
+				)
+		let(i_top_current_minor_point = get_minor_point_prefer_major_index(i_top_current_last_point, current_faces_pts)
+															/*
+															points_3Dvec[current_faces_pts[i_top_current_last_point]].z >  points_3Dvec[current_faces_pts[i_top_current_second_last_point]].z  ?
+																//The last two points are not at the same height (z). The minor point for the top is from last point
+																prefer_major_index(i_top_current_last_point, current_faces_pts)
+																: //The last two points are at the same height (second point with lower z is not supported) as in square threads
+																  //then the radius of the points decides
+																	get_minor_point_index(i_top_current_last_point, i_top_current_second_last_point, current_faces_pts),
+																	*/
+																,
+				i_top_next_minor_point = get_minor_point_prefer_major_index(i_top_next_last_point, next_faces_pts)
+																/*
+																points_3Dvec[next_faces_pts[i_top_next_last_point]].z >  points_3Dvec[next_faces_pts[i_top_next_second_last_point]].z  ?
+																prefer_major_index(i_top_next_last_point, next_faces_pts)
+																//get_minor_point_index(i_top_next_last_point, i_top_next_second_last_point)
+																: get_minor_point_index(i_top_next_last_point, i_top_next_second_last_point, next_faces_pts)
+																*/
+				)
+		
+	for(poly = [ //without this for loop the code shows irregular behaviour only returning first polygon.
+		
+		// ******  Top  ******
+		// Top large cover triangles of segments to hollow_rad.
+			1==2 ? [] :
+			i_top_current_2nd_center_point == i_top_current_minor_point ? [] : //Channel threads have a "bore" at minor radius.
+			uturn(right_handed, false,
+			[current_faces_pts[i_top_current_2nd_center_point],
+				current_faces_pts[i_top_current_minor_point],
+				next_faces_pts[i_top_next_minor_point]
+			]),
+		// ******  Top  ******
+		// Top small cover triangles between segments to center from hollow_rad to closing face.
+			1==2 ? [] :
+			i_top_next_minor_point == i_top_next_2nd_center_point ? [] : //Channel threads have a "bore" at minor radius.
+			uturn(right_handed, false,
+			[current_faces_pts[i_top_current_2nd_center_point],
+				next_faces_pts[i_top_next_minor_point],
+				next_faces_pts[i_top_next_2nd_center_point]
+			]),
+		// ******  Top  ******
+		// If the lowest point is larger than minor radius, then
+		// a gap (distance minor to outer points) appears on top of thread.
+			i_top_current_last_point == i_top_current_minor_point ? [] :
+			1==2 ? [] :
+				//seg_plane_index != 4 ?  [] :
+			let(facet = 	
+						uturn(right_handed, false,
+						[next_faces_pts[i_top_next_minor_point],
+						current_faces_pts[i_top_current_minor_point],
+						current_faces_pts[i_top_current_last_point]
+					]))
+			(all_points_at_z(facet, top_z())
+				//Test Case 4 (Square Threads, left handed)
+				&& 	points_3Dvec[current_faces_pts[i_top_current_second_last_point]].z < top_z()  //Volume below facet exists
+				//&&  points_order_is_outwards(current_faces_pts[i_top_current_last_point],current_faces_pts[i_top_current_minor_point]) //Volume below facet exists
+			)	? facet : []		
+			,
+		// ******  Top  ******
+		// If the lowest point is larger than minor radius, then
+		// a gap (distance minor to outer points) appears on top of thread.
+			1==2? [] :
+			i_top_next_last_point == i_top_next_minor_point ?  [] :
+				//last point is not on minor radius ==> polygon needed.
+				//points_3Dvec[next_faces_pts[i_top_next_second_last_point]].z < top_z() ? []
+				//:	//There is a volume under this polygon
+				1==2 ? [] :
+				uturn(right_handed, false,
+				[	next_faces_pts[i_top_next_last_point],
+				next_faces_pts[i_top_next_minor_point],
+				current_faces_pts[i_top_current_last_point]
+				]),
+		// ******  Top  ******
+		// If the lowest point is larger than minor radius, then
+		// a gap (distance minor to outer points) appears on top of thread.
+			i_top_current_last_point == i_top_current_second_last_point ? [] :
+			1==2 ? [] :
+				//seg_plane_index != 4 ?  [] :
+				let(facet = 	
+							uturn(right_handed, false,
+							[next_faces_pts[i_top_next_last_point],
+							current_faces_pts[i_top_current_last_point],
+							current_faces_pts[i_top_current_second_last_point]
+							]))
+				(all_points_at_z(facet, top_z())
+					//Test Case 4 (Square Threads, left handed)
+					&&  points_order_is_outwards(current_faces_pts[i_top_current_last_point], current_faces_pts[i_top_current_second_last_point]) //Volume below facet exists
+				)	? facet : []						
+			,
+			
+		]) // end of for(poly=[
+	poly
+	]
+	,
+	[ // ******  Bottom  ******
+		//Define indexes of current_faces_pts/next_faces_pts 
+
+		let(i_bottom_current_first_point = 
+					is_channel_thread ? 
+						//is_first_plane_of_horiz_start(seg_plane_index) ?
+						//		i_bottom_2nd_center_point + 1 + n_points_per_start()
+						//	:	
+							i_bottom_2nd_center_point + 1
+					: current_first_point_indexes_with_z_bottom[0]
+				,
+				i_bottom_next_first_point = 
+					is_channel_thread ?  
+						is_first_plane_of_horiz_start(next_seg_plane_index) ?
+								i_bottom_2nd_center_point + 1 + n_points_per_start()
+							:	i_bottom_2nd_center_point + 1
+					: next_first_point_indexes_with_z_bottom[0]
+				)
+		let(i_bottom_current_second_point = i_bottom_current_first_point+n_points_per_edge(),
+				i_bottom_next_second_point = i_bottom_next_first_point+n_points_per_edge()
+				)
+		let(i_bottom_current_minor_point = get_minor_point_prefer_major_index(i_bottom_current_first_point, current_faces_pts)
+																/*
+																points_3Dvec[i_bottom_current_first_point].z <  points_3Dvec[i_bottom_current_second_point].z  ?
+																//if second point is higher, then the minor point for the bottom is from first point
+																prefer_major_index(i_bottom_current_first_point, current_faces_pts)
+																: //if they are equal (second point with lower z is not supported) as in square threads
+																  //then the radius of the points decides
+																	get_minor_point_index(i_bottom_current_first_point, i_bottom_current_second_point, current_faces_pts)
+																*/	
+																,		
+				i_bottom_next_minor_point = get_minor_point_prefer_major_index(i_bottom_next_first_point, next_faces_pts)
+															/*
+															points_3Dvec[i_bottom_next_first_point].z <  points_3Dvec[i_bottom_next_second_point].z  ?
+																prefer_major_index(i_next_first_point, next_faces_pts)
+																: get_minor_point_index(i_bottom_next_first_point, i_bottom_next_second_point, next_faces_pts)
+															*/
+				)
+		
+
+		for(poly = [ //without this for loop the code show irregular behaviour only returning first polygon.
+			// ******  Bottom  ******
+			// Bottom triangles from closing face	to hollow_rad 
+			1==2? [] :
+			uturn(right_handed, false,
+			[current_faces_pts[i_bottom_current_minor_point],
+				current_faces_pts[i_bottom_2nd_center_point],
+				next_faces_pts[i_bottom_next_minor_point]
+			]),
+			// ******  Bottom  ******
+			// Bottom triangles from hollow_rad to closing face.
+			1==2 ? [] :
+				uturn(right_handed, false,
+				[next_faces_pts[i_bottom_next_minor_point],
+					current_faces_pts[i_bottom_2nd_center_point],
+					next_faces_pts[i_bottom_2nd_center_point]
+				])
+			,
+			// ******  Bottom  ******
+			// If the lowest point is larger than minor radius, then
+			// a gap (ring)appears on bottom of thread.
+			i_bottom_current_first_point == i_bottom_current_minor_point ? [] :
+			1==2 ? [] :
+			uturn(right_handed, false,
+			[current_faces_pts[i_bottom_current_minor_point],
+				next_faces_pts[i_bottom_next_minor_point],
+				current_faces_pts[i_bottom_current_first_point]
+			]),
+			// ******  Bottom  ******
+			// If the lowest point is larger than minor radius, then
+			// a gap (ring)appears on bottom of thread.
+			i_bottom_next_first_point == i_bottom_next_minor_point ?  [] :
+			1==2 ? [] :
+				let(facet = uturn(right_handed, false,
+				[next_faces_pts[i_bottom_next_minor_point],
+					next_faces_pts[i_bottom_next_first_point],
+				current_faces_pts[i_bottom_current_first_point]
+					]))
+			//Suppress facet, square thread without volume above,at thread start (z=0)
+				(all_points_at_z(facet, bottom_z())
+				&& 	points_3Dvec[next_faces_pts[i_bottom_next_second_point]].z > bottom_z()  //Volume above facet exists
+				)	? facet : []
+			,				
+			// ******  Bottom  ******
+			// If the lowest point is larger than minor radius, then
+			// a gap (ring)appears on bottom of thread.
+			//i_bottom_next_first_point == i_bottom_next_second_point ? [] : 
+			// Suspicous, creates 4 polygons and one very slim.
+			i_bottom_next_first_point == i_bottom_next_second_point ?  [] :
+			1==2 ? [] :
+				let(facet = uturn(right_handed, false,
+							[	next_faces_pts[i_bottom_next_first_point],
+								next_faces_pts[i_bottom_next_second_point],
+								current_faces_pts[i_bottom_current_first_point]
+							]))
+				//Suppress facet, square thread without volume above,at thread start (z=0)
+				//Test Case 4
+				(all_points_at_z(facet, bottom_z())
+				&& points_order_is_outwards(next_faces_pts[i_bottom_next_first_point], next_faces_pts[i_bottom_next_second_point])  //Volume above facet exists
+				)	? facet : []
+				
+		]) // end of for(poly=[
+		poly
+	]
+	,
+				// ******  Bottom  ******
+			//Closing polygons of planar face at thread start.
+			//Since std threads are flat at z=0 the planar face is not needed.
+			1==2 ? [] :			
+			is_channel_thread && is_first_plane_of_horiz_start(seg_plane_index)? 
+				//Bottom planar face up to last seg_plane_index
+					get_closing_planar_face(seg_plane_index = seg_plane_index,
 							start_seg_faces_pts = current_faces_pts,
 							face_center_pointIndex = 1,
 							highest_tooth_point_index = n_center_points()-1 + n_points_per_start(),
@@ -3034,12 +4091,46 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 							last_visible_tooth_point_index = n_center_points()-1 
 																							+ n_points_per_start(),
 							is_for_top_face = false
-																)					
-		) // end condition bottom closing polygon
-		,
-			get_bottom_ring_faces(seg_plane_index,
-															current_faces_pts,
-															next_faces_pts)
+																)		
+			: [] 
+	,
+	[
+		// ******  Bore  ******
+		// Facets for closed center at top
+		is_hollow ? [] :
+			1==2 ? [] :
+				uturn(right_handed, false,
+				[current_faces_pts[i_top_current_2nd_center_point],
+					next_faces_pts[i_top_next_2nd_center_point],
+					current_faces_pts[i_top_current_center_point]
+				]),	
+		// ******  Bore  ******
+		// Facets for closed center at bottom
+		is_hollow ? [] :
+			1==2 ? [] :
+				uturn(right_handed, false,
+				[next_faces_pts[i_bottom_2nd_center_point],
+					current_faces_pts[i_bottom_2nd_center_point],
+					current_faces_pts[i_bottom_center_point]
+				]),						
+		// ******  Bore  ******
+		// Facets for bore
+		!is_hollow ? [] :
+			1==2 ? [] :
+				uturn(right_handed, false,
+				[current_faces_pts[i_top_current_2nd_center_point],
+					next_faces_pts[i_top_next_2nd_center_point],
+					current_faces_pts[i_bottom_2nd_center_point]
+				]),
+		!is_hollow ? [] :
+			1==2 ? [] :	
+				uturn(right_handed, false,
+				[current_faces_pts[i_bottom_2nd_center_point],
+					next_faces_pts[i_top_next_2nd_center_point],
+					next_faces_pts[i_bottom_2nd_center_point]
+				])
+
+	]
 		); //end concat and function		
 		
 
@@ -3052,7 +4143,24 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 			;
 		
 	//-----------------------------------------------------------
-			
+
+	function points_order_is_outwards(i_inner_point, i_outer_point) =
+						(abs(points_3Dvec[i_inner_point].x)
+						< abs(points_3Dvec[i_outer_point].x));
+
+	function all_points_at_z(facet, z) =
+		(points_3Dvec[facet[0]].z == z 
+		&& points_3Dvec[facet[1]].z == z
+		&& points_3Dvec[facet[2]].z == z  );
+		
+	function get_minor_point_prefer_major_index(i_seg_point_major, seg_faces) =
+			points_3Dvec[seg_faces[i_seg_point_major]] == points_3Dvec[seg_faces[i_seg_point_major+1]] ? i_seg_point_major : i_seg_point_major+1;
+
+	function get_minor_point_index(i_seg_major_point1, i_seg_major_point2, seg_faces) =
+							(norm_xy(points_3Dvec[seg_faces[i_seg_major_point1]])
+								<= norm_xy(points_3Dvec[seg_faces[i_seg_major_point2]])
+							? i_seg_major_point1+1 : i_seg_major_point1+1)
+						;		
 	function get_minor_face_point_index(seg_faces_pts,
 																			thread_face_point_index) =
 							thread_face_point_index
@@ -3092,7 +4200,7 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 											face
 								]	: []
 								
-						,
+							,
 								// 2 : The closing face polygons for the tooth profile to tooth base (minor radius).
 								//     Tests showed, that polygons from center to tooth points
 								//     are not ok for OpenScad. It creates its own polygons for
@@ -3102,7 +4210,7 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 								//     center point to upper flat intersect with lower flat line.	
 								//     Since std threads have a flat top/bottom they are not needed.
 								//     Since channel threads have a flat top, supress it also for this case.
-						
+								
 								(1==1 
 									&& is_channel_thread && !is_for_top_face) ?						
 								[ for (tooth_index = [0:n_tooths_per_start()-1])
@@ -3137,7 +4245,7 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 																		))
 													)
 										face
-								]		//n_tooths_per_start()
+								]		//n_tooths_per_start()	
 								: []		
 							);
 										
@@ -3310,7 +4418,7 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 	echo(points_3Dvec);
 	echo(thread_faces);	
 	*/
-
+	
 	polyhedron(	points = points_3Dvec,
 									faces = thread_faces);
 
