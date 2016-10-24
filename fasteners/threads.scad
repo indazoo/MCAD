@@ -1839,8 +1839,6 @@ module simple_profile_thread(
 	echo("right_handed", right_handed);
 	echo("tooth_height param", param_tooth_height());
 	echo("tooth_height calc", tooth_height);
-	echo("n_segments",n_segments);
-	echo("seg_angle",seg_angle);
 	echo("$fa (slice step angle)",$fa);
 	echo("$fn (slice step angle)",$fn);
 	echo("outer_flat_length", outer_flat_length);
@@ -1864,10 +1862,7 @@ module simple_profile_thread(
 	echo("clearance", clearance);
 	echo("backlash", backlash);
 	echo("major_radius",major_radius);
-	echo("major_rad",major_rad);
 	echo("minor_radius",minor_radius);
-	echo("minor_rad",minor_rad);
-	echo("is_hollow", is_hollow);
 	echo("taper_angle",taper_angle);	
 	echo("poly_rot_slice_offset()",poly_rot_slice_offset());
 	echo("internal_play_offset",internal_play_offset());
@@ -1968,6 +1963,18 @@ module simple_profile_thread(
 									tooth_flat]]		
 						;
 				
+	// ----------------------------------------------------------------------------
+	// TODO : polyhedron axial orientation
+	// ------------------------------------------------------------------
+	//Correction angle so at x=0 is left_flat/angle
+	//Not needed so far. Two problems:
+	//Internal and external threads have different lower_flats and therefore
+	//a different turn angle. ==> no nice thread differences.
+	//With parameter "exact_clearance" a problem occurs. 
+	function poly_rot_slice_offset() =
+			((is_channel_thread ? 0 : 1)
+			 *(right_handed?1:-1)
+			 *(360/n_starts/pitch* (lower_flat/2)));
 }
 
 // ---------------------------------------------------------------------
@@ -2143,7 +2150,7 @@ module make_profile_thread(
 	tooth_height = 1
 )
 {
-	echo("tooth_profile_map", tooth_profile_map);
+
 	// ------------------------------------------------------------------
 	// Segments and its angle, number of turns
 	// ------------------------------------------------------------------
@@ -2352,6 +2359,15 @@ module make_thread_polyhedron(
 					)
 {
 
+	// ------------------------------------------------------------------
+	// Debug Messages
+	// ------------------------------------------------------------------
+	
+	echo("n_segments",n_segments);
+	echo("seg_angle",seg_angle);
+	echo("tooth_profile_map", tooth_profile_map);
+	echo("is_hollow", is_hollow);
+	
 	//-----------------------------------------------------------
 	//-----------------------------------------------------------
 	// 3d vector points base on tooth profile map
@@ -2582,18 +2598,6 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 								)// taper
 						];
 	
-	// ----------------------------------------------------------------------------
-	// TODO : polyhedron axial orientation
-	// ------------------------------------------------------------------
-	//Correction angle so at x=0 is left_flat/angle
-	//Not needed so far. Two problems:
-	//Internal and external threads have different lower_flats and therefore
-	//a different turn angle. ==> no nice thread differences.
-	//With parameter "exact_clearance" a problem occurs. 
-	function poly_rot_slice_offset() =
-			((is_channel_thread ? 0 : 1)
-			 *(right_handed?1:-1)
-			 *(360/n_starts/pitch* (lower_flat/2)));
 
 
 			 
