@@ -3329,11 +3329,18 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 					
 			; //end function	
 	
-	function uturn(right_handed, is_for_top_face, vec3D) =
+	function uturn(right_handed, is_for_top_face, vec) =
 				((right_handed && !is_for_top_face 
-						|| (!right_handed && is_for_top_face)) ?
-					 [vec3D.y,vec3D.x,vec3D.z]	
-					:vec3D
+						|| (!right_handed && is_for_top_face)) 
+					? 
+						(len(vec)==3 ? 
+							[vec.y,vec.x,vec.z]	
+							: [for(i = [len(vec)-1:-1:0])
+								vec[i]
+							]
+						)		
+					 
+					:vec
 				);
 	function uturn_right_handed(right_handed,  vec3D) =
 				(right_handed ?
