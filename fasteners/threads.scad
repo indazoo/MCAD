@@ -91,6 +91,10 @@
 // History
 // -------------------------------------------------------------------
 /*
+ * Version 4.0  2016-10-24  indazoo
+ *                          - Now ultra fast without intersection. The thread is being created exactly
+ *                            with the correct length. The polygons are calculated to the needed height.
+ *                            Still needs some work for rope_threads (cross point calculation not correct).
  * Version 3.3  2016-09-26  indazoo
  *                          - fixed wrong calculation of round "rope threads".
  * Version 3.2  2015-06-05  indazoo
