@@ -304,6 +304,51 @@
 // -------------------------------------------------------------------
 
 //$fn=67;
+// Test Case 1:
+// $fn=26; //or 58
+// metric_thread(8, pitch=3, length=5, right_handed=true, internal=false, n_starts=3, bore_diameter=2);
+// ==>  if bottom _z() is above zero then there was a polygon too much at bottom.
+
+// Test Case 2 (TODO) :
+// $fn=3; 
+// metric_thread(8, pitch=3, length=5, right_handed=true, internal=false, n_starts=3, bore_diameter=2);
+// ==> holes at bottom and top appear, bore is covered by polygons.
+
+// Test Case 3(TODO)
+// $fn=32;
+// square_thread(diameter=8, pitch=1.5, length=1.5-pow(2,50), bore_diameter=3, right_handed=false);  
+// ==> gave collection errors : "WARNING: Bad range parameter in for statement: too many elements (2863311528)"
+
+// Test Case 4:
+// Flat polygons on top_z() and bottom_z() of thread without volume above or below.
+// $fn=32;
+// square_thread(diameter=8, pitch=1.5, length=5, right_handed=false, bore_diameter=4); 
+// square_thread(diameter=8, pitch=1.5, length=5, right_handed=true, bore_diameter=4);
+
+// Test Case 5:
+// Thread without bore but in code modified min x to see correct center build.
+// min_center_x = 1200 * netfabb_degenerated_min();
+
+// Test Case 6:
+// A channel thread should close its planar face at thread start.
+// $fn=32;
+// test_channel_simple(dia=8, internal=false);
+
+
+// Test Case 7 (TODO) :
+// The limitation of the thread to top_z() and bottom_z() results in points at z which are rotated away from the original segment angle.
+// Due to the fact that a round structure is given by points and the fact, that a straight line between two points is smaller than the wanted radius
+// the move of the point at z results in undercuts at bottom and overcuts at top.
+// Sample :
+// $fn=16;
+// test_rope_thread(length=1, n_starts=3);
+
+// Test Case 8 (TODO)
+// At top (maybe at bottom too) the top cover overlaps in air (very small triangle at the profile.
+// Also a polygon is missing.
+// $fn=16;
+// test_rope_thread(length=1, n_starts=3);
+
 //test_threads();
 //test_channel_threads();
 //test_slot_tabs();
