@@ -2463,8 +2463,6 @@ module make_thread_polyhedron(
 										//	)
 										;	
 
-			
-			
 	// -------------------------------------------------------------
 	//Create an array of planar points describing the profile of the tooths.
 	function get_3Dvec_tooths_points(seg_plane_index) = 
@@ -2543,6 +2541,12 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 	function n_tooths_per_start()	= n_vert_starts;										
 	function n_center_points() = 2;				
 	function n_points_per_edge() = 2;		
+	function is_center_point(point_index, tooths_polygon) = (point_index < n_center_points()) || (point_index > len(tooths_polygon)-n_center_points()-1);
+	function top_z() = is_channel_thread ? length-(-1)*bottom_z() : length;
+	function bottom_z() = is_channel_thread ? -thread_height_below_zero() :  0;
+	function thread_height_below_zero() = is_channel_thread ? 2* pitch*n_tooths_per_start() : pitch*n_tooths_per_turn();
+	
+	
 	// -------------------------------------------------------------
 	//Create a closed planar (point.y=0) polygon with tooths profile and center points
 	function get_3Dvec_tooths_polygon(seg_plane_index) =
