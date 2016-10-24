@@ -2252,8 +2252,6 @@ module make_profile_thread(
 	if(!is_channel_thread)
 	{
 		// Standard threads with multiple turns
-		intersection() 
-		{
 			make_thread_polyhedron(turns = n_turns,
 										thread_starts_flat = true,
 										open_top = false,
@@ -2274,14 +2272,6 @@ module make_profile_thread(
 										taper_angle = taper_angle,
 										length = length
 									); 
-			// Cut to length.
-			if(true) //DEBUG : set to false to see full thread before cutting
-			{
-				translate([0, 0, length/2]) 
-					cube([diameter*4, diameter*4, length], center=true);
-			}
-		}
-		
 	}
 	else
 	{
