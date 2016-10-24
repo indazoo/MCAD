@@ -2173,7 +2173,7 @@ module make_profile_thread(
 	seg_angle = 360/n_segments;
 	
 	is_hollow = bore_diameter > 0;
-	hollow_rad = is_hollow ? bore_diameter/2 : min_center_x;
+	hollow_rad = is_hollow ? bore_diameter/2 : min_center_x; //hollow_rad is used in plane polygons, may not be at center (x=0).
 
 
 	
