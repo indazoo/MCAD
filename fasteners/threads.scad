@@ -2556,7 +2556,7 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 				concat(
 					//bottom center point
 					[[0,0,tooths_profile[0].z]],
-					[[hollow_rad,0,tooths_profile[0].z]],
+					[[hollow_rad,0,tooths_profile[0].z]], //hollow_rad is not zero, see make_profile_thread(), so no conflict with first point.
 					//tooth points
 					tooths_profile,
 					//top center point
