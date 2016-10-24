@@ -384,8 +384,11 @@ module test_threads ($fa=5, $fs=0.1)
 {
     // M8
     metric_thread(8, pitch=1.5, length=5);
+	
     translate ([0, 15, 0])
         metric_thread(8, pitch=1.5, length=5, right_handed=false);
+
+
     // multiple start:
     translate ([0, -15, 0])
     metric_thread(8, pitch=3, length=5, internal=false, n_starts=3);
@@ -400,12 +403,14 @@ module test_threads ($fa=5, $fs=0.1)
     translate ([30, 0, 0])
     buttress_thread(8, pitch=1.5, length=5);
 
+
     translate ([40, 0, 0])
     test_channel_simple(dia=8, internal=false);
 		color("LemonChiffon")
     translate ([40, 0, -5])
     test_channel_simple(dia=8, internal=true);
 		
+	
 		translate ([40, -15, 0])
 		test_channel_thread(dia=8);
 		
@@ -420,6 +425,7 @@ module test_threads ($fa=5, $fs=0.1)
 		
 		translate ([70, -15, 0])
 		test_rope_thread(n_starts=3);
+
 }
 
 module test_channel_threads()
@@ -649,10 +655,10 @@ module test_leftright_buttress($fa=20, $fs=0.1)
 					buttress_angles = [15, 40], right_handed=false);
 }
 
-module test_channel_simple(dia = 10, internal = false, right_handed = true)
+module test_channel_simple(dia = 10, length=4, pitch = 2, internal = false, right_handed = true)
 {
-	pitch = 2;
-	length = 4;
+	pitch = pitch;
+	length = length;
 	angles = [30,30]; //second angle needs to be zero for test case.
 	outer_flat_length = 0.2;
 	clearance = 0;
