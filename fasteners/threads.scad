@@ -2567,8 +2567,11 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 	
 	pre_calc_tooths_polygon = get_3Dvec_tooths_polygon(0);				
 	tooths_polygon_point_count = len(pre_calc_tooths_polygon);
-	//echo("pre_calc_tooths_polygon",pre_calc_tooths_polygon);
-	//echo("tooths_polygon_point_count",tooths_polygon_point_count);
+	/*
+	//DEBUG
+	echo("pre_calc_tooths_polygon",pre_calc_tooths_polygon);
+	echo("tooths_polygon_point_count",tooths_polygon_point_count);
+	*/
 
 	// -------------------------------------------------------------
 	//- Rotate and lift ( z axis) the pre calculated planar tooths polygon
