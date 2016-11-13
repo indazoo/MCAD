@@ -3351,6 +3351,9 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 				:
 					[point.x*mul, point.y*mul, point.z];
 			
+	function calc_xy_radius(point_3D)=
+		sqrt(pow(point_3D.x,2)+pow(point_3D.y,2));
+	
 	// ----------------------------------------------------------------------------
 	// TODO : polyhedron axial orientation
 	// ------------------------------------------------------------------
@@ -4269,7 +4272,7 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 								
 								(1==1 
 									&& is_channel_thread && !is_for_top_face) ?						
-								[ for (tooth_index = [0:n_tooths_per_start()-1])
+								[ for (tooth_index = [0:1:n_tooths_per_start()-1])
 										for (face = get_closing_tooth_face(
 																	seg_faces_pts = start_seg_faces_pts,
 																	is_for_top_face = is_for_top_face,
