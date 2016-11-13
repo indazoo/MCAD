@@ -2345,9 +2345,6 @@ module make_profile_thread(
 	else
 	{
 		//Channel threads
-		difference() 
-		{
-			//
 			translate([0, 0, (length >= 2*pitch ? 0 : 2*pitch-length)
 								])
 				make_thread_polyhedron(turns = n_turns,
@@ -2370,16 +2367,6 @@ module make_profile_thread(
 													taper_angle = taper_angle,
 													length = length	
 												);  				
-
-			//Cut to length
-			if(true) //DEBUG : set to false to see full thread before cutting
-			{
-				translate([0, 0, 
-										oversized_len()/2 + //correct center = true
-											rest_of_channel_len(length)])
-					cube([diameter*4, diameter*4, oversized_len()], center=true);
-			}
-		}
 	}
 } // end module m_thread()
 
