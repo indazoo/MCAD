@@ -2851,9 +2851,10 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 	all_3Dvec_seg_indexes_starts = 
 		calc_3Dvec_seg_indexes_starts(0, 0, [], aligned_3Dvec_segments_points) ;
 	//DEBUG							
-	echo("n_segments ",n_segments);
+	/*
 	echo("all_3Dvec_seg_indexes_starts ", all_3Dvec_seg_indexes_starts);
-	
+	*/
+				
 	//RESULT with $fn=16, rope thread:
 	//ECHO: "calc_3Dvec_seg_indexes_starts ", [0, 114, 228, 342, 456, 570, 684, 798, 912, 1026, 1140, 1254, 1368, 1482, 1596, 1710]
 	function calc_3Dvec_seg_indexes_starts(seg_index, seg_index_sum, seg_indexes, segments_points) =
@@ -2872,53 +2873,35 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 			//unsorted		
 			unsorted_cross_points
 			;
-		
+	
+	//Data Structure of cross points:
+	//point index in final 3d Vec points], 
+	//	[[current_seg,next_seg], [first_point_index, second_point_index], [cross_point], angle, cross_point_type_...]
+	//]	
 	top_first_result_cross_point_index = calc_total_array_elements_nxn(0,aligned_3Dvec_segments_points,0); //since array indexes start at zero, the length is just right
 	z_top_cross_points = sort_cross_points(find_z_cross_points(top_z(),aligned_3Dvec_segments_points)); 
-	//[[point index in final 3d Vec points], 
-	//	[[current_seg,next_seg], [first_point_index, second_point_index], [cross_point], angle, cross_point_type_...]
-	//]
 	indexed_z_top_cross_points = get_indexed_array(top_first_result_cross_point_index, z_top_cross_points) ;
-	//echo("indexed_z_top_cross_points", indexed_z_top_cross_points);
 	bottom_first_result_cross_point_index = top_first_result_cross_point_index + len(z_top_cross_points);
 	z_bottom_cross_points = sort_cross_points(find_z_cross_points(bottom_z(),aligned_3Dvec_segments_points));	
 	indexed_z_bottom_cross_points = get_indexed_array(bottom_first_result_cross_point_index, z_bottom_cross_points) ;
-	//echo("indexed_z_bottom_cross_points", indexed_z_bottom_cross_points);
 
 	//DEBUG
 	// Use show_z_plane_cyl = true; and the same height as the thread's length.
 	// Use "Show Edges" in OpenScad
 	// Limit output to one segment (see code in function) : current_seg_index != 1 ? [] :
-	test_cross_points = find_z_cross_points(top_z(), pre_calc_seg_plane_point_polygons ,10000	);//quicksort(find_z_cross_points(top_z(), pre_calc_seg_plane_point_polygons ,10000	));
-	test_cross_points_sorted = quicksort(test_cross_points);
-	//echo("find_z_cross_points", test_cross_points	);
-	//echo("LEN : find_z_cross_points", len(test_cross_points),"elements per cp:", len(test_cross_points[0])	);
-	//for(pt = test_cross_points)
-	//	echo(pt ,sqrt(pow(pt[2].x,2) + pow(pt[2].y,2)));
-
-	//echo()
-//	echo("sorted", quicksort(test_cross_points) )		;
-	cross_points_2D = [for(cp = test_cross_points) [cp[2].x, cp[2].y]];
-	cross_points_2D_sorted = [for(cp = test_cross_points_sorted) [cp[2].x, cp[2].y]];
-		echo("cross_points_2D", cross_points_2D )		;
-	cross_points_2D_paths = [[for(i = [0:1:len(test_cross_points)-1]) i]];
-		echo("cross_points_2D_paths", cross_points_2D_paths )		;
-
-
-//DEBUG
-//Show cross points as 2D polygon
-//translate([10,10,0])
-//polygon(cross_points_2D, paths=cross_points_2D_paths);
-
-	
-	
-	//DEBUG
+	/*
 	echo("***************************************");
-	//echo("indexed_z_top_cross_points",indexed_z_top_cross_points);
-		echo("***************************************");
+	echo("indexed_z_top_cross_points",indexed_z_top_cross_points);
+	echo("***************************************");
 	echo("indexed_z_bottom_cross_points",len(indexed_z_bottom_cross_points));
 	for(pt=	indexed_z_bottom_cross_points)
 		echo(pt);
+	//Show cross points as 2D polygon
+	cross_points_2D = [for(cp = z_top_cross_points) [cp[2].x, cp[2].y]];
+	cross_points_2D_paths = [[for(i = [0:1:len(z_top_cross_points)-1]) i]];
+	translate([10,10,0])
+	polygon(cross_points_2D, paths=cross_points_2D_paths);
+	*/
 	
 	function get_indexed_array(start_index, array) =
 		[
@@ -4216,7 +4199,8 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 	function get_cp_seg_hollow_rad_pt_i_top(cross_point) =
 					cross_point[1][5][1];
 
-	echo("get_seg_cross_points(seg_index, indexed_z_top_cross_points) ", get_seg_cross_points(0, indexed_z_top_cross_points));
+	
+	//echo("get_seg_cross_points(seg_index, indexed_z_top_cross_points) ", get_seg_cross_points(0, indexed_z_top_cross_points));
 	function get_seg_cross_points(seg_index, indexed_cross_points) =
 		[
 			for(pt=indexed_cross_points)
