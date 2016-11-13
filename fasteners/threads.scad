@@ -1539,6 +1539,34 @@ for (angle = [0:1:721])
 */
 
 		
+function atan360(x,y) = 
+			x > 0 ?
+				y > 0 ?
+					atan(y/x)
+				: y == 0 ?
+						0
+					: //y < 0
+						270 - atan(x/y)
+			:
+				x == 0 ?
+					y > 0 ?
+						90
+					:
+						y == 0 ?
+							0
+						:
+							//y<0
+							270
+				:
+					//x < 0
+					y > 0 ?
+						90 - atan(x/y)
+						:	y == 0 ?
+							180
+							: //y<0
+							180 + atan(y/x)
+						;
+		
 function rotate_xy(angle, vect_3D) = [
 		vect_3D.x*cos(angle)-vect_3D.y*sin(angle),
 		vect_3D.x*sin(angle)+vect_3D.y*cos(angle),
