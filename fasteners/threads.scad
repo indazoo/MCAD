@@ -3312,8 +3312,8 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 
 
 	//DEBUG			
+	show_all_facets = false;  //must be in code, do not comment
 	/*
-	show_all_facets = false;
 	show_z_plane_cyl = false;
 	if(show_z_plane_cyl) 
 		translate([0,0,length])cylinder(d=2*major_rad+1,h=0.01);
