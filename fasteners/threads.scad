@@ -54,14 +54,13 @@
 // Possible Contibutions (yes, YOU!)
 // -------------------------------------------------------------------
 /*
- * 
+ * - Very short threads (length < pitch) the output is garbage because polygons may be larger than this.
  * - small error (too much material) for channel thread differences at segment plan 0.
  * - big taper angles create invalid polygons (no limit checks implemented).
  * - test print BSP and NPT threads and check compatibility with std hardware.
  * - check/buils a 45(?) degree BSP/NPT thread variant which fits on metal std hardware 
      and has no leaks (i believe for garden stuff)
  * - printify does notwork after v1.8   
- * - Manual polygon triangulation for complex tooth profile maps
  * - Internal threads start at y=0 as non internal do.
  *   This is not 100% correct. The middle point between two segment planes
  *   of internal and normal thread should be aligned. Barely noticable. 
@@ -69,8 +68,6 @@
  * - Often one wants a shaft attached to the thread. ==> param (len_top/bottom_shaft).
 
  * OPTIONAL
- * - Cut thread to length without intersection but with polygon calculation.
- *   This would give another speed boost.
  * - wood screws like
  *   http://www.thingiverse.com/thing:8952 and OneNote
  * - chamfer/bevel
@@ -91,6 +88,10 @@
 // History
 // -------------------------------------------------------------------
 /*
+ * Version 4.1  2016-11-13  indazoo
+ *                          - Improved calculations/output for intersection() free code which had problems
+ *                            with the cross points (thread start & end).
+ *                            Passed all tests except very short threads length < pitch. Not needed very often.
  * Version 4.0  2016-10-24  indazoo
  *                          - Now ultra fast without intersection. The thread is being created exactly
  *                            with the correct length. The polygons are calculated to the needed height.
