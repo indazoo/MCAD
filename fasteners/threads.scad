@@ -2021,7 +2021,8 @@ module simple_profile_thread(
 								[	major_rad,
 									left_flat + upper_flat],
 								[	minor_rad,
-									tooth_flat]]
+									tooth_flat]
+							]
 						:
 							[ [	minor_rad,
 									0],
@@ -2173,7 +2174,7 @@ module rope_profile_thread(
 				[	[major_radius, 0],
 					[major_radius, left_upper_flat]]
 			,
-				[for ( circel_seg = [1:coarseness-1]) 
+				[for ( circel_seg = [1:1:coarseness-1]) 
 					let(z_offset = circel_seg * (buried_height/coarseness),
 							current_rad_on_base = abs(rope_radius - (unused_radius + z_offset)),
 							depth = sqrt(pow(rope_radius,2)- abs(pow(current_rad_on_base,2)))
@@ -2536,9 +2537,9 @@ module make_thread_polyhedron(
 	//Create an array of planar points describing the profile of the tooths.
 	function get_3Dvec_tooths_points(seg_plane_index) = 
 					[
-					for (turn = [ 0 : n_turns_of_seg_plane(seg_plane_index)-1 ]) 
+					for (turn = [ 0 : 1: n_turns_of_seg_plane(seg_plane_index)-1 ]) 
 						let (is_last_turn = (turn == n_turns_of_seg_plane(seg_plane_index)-1))
-						for (combined_start = [0 : n_tooths_per_turn()-1])  
+						for (combined_start = [0:1:n_tooths_per_turn()-1])  
 						let (is_last_comb_start = (combined_start == n_tooths_per_turn()-1),
 								is_last_tooth = is_last_turn && is_last_comb_start)
 							for (point = get_3Dvec_tooth_points(turn,
@@ -2727,10 +2728,10 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 							array_of_3D_vectors[index-1]
 			];
 				
-	function invert_order(array_of_3D_vectors) =
+	function invert_order(array) =
 			[
-				for(index = [len(array_of_3D_vectors)-1:-1:0])
-					array_of_3D_vectors[index]
+				for(index = [len(array)-1:-1:0])
+					array[index]
 			];
 	function invert_z(array_of_3D_vectors) =
 			[
@@ -3516,12 +3517,12 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 	// generate_faces_points(2) ==>  [24,15,16,...,33] (10 points)
 
 	function generate_all_seg_faces_points() = 
-					[ for (seg_plane_index	= [ 0 : get_n_segment_planes()-1])
+					[ for(seg_plane_index	= [ 0:1:get_n_segment_planes()-1])
 								generate_faces_points(seg_plane_index)
 					];
 
 	function generate_faces_points(seg_plane_index) = 
-					[ for (fp = [seg_faces_point_offset(0,seg_plane_index,0)
+					[ for (fp = [seg_faces_point_offset(0,seg_plane_index,0):1
 												: seg_faces_point_offset(0,seg_plane_index+1,0)-1]) 
 								fp
 					];
@@ -3554,7 +3555,7 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 				//               offset = n_horiz_starts*n_vert_starts
 				// length: std_thread length above z=0
 				//         channel thread length = below zero.
-				for (seg_plane_index	= [ 0 : get_n_segment_planes()-1]) 
+				for (seg_plane_index	= [ 0 : 1 : get_n_segment_planes()-1]) 
 					let (next_seg_plane_index = get_adj_seg_plane_index(seg_plane_index+1),
 							current_faces_pts = pre_calc_faces_points[seg_plane_index],
 							next_faces_pts  = pre_calc_faces_points[
@@ -4322,7 +4323,7 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 	function get_closing_face_to_toothbase(seg_faces_pts,
 																	face_center_pointIndex,
 																	is_for_top_face) =
-			[ for (tooth_index = [0:n_tooths_per_start()-1])
+			[ for (tooth_index = [0:1:n_tooths_per_start()-1])
 					let( highest = (is_for_top_face ?
 													face_center_pointIndex
 																	-1 // minor point of point pair
