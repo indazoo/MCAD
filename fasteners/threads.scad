@@ -371,10 +371,11 @@
 //    $fn=16;
 //    metric_thread(8, pitch=1, length=1, right_handed=true, internal=false, n_starts=3);
 
+//$fn=7;
 //test_threads();
 //test_channel_threads();
 //test_slot_tabs();
-test_metric_right(internal = false);
+//test_metric_right(internal = false);
 //test_metric_right_n_starts();   
 //test_metric_right_large_pitch();
 //test_metric_right_and_internal();
@@ -393,9 +394,17 @@ test_metric_right(internal = false);
 //test_internal_difference_buttress_lefthanded();
 //test_buttress_no_lower_flat();
 
-//test_rope_thread(rope_diameter=1.2, rope_bury_ratio=0.9, coarseness=10,n_starts=2 );
+//test_rope_thread(rope_diameter=1.2, length = 5, right_handed=true, rope_bury_ratio=0.9, coarseness=7, n_starts=2 );
+//metric_thread(8, pitch=1.01, length=10, right_handed=true, internal=false, n_starts=3, bore_diameter=-1);
+//square_thread(8, pitch=1.5, length=5, right_handed=false, bore_diameter=5, n_starts=3);	
+//translate([0,0,1])
+	//cylinder(d=20,h=20);
+
 //test_channel_simple();
+//translate([10,20,2])
+//cube([4,4,4]);
 //test_channel_thread(dia=8);
+ //test_channel_simple(dia=8, internal=false);
 //test_channel_thread2(); 
 //test_channel_thread3();
 //test_channel_thread_diff();
@@ -424,6 +433,7 @@ module test_threads ($fa=5, $fs=0.1)
 
     translate ([30, 0, 0])
     buttress_thread(8, pitch=1.5, length=5);
+
 
 
     translate ([40, 0, 0])
@@ -709,13 +719,12 @@ module test_channel_simple(dia = 10, length=4, pitch = 2, internal = false, righ
 
 module test_channel_thread(dia = 10)
 {
-	angles = [20,10];
-	length = 8;
+	angles = [30,30];
+	length = 34;
 	pitch=2;
-	backlash = 0.13;
-	outer_flat_length = 0.5;
-	clearance = 0.17;
-	backlash = 0.1;
+	outer_flat_length = 0.2;
+	clearance = 0.0;
+	backlash = 0.0;
 	starts = 1;
 
 	translate([0,0,0])
@@ -730,7 +739,8 @@ module test_channel_thread(dia = 10)
 		right_handed = true,
 		clearance = clearance,
 		backlash = backlash,
-		bore_diameter = 0
+		bore_diameter = 2,
+		exact_clearance = exact_clearance
 		);
 
 
@@ -747,21 +757,23 @@ module test_channel_thread(dia = 10)
 		right_handed = true,
 		clearance = clearance,
 		backlash = backlash,
-		bore_diameter = 0
+		bore_diameter = 1
 		);
+		
 }
 
 module test_channel_thread2()
 {
 	//top cuts through upper thread (no shaft)
 	angles = [0,30]; 
-	length = 1;
+	length = 2;
 	outer_flat_length = 0.2;
 	clearance = 0.2;
 	backlash = 0.15;
 	function getdia(n) = 5 + n * 5;
-	for (n=[1 : 1])
+	for (n=[1 :1 : 1])
 	{
+
 	translate([0,0,length+5])
 	channel_thread(
 		thread_diameter = getdia(n),
@@ -776,6 +788,7 @@ module test_channel_thread2()
 		backlash = backlash,
 		bore_diameter = getdia(n)-4
 		);
+
 
 	color("LemonChiffon")
 		translate([0,0,-5])
@@ -792,8 +805,12 @@ module test_channel_thread2()
 		backlash = backlash,
 		bore_diameter = getdia(n)-4
 		);
+		
 	}
+	
 }
+
+//test_channel_thread3
 module test_channel_thread3()
 {
 	//this sample created degenerated faces in netfabb
@@ -890,6 +907,7 @@ module test_BSP(dia_inches = 3/4)
 
 module test_rope_thread(diameter=8,
 												length=10,
+												right_handed=true,
 												rope_diameter=1.5,
 												rope_bury_ratio=0.9,
 												coarseness = 10,
@@ -906,7 +924,7 @@ module test_rope_thread(diameter=8,
 		rope_diameter=rope_diameter,
 		rope_bury_ratio=rope_bury_ratio,
 		coarseness = coarseness,
-		right_handed = true,
+		right_handed = right_handed,
 		clearance = 0,
 		backlash = 0,
 		printify_top = false,
