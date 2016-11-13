@@ -4476,17 +4476,110 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 								
 	//-----------------------------------------------------------		
 	// ------------------------------------------------------------
+	// Check faces integrity
+	// ------------------------------------------------------------
+	//-----------------------------------------------------------
+
+	
+	thread_faces_sorted_points = sort_points_in_faces(faces=thread_faces);
+	self_intersecting_faces = get_polygons_duplicate_vertexes(faces = thread_faces_sorted_points);
+	test_duplicate_faces = [];//[[2,1,1],[1,2,1]];
+	test_faces = sort_points_in_faces(faces=concat(test_duplicate_faces,thread_faces_sorted_points));
+	thread_faces_sorted_faces = sort_faces( test_faces);
+	duplicate_faces = get_faces_duplicates(faces=thread_faces_sorted_faces);
+
+	function get_faces_duplicates(faces = []) =
+		[
+			for(found_face =
+			[
+				for(index = [0:1:len(faces)-1])
+					faces[index] == faces[index+1] ? faces[index] : []
+			])
+			if(len(	found_face)> 0)
+				found_face
+		];	
+
+	function get_polygons_duplicate_vertexes(faces = []) =
+		[
+			for(found_face =
+			[
+				for(face = faces)
+				
+					//quicksort_faces(face)
+					check_vertex_duplicate(face=face,index=0,face_length=len(face)) ?
+						face : []
+			
+			])
+			if(len(	found_face)> 0)
+				found_face
+		];
+			
+	function check_vertex_duplicate(face=[], current_index=0, face_length=0) =
+			current_index >= face_length-1 ?
+				false //end of array, no duplicates found
+			:	
+				face[current_index] == face[current_index+1] ?
+					true//[current_index] //end recursion, duplicate found
+				: 
+					check_vertex_duplicate(face=face, index=current_index+1) 
+		;
+		
+
+	function sort_faces(faces=[]) =
+			quicksort_faces(faces)
+	;
+		
+	function sort_points_in_faces(faces=[]) =
+	[
+		for(face = faces)
+			quicksort_face(face)
+	];
+
+	function quicksort_face(arr) =
+  (len(arr)==0) ? [] :
+      let(  pivot   = arr[floor(len(arr)/2)],
+            lesser  = [ for (y = arr) if (y  < pivot) y ],
+            equal   = [ for (y = arr) if (y == pivot) y ],
+            greater = [ for (y = arr) if (y  > pivot) y ]
+      )
+      concat( quicksort_face(lesser), equal, quicksort_face(greater) ); 
+					
+	function quicksort_faces(arr) =
+  (len(arr)==0) ? [] :
+      let(  pivot   = arr[floor(len(arr)/2)][0],
+            lesser  = [ for (y = arr) if (y[0]  < pivot) y ],
+            equal   = [ for (y = arr) if (y[0] == pivot) y ],
+            greater = [ for (y = arr) if (y[0]  > pivot) y ]
+      )
+      concat( quicksort_faces(lesser), equal, quicksort_faces(greater) );
+
+
+	//-----------------------------------------------------------		
+	// ------------------------------------------------------------
 	// Create Thread/polygon
 	// ------------------------------------------------------------
 	//-----------------------------------------------------------
 	
 	/* 
 	//DEBUG
-	echo("points_3Dvec len ", len(points_3Dvec));
-	echo("thread_faces len ", len(thread_faces));	
-	echo(points_3Dvec);
-	echo(thread_faces);	
+	echo("***********************************************");
+	echo("points_3Dvec len ");
+	echo(points_3Dvec, len(points_3Dvec));
+	echo("***********************************************");
+	echo("thread_faces len ");	
+	echo(thread_faces, len(thread_faces));	
 	*/
+	
+	if(len(duplicate_faces) > 0)
+	{
+		echo("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+		echo("Duplicate faces", duplicate_faces);
+	}
+	if(len(self_intersecting_faces) > 0)
+	{
+		echo("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+		echo("Self intersecting faces", self_intersecting_faces);
+	}
 	
 	polyhedron(	points = points_3Dvec,
 									faces = thread_faces);
