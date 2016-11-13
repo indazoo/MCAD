@@ -313,15 +313,15 @@
 //metric_thread(8, pitch=3, length=5, right_handed=true, internal=false, n_starts=3, bore_diameter=2);
 // ==>  if bottom _z() is above zero then there was a polygon too much at bottom.
 
-// Test Case 2 (TODO) :
+// Test Case 2:
 // $fn=3; 
 // metric_thread(8, pitch=3, length=5, right_handed=true, internal=false, n_starts=3, bore_diameter=2);
 // ==> holes at bottom and top appear, bore is covered by polygons.
 
-// Test Case 3(TODO)
+// Test Case 3:
 // $fn=32;
-// square_thread(diameter=8, pitch=1.5, length=1.5-pow(2,50), bore_diameter=3, right_handed=false);  
-// ==> gave collection errors : "WARNING: Bad range parameter in for statement: too many elements (2863311528)"
+// $fn=13; //this creates good visible polygons and with n_starts=2 or 3 many cases of cross points
+// square_thread(diameter=8, pitch=1.5, length=1.5+1/pow(2,50), bore_diameter=3, right_handed=false);  
 
 // Test Case 4:
 // Flat polygons on top_z() and bottom_z() of thread without volume above or below.
@@ -339,19 +339,37 @@
 // test_channel_simple(dia=8, internal=false);
 
 
-// Test Case 7 (TODO) :
+// Test Case 7:
 // The limitation of the thread to top_z() and bottom_z() results in points at z which are rotated away from the original segment angle.
 // Due to the fact that a round structure is given by points and the fact, that a straight line between two points is smaller than the wanted radius
 // the move of the point at z results in undercuts at bottom and overcuts at top.
 // Sample :
 // $fn=16;
 // test_rope_thread(length=1, n_starts=3);
+// $fn=15;
+// test_rope_thread(rope_diameter=1.2, length = 1, rope_bury_ratio=0.9, coarseness=7,n_starts=2 );
 
-// Test Case 8 (TODO)
+// Test Case 8 (IN PROGRESS):
+// ==> Because of pitch with value 1.01 (not exactly 1) the result shows a hole in netfabb. 
+// ==> This was, because the norm vector in the exported stl file does not correspond with the exported vertexes.
+//     I opened an issue on github (4.11.2016):   https://github.com/openscad/openscad/issues/1853
+// $fn=67;
+// metric_thread(8, pitch=1.01, length=10, right_handed=true, internal=false, n_starts=3, bore_diameter=-1);
+
+// Test Case 8:
 // At top (maybe at bottom too) the top cover overlaps in air (very small triangle at the profile.
 // Also a polygon is missing.
 // $fn=16;
 // test_rope_thread(length=1, n_starts=3);
+
+// Test Case 9 (TODO):
+// Very short thread:
+// 1) A face is missing at zero:
+//    $fn=16;
+//    metric_thread(8, pitch=1, length=1, right_handed=true, internal=false, n_starts=3);
+// 2) With very short threads, the algorithm does not work. The faces of the thread are bigger than the height.
+//    $fn=16;
+//    metric_thread(8, pitch=1, length=1, right_handed=true, internal=false, n_starts=3);
 
 //test_threads();
 //test_channel_threads();
