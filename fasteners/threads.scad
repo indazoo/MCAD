@@ -54,7 +54,8 @@
 // Possible Contibutions (yes, YOU!)
 // -------------------------------------------------------------------
 /*
- * - Very short threads (length < pitch) the output is garbage because polygons may be larger than this.
+ * - For very short threads (length < pitch) the output is garbage because polygons may be larger than this.
+ * - Channel threads ending and starting front faces are not exact.
  * - small error (too much material) for channel thread differences at segment plan 0.
  * - big taper angles create invalid polygons (no limit checks implemented).
  * - test print BSP and NPT threads and check compatibility with std hardware.
@@ -380,7 +381,7 @@
 //test_metric_right_n_starts();   
 //test_metric_right_large_pitch();
 //test_metric_right_and_internal();
-test_metric_left();
+//test_metric_left();
 //test_internal_difference_metric();
 
 //test_turnability();
@@ -5240,8 +5241,9 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 	// ------------------------------------------------------------
 	//-----------------------------------------------------------
 	
-	/* 
+	 
 	//DEBUG
+	/*
 	echo("***********************************************");
 	echo("points_3Dvec len ");
 	echo(points_3Dvec, len(points_3Dvec));
