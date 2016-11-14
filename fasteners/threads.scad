@@ -56,6 +56,7 @@
 /*
  * - For very short threads (length < pitch) the output is garbage because polygons may be larger than this.
  * - Channel threads ending and starting front faces are not exact.
+ * - For simpler code, move the pair minor/major points into a vector/object. This would eliminate many +/-1 potential problems.
  * - small error (too much material) for channel thread differences at segment plan 0.
  * - big taper angles create invalid polygons (no limit checks implemented).
  * - test print BSP and NPT threads and check compatibility with std hardware.
