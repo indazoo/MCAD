@@ -743,7 +743,7 @@ module test_channel_thread(dia = 10)
 		clearance = clearance,
 		backlash = backlash,
 		bore_diameter = 2,
-		exact_clearance = exact_clearance
+		exact_clearance = true
 		);
 
 
