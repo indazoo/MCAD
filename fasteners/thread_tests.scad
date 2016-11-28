@@ -166,6 +166,8 @@ module test_threads ($fa=5, $fs=0.1)
 		translate ([70, -15, 0])
 		test_rope_thread(n_starts=3);
 
+		translate([85,0,0])
+			test_meccano_worms();
 }
 
 module test_channel_threads()
@@ -640,4 +642,24 @@ module test_rope_thread(diameter=8,
 		bore_diameter = 4, //-1 = no bore hole. Use it for pipes 
 		taper_angle = 0,
 		exact_clearance = false)	;
+}
+
+module test_meccano_worms()
+{
+	rotate([90,0,0])
+	meccano_worm_gear_narrow_No32b (
+			right_handed = true,
+			printify_top = false,
+			printify_bottom = false,
+			exact_clearance = true
+	);
+
+	translate([0,-30,0])
+	rotate([90,0,0])
+		meccano_worm_gear_std_No32 (
+			right_handed = true,
+			printify_top = false,
+			printify_bottom = false,
+			exact_clearance = true
+	);		
 }
