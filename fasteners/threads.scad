@@ -922,7 +922,7 @@ module simple_profile_thread(
 
 	translate([0,0, - channel_thread_bottom_spacer()]
 									+ internal_play_offset())		
-		make_profile_thread (
+		helix(
 				pitch = pitch,
 				length = length,
 				major_radius = major_radius,
@@ -1075,7 +1075,7 @@ module rope_profile_thread(
 	xz_map = rope_xz_map(pitch, rope_diameter, rope_bury_ratio, coarseness,
 																	minor_radius, major_radius);
 
-	make_profile_thread (
+	helix(
 		pitch = pitch,
 		length = length,
 		major_radius = major_radius,

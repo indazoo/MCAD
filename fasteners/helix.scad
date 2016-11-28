@@ -304,7 +304,7 @@ tol = 1/pow(2,50); //8.88178*10-16
 //            difference()).
 // n_starts - Number of thread starts (e.g., DNA, a "double helix," has
 //            n_starts=2).  See wikipedia Screw_thread.
-module make_profile_thread(
+module helix(
 	pitch,
 	length,
 	major_radius,
@@ -405,9 +405,9 @@ module make_profile_thread(
 	}
 
 	//------------------------------------------------------------------
-	// Create the thread 
+	// Create the helix 
 	// ------------------------------------------------------------------
-	make_thread_polyhedron(turns = n_turns,
+	make_helix_polyhedron(turns = n_turns,
 										thread_starts_flat = !is_channel_thread,
 										open_top = is_channel_thread,
 										n_horiz_starts = n_horiz_starts,
@@ -486,16 +486,16 @@ module make_profile_thread(
 						 
 				);
 	
-} // end module make_profile_thread()
+} // end module helix()
 
 
 
 //-----------------------------------------------------------
 //-----------------------------------------------------------
-// Thread Polyhedron calculation
+// Helix Polyhedron calculation
 //-----------------------------------------------------------
 //-----------------------------------------------------------
-module make_thread_polyhedron(
+module make_helix_polyhedron(
 					turns = 1, //make_thread_polygon() adds always one turn to this value
 					thread_starts_flat = true, //"true" adds extra loop, so at z=0 the
 																		 // resulting thread is flat/full
@@ -737,7 +737,7 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 				concat(
 					//bottom center point
 					[[0,0,tooths_profile[0].z]],
-					[[hollow_rad,0,tooths_profile[0].z]], //hollow_rad is not zero, see make_profile_thread(), so no conflict with first point.
+					[[hollow_rad,0,tooths_profile[0].z]], //hollow_rad is not zero, see helix(), so no conflict with first point.
 					//tooth points
 					tooths_profile,
 					//top center point
@@ -2821,7 +2821,7 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 									faces = thread_faces);
 
 	
-}//end module make_thread_polyhedron()
+}//end module make_helix_polyhedron()
 
 
 // ---------------------------------------------------------------------
