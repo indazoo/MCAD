@@ -964,7 +964,10 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 	// Limit output to one segment (see code in function) : current_seg_index != 1 ? [] :
 	/*
 	echo("***************************************");
-	echo("indexed_z_top_cross_points",indexed_z_top_cross_points);
+	echo("top_first_result_cross_point_index",top_first_result_cross_point_index);
+	echo("bottom_first_result_cross_point_index",bottom_first_result_cross_point_index);
+	echo("z_top_cross_points",len(z_top_cross_points),z_top_cross_points);
+	echo("indexed_z_top_cross_points",len(indexed_z_top_cross_points),indexed_z_top_cross_points);	
 	echo("***************************************");
 	echo("indexed_z_bottom_cross_points",len(indexed_z_bottom_cross_points));
 	for(pt=	indexed_z_bottom_cross_points)
@@ -972,7 +975,7 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 	//Show cross points as 2D polygon
 	cross_points_2D = [for(cp = z_top_cross_points) [cp[2].x, cp[2].y]];
 	cross_points_2D_paths = [[for(i = [0:1:len(z_top_cross_points)-1]) i]];
-	translate([10,10,0])
+	translate([0,0,length+0.55])
 	polygon(cross_points_2D, paths=cross_points_2D_paths);
 	*/
 	
