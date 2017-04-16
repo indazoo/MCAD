@@ -55,6 +55,9 @@
 // History
 // -------------------------------------------------------------------
 /*
+ * Version 4.4  2017-04-16  indazoo
+ *                          - better debug output code
+ *                          - removed error creating "debug feature"
  * Version 4.3  2016-11-27  indazoo
  *                          - separate files for test,threads and helix
  * Version 4.2	2016-11-27  indazoo
