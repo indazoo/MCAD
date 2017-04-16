@@ -940,9 +940,13 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 			;
 	
 	//Data Structure of cross points:
-	//point index in final 3d Vec points], 
+	//[point index in final 3d Vec points, 
 	//	[[current_seg,next_seg], [first_point_index, second_point_index], [cross_point], angle, cross_point_type_...]
 	//]	
+	// Sample:
+	// z_top_cross_point         :  [     [[0], [26, 28], [1.47977, 0, 1.1], 0, 2, [1, 52]]
+	// indexed_z_top_cross_point : [[468, [[0], [26, 28], [1.47977, 0, 1.1], 0, 2, [1, 52]]]
+
 	top_first_result_cross_point_index = calc_total_array_elements_nxn(0,aligned_3Dvec_segments_points,0); //since array indexes start at zero, the length is just right
 	z_top_cross_points = sort_cross_points(find_z_cross_points(top_z(),aligned_3Dvec_segments_points)); 
 	indexed_z_top_cross_points = get_indexed_array(top_first_result_cross_point_index, z_top_cross_points) ;
