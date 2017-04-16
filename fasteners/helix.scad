@@ -955,7 +955,6 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 	//echo("z_bottom_cross_points");//,z_bottom_cross_points);
 	//for(pt = z_bottom_cross_points)
 	//	echo(pt);
-	
 	indexed_z_bottom_cross_points = get_indexed_array(bottom_first_result_cross_point_index, z_bottom_cross_points) ;
 
 	//DEBUG
