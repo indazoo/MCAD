@@ -1432,7 +1432,7 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 					]
 				,
 				//***********************************************
-				// Top Thread Completion Facets
+				// Top Thread Front Completion Facets 
 				//***********************************************
 				[
 				for(pts=
@@ -1515,9 +1515,14 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 						pt
 				]
 			,
-				//***********************************************
+				//****************************************************************************
 				// Top Thread Cover Facets
-				//***********************************************
+				// The cross points are an irregular shaped line of points
+				// describing the shape of the thread at z.
+				// All cross points of a segment result in one ore more triangles but
+				// these triangles do not "close" the top because the center points 
+				// are not included.
+				//****************************************************************************
 				1==2 ? [] :
 				[
 					let(tria_faces_top = get_tria_faces(indexed_z_top_cross_points, true))
@@ -2669,15 +2674,23 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 	non_planar_faces = [];
 	duplicate_faces = [];
 	self_intersecting_faces = [];
+	thread_faces_sorted_points = [];
 	/*
 	thread_faces_sorted_points = sort_points_in_faces(faces=thread_faces);
-	self_intersecting_faces = get_polygons_duplicate_vertexes(faces = thread_faces_sorted_points);
+	//for(f = thread_faces_sorted_points)
+	//	echo(points_3Dvec[f[0]],points_3Dvec[f[1]],points_3Dvec[f[2]]);
+	self_intersecting_faces = get_polygons_duplicate_vertexes(thread_faces_sorted_points);
 	test_duplicate_faces = [];//[[2,1,1],[1,2,1]];
 	test_faces = sort_points_in_faces(faces=concat(test_duplicate_faces,thread_faces_sorted_points));
 	thread_faces_sorted_faces = sort_faces( test_faces);
-	duplicate_faces = get_faces_duplicates(faces=thread_faces_sorted_faces);
+	
+	duplicate_faces = [];//get_faces_duplicates(faces=thread_faces_sorted_faces);
 	non_planar_faces = get_faces_non_planar_z(thread_faces, points_3Dvec);
+	
+	point_dupli = get_point_duplicates(points = quicksort_arr(points_3Dvec, 2));
+	echo("point duplicates", point_dupli);
 	*/
+	//echo(points_3Dvec[f[0]],points_3Dvec[f[1]],points_3Dvec[f[2]]);
 	//DEBUG
 	/*
 	non_planar_test_pts = [[1,2,3],[2,3,3.1],[3,4,3],[4,5,3]];
@@ -2796,11 +2809,11 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 	//DEBUG
 	/*
 	echo("***********************************************");
-	echo("points_3Dvec len ");
-	echo(points_3Dvec, len(points_3Dvec));
+	echo("points_3Dvec len ", len(points_3Dvec));
+	echo("points_3Dvec=", points_3Dvec);
 	echo("***********************************************");
-	echo("thread_faces len ");	
-	echo(thread_faces, len(thread_faces));	
+	echo("thread_faces len ",len(thread_faces));	
+	echo("thread_faces=", thread_faces);
 	*/
 	if(show_thread_faces_result)
 		echo(thread_faces, len(thread_faces));	
