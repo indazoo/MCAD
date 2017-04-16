@@ -1275,10 +1275,13 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 			];
 	
 	function correct_3D_floating_point_error(target_value, vec_3D) =
-	[correct_floating_point_error_value(target_value, vec_3D.x),
-		correct_floating_point_error_value(target_value, vec_3D.y),
-		correct_floating_point_error_value(target_value, vec_3D.z)
+	[cut_accurracy(correct_floating_point_error_value(target_value, vec_3D.x)),
+		cut_accurracy(correct_floating_point_error_value(target_value, vec_3D.y)),
+		cut_accurracy(correct_floating_point_error_value(target_value, vec_3D.z))
 	];			
+				
+	function cut_accurracy(value) = 
+				round(value * 100)/100;
 				
 	max_tol = 1/pow(2,40); //checked in exported STL.
 	function correct_floating_point_error_value(target_value, fuzzy_value) = 
