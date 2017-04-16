@@ -2752,6 +2752,20 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 				found_face
 		];
 			
+	function get_point_duplicates(points = []) =
+		[
+			for(found_point =
+			[
+				for(index = [0:1:len(points)-1])
+					points[index].x == points[index+1].x
+						&& points[index].y == points[index+1].y
+						&& points[index].z == points[index+1].z
+					? [index, points[index]] : []
+			])
+			if(len(	found_point)> 0)
+				found_point
+		];	
+			
 	function check_vertex_duplicate(face=[], current_index=0, face_length=0) =
 			current_index >= face_length-1 ?
 				false //end of array, no duplicates found
