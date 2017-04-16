@@ -2744,8 +2744,6 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 			for(found_face =
 			[
 				for(face = faces)
-				
-					//quicksort_faces(face)
 					check_vertex_duplicate(face=face,index=0,face_length=len(face)) ?
 						face : []
 			
@@ -2766,7 +2764,7 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 		
 
 	function sort_faces(faces=[]) =
-			quicksort_faces(faces)
+			quicksort_arr(faces, 0)
 	;
 		
 	function sort_points_in_faces(faces=[]) =
@@ -2795,14 +2793,14 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
       )
       concat( quicksort_face(lesser), equal, quicksort_face(greater) ); 
 					
-	function quicksort_faces(arr) =
+	function quicksort_arr(arr, index_of_sort_value) =
   (len(arr)==0) ? [] :
-      let(  pivot   = arr[floor(len(arr)/2)][0],
-            lesser  = [ for (y = arr) if (y[0]  < pivot) y ],
-            equal   = [ for (y = arr) if (y[0] == pivot) y ],
-            greater = [ for (y = arr) if (y[0]  > pivot) y ]
+      let(  pivot   = arr[floor(len(arr)/2)][index_of_sort_value],
+            lesser  = [ for (y = arr) if (y[index_of_sort_value]  < pivot) y ],
+            equal   = [ for (y = arr) if (y[index_of_sort_value] == pivot) y ],
+            greater = [ for (y = arr) if (y[index_of_sort_value]  > pivot) y ]
       )
-      concat( quicksort_faces(lesser), equal, quicksort_faces(greater) );
+      concat( quicksort_arr(lesser, index_of_sort_value), equal, quicksort_arr(greater, index_of_sort_value) );
 
 
 	//-----------------------------------------------------------		
