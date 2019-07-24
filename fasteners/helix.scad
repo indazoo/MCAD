@@ -324,10 +324,19 @@ module helix(
 	taper_angle = 0,
 	exact_clearance = true,
 	tooth_profile_map,
-	tooth_height = 1
+	tooth_height = 1,
+	debug = false
 )
 {
-
+	if(debug)
+	{
+		echo("********** helix()  **************");
+		echo("tooth_profile_map", tooth_profile_map);
+		//color("red")
+		//translate([major_radius*2,0,0])polygon(points = tooth_profile_map);
+		//echo(taper_angle);
+		echo("**********************************");
+	}
 	// ------------------------------------------------------------------
 	// Segments and its angle, number of turns
 	// ------------------------------------------------------------------
@@ -356,7 +365,9 @@ module helix(
 	
 	clearance_ext = clearance_extension(major_radius, internal);
 	turnability_ext = radius_extension(major_radius+clearance_ext, 
-																		seg_angle, major_radius, internal);
+										seg_angle, 
+										major_radius, 
+										internal);
 	major_rad = major_radius + clearance_ext + turnability_ext;
 	minor_rad = major_rad-tooth_height;
 	diameter = major_rad*2;
@@ -367,7 +378,8 @@ module helix(
 				point[1] //leave z alone
 			]
 		];
-
+	if(debug)
+		echo("helix(), tooth_profile_map ", tooth_profile_map);
 	// Clearance/Turnability:
 	// The outer walls of the created threads are not circular. They consist
 	// of polyhydrons with planar front rectangles. Because the corners of 
@@ -428,7 +440,8 @@ module helix(
 										seg_angle = seg_angle,
 										right_handed = right_handed,
 										taper_angle = taper_angle,
-										length = length
+										length = length,
+										debug = debug
 									); 
 	
 	//---------------------------------------------------------
@@ -451,12 +464,6 @@ module helix(
 									: 0
 							);
 							
-	function sagitta_to_radius_extension(sagitta_diff, angle) =
-								//sagitta_diff*cos(90-angle/2) ;
-								sagitta_diff/sin(90-angle/2);
-	function chord_sagitta(radius, angle) = radius - chord_apothem(radius, angle);
-	function chord_apothem(radius, angle) = radius * cos(angle/2);		
-
 	function bow_to_face_distance_scale(radius, angle, screw_radius, internal) =
 						radius_extension(radius, angle, screw_radius, internal) == 0 ?
 							1 : get_scale(radius, radius_extension(radius, angle, screw_radius, internal));
@@ -464,33 +471,43 @@ module helix(
 	function bow_to_face_distance(radius, angle) = 
 				radius*(1-cos(angle/2));
 				
-	function radius_extension(radius, angle, screw_radius, internal) = 
-				// - the bolt is reference ==> apply change only to internal threads
-				!internal ? 0 //bolt will not be expanded
-				:
-				// - the internal thread must provide room for the external (screw) 
-				//   to turn ==> expand radius.
-				// - extreme case: With very flat flank angles and low $fn a screw
-				//   thread may fall through a nut (internal).
-				// - By using the diameter as reference for a screw, only the
-				//   corners of the thread (think low $fn) have the correct diameter.
-				//   So the screw has too little material between the corners.
-				//   TODO (optional): parameter for the user if he wants to recut 
-				//   the thread with machining tools
-				// - TODO: Study extreme case with high pitch and big taper angle
-				//      corners where are they? 
-				//old: radius*(1-cos(angle/2))/cos(angle/2) : 0; //30 ==>0.29509
-				(
-					chord_apothem(radius, angle) >= screw_radius ? 0  //is turnable
-					:
-					 sagitta_to_radius_extension(
-												sagitta_diff = screw_radius-chord_apothem(radius, angle),
-												angle =	angle)
-						 
-				);
-	
+
 } // end module helix()
 
+//-----------------------------------------------------------
+//-----------------------------------------------------------
+// Global Helper Functions
+//-----------------------------------------------------------
+//-----------------------------------------------------------
+function radius_extension(radius, angle, screw_radius, internal) = 
+	// - the bolt is reference ==> apply change only to internal threads
+	!internal ? 0 //bolt will not be expanded
+	:
+	// - the internal thread must provide room for the external (screw) 
+	//   to turn ==> expand radius.
+	// - extreme case: With very flat flank angles and low $fn a screw
+	//   thread may fall through a nut (internal).
+	// - By using the diameter as reference for a screw, only the
+	//   corners of the thread (think low $fn) have the correct diameter.
+	//   So the screw has too little material between the corners.
+	//   TODO (optional): parameter for the user if he wants to recut 
+	//   the thread with machining tools
+	// - TODO: Study extreme case with high pitch and big taper angle
+	//      corners where are they? 
+	//old: radius*(1-cos(angle/2))/cos(angle/2) : 0; //30 ==>0.29509
+	(
+		chord_apothem(radius, angle) >= screw_radius ? 0  //is turnable
+		:
+		 sagitta_to_radius_extension(
+			sagitta_diff = screw_radius-chord_apothem(radius, angle),
+			angle =	angle)
+			 
+	);
+function sagitta_to_radius_extension(sagitta_diff, angle) =
+							//sagitta_diff*cos(90-angle/2) ;
+							sagitta_diff/sin(90-angle/2);
+function chord_sagitta(radius, angle) = radius - chord_apothem(radius, angle);
+function chord_apothem(radius, angle) = radius * cos(angle/2);		
 
 
 //-----------------------------------------------------------
@@ -499,42 +516,44 @@ module helix(
 //-----------------------------------------------------------
 //-----------------------------------------------------------
 module make_helix_polyhedron(
-					turns = 1, //make_thread_polygon() adds always one turn to this value
-					thread_starts_flat = true, //"true" adds extra loop, so at z=0 the
-																		 // resulting thread is flat/full
-					open_top = false,  	// Default: std threads have no open top so far
-															// But internal channel threads have always 
-															// an open top to let insert the channel thread 
-															// to a certain depth without a thread over the
-															// whole depth
-					n_horiz_starts = 1, //channel threads start multiple times (rotated)
-					n_vert_starts = 1, //std threads can have more than one start (lifted)
-					minor_rad = 10,
-					major_rad = 12,
-					major_radius = 12,
-					is_hollow = true,
-					hollow_rad = 5,
-					tooth_profile_map,
-					is_channel_thread = false,
-					internal = false,
-					pitch = 2,
-					n_segments = 30,
-					seg_angle = 12,
-					right_handed = true,
-					taper_angle = 0,
-					length = 20	
-					)
+			turns = 1, //make_thread_polygon() adds always one turn to this value
+			thread_starts_flat = true, //"true" adds extra loop, so at z=0 the
+																 // resulting thread is flat/full
+			open_top = false,  	// Default: std threads have no open top so far
+													// But internal channel threads have always 
+													// an open top to let insert the channel thread 
+													// to a certain depth without a thread over the
+													// whole depth
+			n_horiz_starts = 1, //channel threads start multiple times (rotated)
+			n_vert_starts = 1, //std threads can have more than one start (lifted)
+			minor_rad = 10,
+			major_rad = 12,
+			major_radius = 12,
+			is_hollow = true,
+			hollow_rad = 5,
+			tooth_profile_map,
+			is_channel_thread = false,
+			internal = false,
+			pitch = 2,
+			n_segments = 30,
+			seg_angle = 12,
+			right_handed = true,
+			taper_angle = 0,
+			length = 20,
+			debug = false
+			)
 {
 
 	// ------------------------------------------------------------------
 	// Debug Messages
 	// ------------------------------------------------------------------
-	/*
-	echo("n_segments",n_segments);
-	echo("seg_angle",seg_angle);
-	echo("tooth_profile_map", tooth_profile_map);
-	echo("is_hollow", is_hollow);
-	*/
+	if(debug)
+	{
+		echo("n_segments",n_segments);
+		echo("seg_angle",seg_angle);
+		echo("tooth_profile_map", tooth_profile_map);
+		echo("is_hollow", is_hollow);
+	}
 
 	//-----------------------------------------------------------
 	//-----------------------------------------------------------
@@ -661,8 +680,10 @@ module make_helix_polyhedron(
 
 	pre_calc_3Dvec_tooth_points = get_3Dvec_tooth_points(0, 0,false,tooth_profile_map);
 	len_tooth_points = len(pre_calc_3Dvec_tooth_points);
-/*
+
 // DEBUG
+if(debug)
+{
 echo("n_vert_starts",n_vert_starts);
 echo("n_horiz_starts",n_horiz_starts);
 echo("len_tooth_points",len_tooth_points);	
@@ -691,14 +712,14 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 	echo("get_3Dvec_profile_zOffset(turn, combined_start)",get_3Dvec_profile_zOffset(0, 2));
 	echo("get_3Dvec_profile_zOffset(turn, combined_start)",get_3Dvec_profile_zOffset(1, 0));
 	echo("get_3Dvec_tooth_points(0,0,)",get_3Dvec_tooth_points(turn=0,combined_start=0,is_last_turn=false,tooth_profile_map));
-	echo("get_3Dvec_seg_plane_point_polygons_aligned(seg_plane_index)[1]",get_3Dvec_seg_plane_point_polygons_aligned(seg_plane_index)[1]);
+	echo("get_3Dvec_seg_plane_point_polygons_aligned(seg_plane_index)[1]",get_3Dvec_seg_plane_point_polygons_aligned(seg_plane_index)); //[1]
 	echo("get_segment_zOffset(seg_plane_index) ...",get_segment_zOffset(seg_plane_index) 
 														- (is_channel_thread ? pitch*2 : 
 																						pitch*(n_vert_starts*n_horiz_starts)));
 	echo("len_seg_plane(start_seg_plane_index)",len_seg_plane(seg_plane_index));
 	
 }	
-*/
+}
 
 	function len_seg_plane(seg_plane_index) =
 							n_tooths_of_seg_plane(seg_plane_index) * len_tooth_points
@@ -1067,20 +1088,21 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 								for( point = tooths_polygon)
 									rotate_xy(rotation_angle_synced(seg_plane_index), point )
 								];
-								
+	echo("bottom_z()",bottom_z());	
+	echo("thread_height_below_zero()",thread_height_below_zero());						
 	function orientate_all_points_in_z(seg_plane_index,tooths_polygon ) = 
 								!is_channel_thread  ?
 								[
 									for (point_index = [0:1:len(tooths_polygon)-1] ) 
 										is_center_point(point_index, tooths_polygon) ? 
-											(//because we want a thread ending at zero or length
+											(//because we want a thread ending at exactly zero or length not some very small numbers off
 											point_index <= n_center_points() ?
 												[tooths_polygon[point_index].x,  tooths_polygon[point_index].y, bottom_z()] //Bottom center points
 											:
 												[tooths_polygon[point_index].x,  tooths_polygon[point_index].y, top_z()] //Top center points
 											)
 										:
-											(z_offset_v3(get_segment_zOffset(seg_plane_index) - thread_height_below_zero() //Tooth points
+											(z_offset_v3(get_segment_zOffset(seg_plane_index)  - thread_height_below_zero() //Tooth points
 															, tooths_polygon[point_index] )
 											)
 								]
@@ -1108,9 +1130,9 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 			// 1 : For standard threads shrink profile to get a tapered thread.
 			[ for (point_index = [0:1:len(tooths_polygon)-1] ) 
 					(is_center_point(point_index, tooths_polygon) ? 
-						tooths_polygon[point_index]  //do not taper center points
+						tooths_polygon[point_index]  //do not taper center points (center+bore hole)
 						:
-						((point_index - n_center_points() % n_points_per_edge()) == 0 ?
+						(((point_index - n_center_points()) % n_points_per_edge()) == 0 ?
 							taper(tooths_polygon[point_index])
 							: tooths_polygon[point_index] //do not taper secondary helper point of profile
 						)
@@ -1120,7 +1142,8 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 			// Channel thread
 			tooths_polygon
 		)
-		;			
+		;
+
 
 	show_all_facets = false;  //must be in code, do not comment
 	//DEBUG			
@@ -1664,6 +1687,9 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 						pt
 				]
 				,
+				//****************************
+				// Bottom Thread Cover Facets 
+				//****************************
 					is_channel_thread ? 
 					[
 					for(pts=
@@ -2618,62 +2644,7 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
 	function get_secondlast_faces_pts() = pre_calc_faces_points[n_segments-1];
 	function get_last_faces_pts() = pre_calc_faces_points[n_segments];	
 	
-	//  **********************************************************************
-	//  Array Helper Functions	
-	//  **********************************************************************
-
-	function array_len_savely(value) =
-			value == undef ? 0 : len(value)==undef ? 0 : len(value);
-			
-	function array_get_circular_index(array, index) =
-		index <= len(array)-1 ? index : ((index)%len(array))
-		;
 							
-	function array_get_circular_index_len(array_length, index) =
-		index <= array_length-1 ? index : ((index)%array_length)
-		;
-		
-	function array_remove_at(index, array) =
-			index < 0 || index > len(array)-1 ? array 
-			:
-					concat(
-					//first part
-					[
-					for(first_index = [0:1: index-1])
-						array[first_index]
-					],
-					//end part
-					[
-					for(last_index = [index+1:1: len(array)-1])
-						array[last_index]
-					]
-				);
-					
-	function array_replace_at(index, array, replacement) =
-			index < 0 || index > len(array)-1 ? array 
-			:
-					concat(
-					//first part
-					[
-					for(first_index = [0:1: index-1])
-						array[first_index]
-					]
-					,
-					//replacement part
-					replacement
-					,
-					//end part
-					[
-					for(last_index = [index+len(replacement):1: len(array)-1])
-						array[last_index]
-					]
-				);
-	
-	function arrayDiff(array1,array2) = [
-		for (index = [0:1:len(array1)-1] )
-			[array1[index].x-array2[index].x,array1[index].y-array2[index].y,array1[index].z-array2[index].z]
-		];
-								
 	//-----------------------------------------------------------		
 	// ------------------------------------------------------------
 	// Check faces integrity
@@ -2810,14 +2781,7 @@ for (seg_plane_index = [0:get_n_segment_planes()-1])
       )
       concat( quicksort_face(lesser), equal, quicksort_face(greater) ); 
 					
-	function quicksort_arr(arr, index_of_sort_value) =
-  (len(arr)==0) ? [] :
-      let(  pivot   = arr[floor(len(arr)/2)][index_of_sort_value],
-            lesser  = [ for (y = arr) if (y[index_of_sort_value]  < pivot) y ],
-            equal   = [ for (y = arr) if (y[index_of_sort_value] == pivot) y ],
-            greater = [ for (y = arr) if (y[index_of_sort_value]  > pivot) y ]
-      )
-      concat( quicksort_arr(lesser, index_of_sort_value), equal, quicksort_arr(greater, index_of_sort_value) );
+
 
 
 	//-----------------------------------------------------------		
@@ -2941,3 +2905,67 @@ function atan360(x,y) =
 	
 
 
+//  **********************************************************************
+//  Array Helper Functions	
+//  **********************************************************************
+
+function array_len_savely(value) =
+		value == undef ? 0 : len(value)==undef ? 0 : len(value);
+		
+function array_get_circular_index(array, index) =
+	index <= len(array)-1 ? index : ((index)%len(array))
+	;
+						
+function array_get_circular_index_len(array_length, index) =
+	index <= array_length-1 ? index : ((index)%array_length)
+	;
+	
+function array_remove_at(index, array) =
+		index < 0 || index > len(array)-1 ? array 
+		:
+				concat(
+				//first part
+				[
+				for(first_index = [0:1: index-1])
+					array[first_index]
+				],
+				//end part
+				[
+				for(last_index = [index+1:1: len(array)-1])
+					array[last_index]
+				]
+			);
+				
+function array_replace_at(index, array, replacement) =
+		index < 0 || index > len(array)-1 ? array 
+		:
+				concat(
+				//first part
+				[
+				for(first_index = [0:1: index-1])
+					array[first_index]
+				]
+				,
+				//replacement part
+				replacement
+				,
+				//end part
+				[
+				for(last_index = [index+len(replacement):1: len(array)-1])
+					array[last_index]
+				]
+			);
+
+function arrayDiff(array1,array2) = [
+	for (index = [0:1:len(array1)-1] )
+		[array1[index].x-array2[index].x,array1[index].y-array2[index].y,array1[index].z-array2[index].z]
+	];
+	
+function quicksort_arr(arr, index_of_sort_value) =
+  (len(arr)==0) ? [] :
+      let(  pivot   = arr[floor(len(arr)/2)][index_of_sort_value],
+            lesser  = [ for (y = arr) if (y[index_of_sort_value]  < pivot) y ],
+            equal   = [ for (y = arr) if (y[index_of_sort_value] == pivot) y ],
+            greater = [ for (y = arr) if (y[index_of_sort_value]  > pivot) y ]
+      )
+      concat( quicksort_arr(lesser, index_of_sort_value), equal, quicksort_arr(greater, index_of_sort_value) );

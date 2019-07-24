@@ -71,8 +71,20 @@ include <threads.scad>
 //    $fn=16;
 //    metric_thread(8, pitch=1, length=1, right_handed=true, internal=false, n_starts=3);
 
-$fn=13;
+$fn=7;
 test_threads();
+//test_test();
+//translate ([0, 30, 0])metric_thread(8, pitch=1.0, length=10, right_handed=true, taper_angle=10);
+
+//test_square_thread();
+//test_NPT(dia_inches = 1/8);
+
+//test_BSP(dia_inches = 1/8);
+
+//TODO: Test if bore is too big for taper
+//      BSP_Thread should be without bore, there should be BSP-Pipe
+
+
 //test_channel_simple(dia=8, internal=true);
 //test_channel_thread(dia=8);
 //test_channel_threads();
@@ -95,7 +107,7 @@ test_threads();
 //test_internal_difference_buttress();
 //test_internal_difference_buttress_lefthanded();
 //test_buttress_no_lower_flat();
-
+//test_acme_taper();
 //test_rope_thread(rope_diameter=1.2, length = 5, right_handed=true, rope_bury_ratio=0.9, coarseness=7, n_starts=2 );
 //metric_thread(10, pitch=3, length=5, internal=false, n_starts=4);
  //   metric_thread(8, pitch=1.5, length=5, right_handed=false);
@@ -118,56 +130,107 @@ test_threads();
 //translate([20,30,0])cube([10,10,10]);
 //test_BSP(dia_inches = 1/8);
 //    square_thread(8, pitch=1.5, length=5);
+
+
+module test_test()
+{
+	test(l=1);
+	test(l=2);
+	test(l=3);
+	test(l=4);
+	test(l=5);
+	test(l=6);
+	test(l=7);
+	test(l=8);
+	test(l=9);
+	test(l=10);
+	test(l=11);
+	test(l=12);
+	test(l=13);
+	test(l=14);
+	test(l=15);
+	test(l=16);
+	test(l=17);
+	
+}
+
+
+module test(l=2)
+{	
+	sum = fullmulu(v=l);
+	translate([sum,sum,0])
+	cube([l,l,l]);
+	//echo(fullmulu(v=l));
+	}
+function fullmulu(v=0)=
+		let(sumvec=[for(i=[1:v])i])
+		[for(p=sumvec) 1]*sumvec;	
+
 module test_threads ($fa=5, $fs=0.1)
 {
-	// M8
-	metric_thread(8, pitch=1.5, length=5, right_handed=true);
-
-  translate ([0, 15, 0])
-  metric_thread(8, pitch=1.5, length=5, right_handed=false);
-
-
-
-  // multiple start:
-  translate ([0, -15, 0])
-    metric_thread(10, pitch=3, length=5, internal=false, n_starts=4);
-
-   translate ([10, 0, 0])
-    square_thread(8, pitch=1.5, length=5);
 	
+	// Metric threads
+	metric_thread(8, pitch=1.5, length=5, right_handed=true);
+	translate ([0, 15, 0])
+	metric_thread(8, pitch=1.5, length=5, right_handed=false);
+	translate ([0, 45, 0])
+	metric_thread(8, pitch=1.5, length=5, right_handed=false);
+
+//	translate ([0, 30, 0])
+//	metric_thread(8, pitch=1.0, length=10, right_handed=true, taper_angle=10);
+	translate ([0, -15, 0])
+    metric_thread(8, pitch=2, length=10, internal=false, n_starts=4);
+	
+
+	//Square threads
+	translate ([10, 0, 0])
+    square_thread(8, pitch=1.5, length=5);
+/*	translate ([10, 30, 0])
+    square_thread(8, pitch=1.5, length=10, taper_angle=5);
+*/
+	
+	//ACME threads
     translate ([20, 0, 0])
     acme_thread(8, pitch=1.5, length=5);
+/*    translate ([20, 30, 0])
+    acme_thread(8, pitch=1.5, length=10, taper_angle=5);
+*/
 
+	//Buttress threads
     translate ([30, 0, 0])
     buttress_thread(8, pitch=1.5, length=5);
+/*    translate ([30, 30, 0])
+    buttress_thread(8, pitch=1.5, length=10, taper_angle=5);
+*/
 
+	//Channel threads
     translate ([40, 0, 0])
     test_channel_simple(dia=8, internal=false);
-		color("LemonChiffon")
+	color("LemonChiffon")
     translate ([40, 0, -5])
     test_channel_simple(dia=8, internal=true);
-		
-	
-		translate ([40, -15, 0])
-		test_channel_thread(dia=8);
-	
-	
-    translate ([50, 0, 0])
-		test_NPT(dia_inches = 1/8);
+	translate ([40, -15, 0])
+	test_channel_thread(dia=8);
 
-		echo("BSP_thread start");
-    translate ([60.5, 0, 0])
-		test_BSP(dia_inches = 1/8);
-		echo("BSP_thread end");
+	//US/British pipe threads
+    translate ([50, 30, 0])
+	test_NPT(dia_inches = 1/8);
 	
-		translate ([70, 0, 0])
-		test_rope_thread();
-		
-		translate ([70, -15, 0])
-		test_rope_thread(n_starts=3);
+    translate ([60, 30, 0+0.1])
+	test_BSP(dia_inches = 1/4, debug=true);
 
-		translate([85,0,0])
-			test_meccano_worms();
+	//Rope threads
+	translate ([70, 0, 0])
+	test_rope_thread();
+	translate ([70, -15, 0])
+	test_rope_thread(n_starts=3);
+/*	translate ([70, 30, 0])
+	test_rope_thread(n_starts=3, taper_angle=10);
+*/
+	//Meccano
+	translate([85,0,0])
+	test_meccano_worms();
+
 }
 
 module test_channel_threads()
@@ -205,7 +268,8 @@ module test_metric_right ($fa=5, $fs=0.1, internal=false)
 		right_handed=true,
 		clearance = 0.22, 
 		backlash=0.4,
-		printify_top = false
+		printify_top = false,
+		taper_angle=0
 	);
 }
 module test_metric_right_large_pitch ($fa=5, $fs=0.1)
@@ -300,7 +364,14 @@ module test_hollow_thread ($fa=5, $fs=0.1)
 	);
 }
 
-
+module test_acme_taper()
+{
+	acme_thread(
+		diameter = 8, 
+		pitch=1.5, 
+		length=5,
+		taper_angle = 10);
+}
 
 module test_square_thread()
 {	
@@ -607,13 +678,15 @@ module test_NPT(dia_inches = 3/4)
 		internal  = false);
 }
 
-module test_BSP(dia_inches = 3/4)
+module test_BSP(dia_inches = 3/4, debug=false)
 {
 	BSP_thread(
 		nominal_pipe_size = dia_inches,
 		length = 0.5, //inches
-		internal  = false);
+		internal  = false,
+		debug=debug);
 }
+
 
 module test_rope_thread(diameter=8,
 												length=10,
@@ -621,7 +694,8 @@ module test_rope_thread(diameter=8,
 												rope_diameter=1.5,
 												rope_bury_ratio=0.9,
 												coarseness = 10,
-												n_starts = 1
+												n_starts = 1,
+												taper_angle = 0,
 												)
 {
 
@@ -641,11 +715,13 @@ module test_rope_thread(diameter=8,
 		printify_bottom = false,
 		bore_diameter = 4, //-1 = no bore hole. Use it for pipes 
 		taper_angle = 0,
-		exact_clearance = false)	;
+		exact_clearance = false,
+		taper_angle = taper_angle)	;
 }
 
 module test_meccano_worms()
 {
+	translate([0,30,0])
 	rotate([90,0,0])
 	meccano_worm_gear_narrow_No32b (
 			right_handed = true,
@@ -654,7 +730,7 @@ module test_meccano_worms()
 			exact_clearance = true
 	);
 
-	translate([0,-30,0])
+	translate([0,0,0])
 	rotate([90,0,0])
 		meccano_worm_gear_std_No32 (
 			right_handed = true,
